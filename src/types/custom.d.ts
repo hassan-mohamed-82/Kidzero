@@ -22,10 +22,10 @@ export type Role = AdminType | UserType;
 
 // Token Payload
 export interface TokenPayload {
-  id: number;
+  id: string;
   name: string;
   role: Role;
-  organizationId?: number;
+  organizationId?: string;
 }
 
 export type AppUser = TokenPayload;

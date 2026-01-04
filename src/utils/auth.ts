@@ -7,7 +7,7 @@ import "dotenv/config";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
-export const generateSuperAdminToken = (data: { id: number; name: string }): string => {
+export const generateSuperAdminToken = (data: { id: string; name: string }): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,
@@ -16,7 +16,7 @@ export const generateSuperAdminToken = (data: { id: number; name: string }): str
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
-export const generateOrganizationToken = (data: { id: number; name: string }): string => {
+export const generateOrganizationToken = (data: { id: string; name: string }): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,
@@ -26,7 +26,7 @@ export const generateOrganizationToken = (data: { id: number; name: string }): s
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
-export const generateParentToken = (data: { id: number; name: string; organizationId: number }): string => {
+export const generateParentToken = (data: { id: string; name: string; organizationId: string }): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,
@@ -36,7 +36,7 @@ export const generateParentToken = (data: { id: number; name: string; organizati
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
-export const generateDriverToken = (data: { id: number; name: string; organizationId: number }): string => {
+export const generateDriverToken = (data: { id: string; name: string; organizationId: string }): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,
@@ -46,7 +46,7 @@ export const generateDriverToken = (data: { id: number; name: string; organizati
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
-export const generateCoDriverToken = (data: { id: number; name: string; organizationId: number }): string => {
+export const generateCoDriverToken = (data: { id: string; name: string; organizationId: string }): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,

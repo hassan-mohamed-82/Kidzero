@@ -2,13 +2,12 @@
   "name": "first_project",
   "version": "1.0.0",
   "main": "index.js",
- "scripts": {
+  "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "build": "tsc",
     "generate-db": "npx drizzle-kit generate",
     "dbcreate": "tsx src/models/setup.ts",
-
     "migrate-db": "npx drizzle-kit push"
   },
   "keywords": [],
@@ -20,7 +19,7 @@
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.1",
+    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.2",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.1",
@@ -48,7 +47,8 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.0.10",
     "@types/nodemailer": "^6.4.17",
-    "drizzle-kit": "^0.31.4",
-    "ts-node-dev": "^2.0.0"
+    "drizzle-kit": "^0.18.1",
+    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.21.0"
   }
 }
