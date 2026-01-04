@@ -714,7 +714,7 @@ export declare const users: import("drizzle-orm/mysql-core").MySqlTableWithColum
             tableName: "users";
             dataType: "string";
             columnType: "MySqlEnumColumn";
-            data: "staff" | "driver" | "codriver" | "parent";
+            data: "driver" | "codriver" | "parent" | "staff";
             driverParam: string;
             notNull: true;
             hasDefault: false;

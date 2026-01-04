@@ -1,11 +1,20 @@
-import { NextFunction, Request, Response, RequestHandler } from "express";
+// src/middlewares/authorizeRoles.ts
+
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import { UnauthorizedError } from "../Errors";
 
-export const authorizeRoles = (...roles: string[]): RequestHandler => {
+type Role = "superadmin" | "organization" | "driver" | "codriver" | "student";
+
+export const authorizeRoles = (...roles: Role[]): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction) => {
-    if (!roles.includes(req.user!.role)) {
-      throw new UnauthorizedError();
+    if (!req.user) {
+      throw new UnauthorizedError("Not authenticated");
     }
+
+    if (!roles.includes(req.user.role as Role)) {
+      throw new UnauthorizedError("You don't have permission to access this resource");
+    }
+
     next();
   };
 };

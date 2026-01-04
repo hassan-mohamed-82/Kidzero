@@ -1,2 +1,4 @@
 import { RequestHandler } from "express";
-export declare const authorizeRoles: (...roles: string[]) => RequestHandler;
+type Role = "superadmin" | "organization" | "driver" | "codriver" | "student";
+export declare const authorizeRoles: (...roles: Role[]) => RequestHandler;
+export {};

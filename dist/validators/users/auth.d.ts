@@ -12,8 +12,8 @@ export declare const signupSchema: z.ZodObject<{
         imageBase64: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        role: "member" | "guest";
         email: string;
+        role: "member" | "guest";
         password: string;
         phoneNumber?: string | undefined;
         purpose?: string | undefined;
@@ -22,8 +22,8 @@ export declare const signupSchema: z.ZodObject<{
         imageBase64?: string | undefined;
     }, {
         name: string;
-        role: "member" | "guest";
         email: string;
+        role: "member" | "guest";
         password: string;
         phoneNumber?: string | undefined;
         purpose?: string | undefined;
@@ -32,8 +32,8 @@ export declare const signupSchema: z.ZodObject<{
         imageBase64?: string | undefined;
     }>, {
         name: string;
-        role: "member" | "guest";
         email: string;
+        role: "member" | "guest";
         password: string;
         phoneNumber?: string | undefined;
         purpose?: string | undefined;
@@ -42,8 +42,8 @@ export declare const signupSchema: z.ZodObject<{
         imageBase64?: string | undefined;
     }, {
         name: string;
-        role: "member" | "guest";
         email: string;
+        role: "member" | "guest";
         password: string;
         phoneNumber?: string | undefined;
         purpose?: string | undefined;
@@ -54,8 +54,8 @@ export declare const signupSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     body: {
         name: string;
-        role: "member" | "guest";
         email: string;
+        role: "member" | "guest";
         password: string;
         phoneNumber?: string | undefined;
         purpose?: string | undefined;
@@ -66,8 +66,8 @@ export declare const signupSchema: z.ZodObject<{
 }, {
     body: {
         name: string;
-        role: "member" | "guest";
         email: string;
+        role: "member" | "guest";
         password: string;
         phoneNumber?: string | undefined;
         purpose?: string | undefined;

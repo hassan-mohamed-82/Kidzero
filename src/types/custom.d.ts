@@ -1,20 +1,43 @@
-import { Request } from "express";
+// src/types/index.ts
 
-export interface AppUser {
+import { Request } from "express";
+import { ModuleName, ActionName } from "../constants/permissions";
+
+// Permission Action
+export type PermissionAction = {
   id: string;
+  action: ActionName;
+};
+
+// Permission (module + actions)
+export type Permission = {
+  module: ModuleName;
+  actions: PermissionAction[];
+};
+
+// User Types
+export type UserType = "driver" | "codriver" | "parent";
+export type AdminType = "superadmin" | "organization";
+export type Role = AdminType | UserType;
+
+// Token Payload
+export interface TokenPayload {
+  id: number;
   name: string;
-  role: string;
+  role: Role;
+  organizationId?: number;
 }
 
-// Extend Express Request with your custom user type
+export type AppUser = TokenPayload;
+
 export interface AuthenticatedRequest extends Request {
-  user?: AppUser; // Make user required
+  user?: AppUser;
 }
 
 declare global {
   namespace Express {
     interface Request {
       user?: AppUser;
-    } // extend default `User`
+    }
   }
 }

@@ -10,33 +10,33 @@ export declare const updateUserSchema: z.ZodObject<{
         dateOfBirth: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, string | undefined>;
     }, "strip", z.ZodTypeAny, {
         name?: string | undefined;
-        role?: string | undefined;
         phoneNumber?: string | undefined;
         email?: string | undefined;
+        role?: string | undefined;
         dateOfBirth?: string | undefined;
         password?: string | undefined;
         imageBase64?: string | undefined;
     }, {
         name?: string | undefined;
-        role?: string | undefined;
         phoneNumber?: string | undefined;
         email?: string | undefined;
+        role?: string | undefined;
         dateOfBirth?: string | undefined;
         password?: string | undefined;
         imageBase64?: string | undefined;
     }>, {
         name?: string | undefined;
-        role?: string | undefined;
         phoneNumber?: string | undefined;
         email?: string | undefined;
+        role?: string | undefined;
         dateOfBirth?: string | undefined;
         password?: string | undefined;
         imageBase64?: string | undefined;
     }, {
         name?: string | undefined;
-        role?: string | undefined;
         phoneNumber?: string | undefined;
         email?: string | undefined;
+        role?: string | undefined;
         dateOfBirth?: string | undefined;
         password?: string | undefined;
         imageBase64?: string | undefined;
@@ -44,9 +44,9 @@ export declare const updateUserSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     body: {
         name?: string | undefined;
-        role?: string | undefined;
         phoneNumber?: string | undefined;
         email?: string | undefined;
+        role?: string | undefined;
         dateOfBirth?: string | undefined;
         password?: string | undefined;
         imageBase64?: string | undefined;
@@ -54,9 +54,9 @@ export declare const updateUserSchema: z.ZodObject<{
 }, {
     body: {
         name?: string | undefined;
-        role?: string | undefined;
         phoneNumber?: string | undefined;
         email?: string | undefined;
+        role?: string | undefined;
         dateOfBirth?: string | undefined;
         password?: string | undefined;
         imageBase64?: string | undefined;
