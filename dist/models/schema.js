@@ -5,6 +5,7 @@ export * from "./superadmin/organizationPayment";
 export * from "./superadmin/plan";
 export * from "./superadmin/payment";
 export * from "./superadmin/Bustype";
+export * from "./superadmin/promocodes";
 // Admin Models
 // src/models/schema/index.ts
 export * from "./admin/admin";
