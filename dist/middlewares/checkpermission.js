@@ -1,60 +1,62 @@
-// src/middlewares/checkPermission.ts
+// src/middleware/checkPermission.ts
 import { db } from "../models/db";
 import { admins, roles } from "../models/schema";
 import { eq } from "drizzle-orm";
-import { UnauthorizedError } from "../Errors";
+import { ForbiddenError, UnauthorizedError } from "../Errors";
+// التحقق من صلاحية معينة
 const hasPermission = (permissions, module, action) => {
-    const modulePerm = permissions.find((p) => p.module === module);
-    if (!modulePerm)
+    const modulePermission = permissions.find((p) => p.module === module);
+    if (!modulePermission)
         return false;
-    return modulePerm.actions.some((a) => a.action === action);
+    // لو مفيش action محدد، نتحقق من أي وصول للـ module
+    if (!action) {
+        return modulePermission.actions.length > 0;
+    }
+    return modulePermission.actions.some((a) => a.action === action);
 };
+// جلب الـ Permissions للـ Admin
+const getAdminPermissions = async (adminId) => {
+    const admin = await db
+        .select()
+        .from(admins)
+        .where(eq(admins.id, adminId))
+        .limit(1);
+    if (!admin[0] || !admin[0].roleId) {
+        throw new ForbiddenError("No role assigned");
+    }
+    const role = await db
+        .select()
+        .from(roles)
+        .where(eq(roles.id, admin[0].roleId))
+        .limit(1);
+    if (!role[0]) {
+        throw new ForbiddenError("Role not found");
+    }
+    return role[0].permissions;
+};
+// ✅ Middleware واحد للتحقق من الصلاحيات
 export const checkPermission = (module, action) => {
     return async (req, res, next) => {
         try {
-            const { id, role, organizationId } = req.user || {};
-            if (!id || !role) {
-                throw new UnauthorizedError("Not authenticated");
+            const user = req.user;
+            if (!user) {
+                throw new UnauthorizedError("Authentication required");
             }
-            // SuperAdmin عنده كل الصلاحيات
-            if (role === "superadmin") {
+            // SuperAdmin و Organizer عندهم كل الصلاحيات
+            if (user.role === "superadmin" || user.role === "organizer") {
                 return next();
             }
-            // Organizer عنده كل الصلاحيات في الـ Organization بتاعته
-            if (role === "organizer") {
-                return next();
-            }
-            // Admin - شيك على الصلاحيات
-            if (role === "admin") {
-                const admin = await db
-                    .select()
-                    .from(admins)
-                    .where(eq(admins.id, id))
-                    .limit(1);
-                if (!admin[0]) {
-                    throw new UnauthorizedError("Admin not found");
-                }
-                // 1. شيك صلاحيات الـ Admin الخاصة (override)
-                const adminPermissions = admin[0].permissions || [];
-                if (hasPermission(adminPermissions, module, action)) {
-                    return next();
-                }
-                // 2. شيك صلاحيات الـ Role
-                if (admin[0].roleId) {
-                    const roleData = await db
-                        .select()
-                        .from(roles)
-                        .where(eq(roles.id, admin[0].roleId))
-                        .limit(1);
-                    if (roleData[0]) {
-                        const rolePermissions = roleData[0].permissions || [];
-                        if (hasPermission(rolePermissions, module, action)) {
-                            return next();
-                        }
-                    }
+            // للـ Admin - نتحقق من الصلاحيات
+            if (user.role === "admin") {
+                const permissions = await getAdminPermissions(user.id);
+                if (!hasPermission(permissions, module, action)) {
+                    const errorMsg = action
+                        ? `You don't have permission to ${action} ${module}`
+                        : `You don't have access to ${module}`;
+                    throw new ForbiddenError(errorMsg);
                 }
             }
-            throw new UnauthorizedError("You don't have permission");
+            next();
         }
         catch (error) {
             next(error);

@@ -1,80 +1,86 @@
-// src/middlewares/checkPermission.ts
+// src/middleware/checkPermission.ts
 
 import { Request, Response, NextFunction } from "express";
+import { ModuleName, ActionName } from "../types/constant";
+import { Permission } from "../types/custom";
+
 import { db } from "../models/db";
 import { admins, roles } from "../models/schema";
 import { eq } from "drizzle-orm";
-import { UnauthorizedError } from "../Errors";
-import { Permission } from "../types/custom";
-import { ModuleName, ActionName } from "../types/constant";
+import { ForbiddenError, UnauthorizedError } from "../Errors";
 
+// التحقق من صلاحية معينة
 const hasPermission = (
-  permissions: Permission[],
-  module: ModuleName,
-  action: ActionName
+    permissions: Permission[],
+    module: ModuleName,
+    action?: ActionName
 ): boolean => {
-  const modulePerm = permissions.find((p) => p.module === module);
-  if (!modulePerm) return false;
-  return modulePerm.actions.some((a) => a.action === action);
+    const modulePermission = permissions.find((p) => p.module === module);
+    if (!modulePermission) return false;
+    
+    // لو مفيش action محدد، نتحقق من أي وصول للـ module
+    if (!action) {
+        return modulePermission.actions.length > 0;
+    }
+    
+    return modulePermission.actions.some((a) => a.action === action);
 };
 
-export const checkPermission = (module: ModuleName, action: ActionName) => {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { id, role, organizationId } = req.user || {};
+// جلب الـ Permissions للـ Admin
+const getAdminPermissions = async (adminId: string): Promise<Permission[]> => {
+    const admin = await db
+        .select()
+        .from(admins)
+        .where(eq(admins.id, adminId))
+        .limit(1);
 
-      if (!id || !role) {
-        throw new UnauthorizedError("Not authenticated");
-      }
-
-      // SuperAdmin عنده كل الصلاحيات
-      if (role === "superadmin") {
-        return next();
-      }
-
-      // Organizer عنده كل الصلاحيات في الـ Organization بتاعته
-      if (role === "organizer") {
-        return next();
-      }
-
-      // Admin - شيك على الصلاحيات
-      if (role === "admin") {
-        const admin = await db
-          .select()
-          .from(admins)
-          .where(eq(admins.id, id))
-          .limit(1);
-
-        if (!admin[0]) {
-          throw new UnauthorizedError("Admin not found");
-        }
-
-        // 1. شيك صلاحيات الـ Admin الخاصة (override)
-        const adminPermissions = (admin[0].permissions as Permission[]) || [];
-        if (hasPermission(adminPermissions, module, action)) {
-          return next();
-        }
-
-        // 2. شيك صلاحيات الـ Role
-        if (admin[0].roleId) {
-          const roleData = await db
-            .select()
-            .from(roles)
-            .where(eq(roles.id, admin[0].roleId))
-            .limit(1);
-
-          if (roleData[0]) {
-            const rolePermissions = (roleData[0].permissions as Permission[]) || [];
-            if (hasPermission(rolePermissions, module, action)) {
-              return next();
-            }
-          }
-        }
-      }
-
-      throw new UnauthorizedError("You don't have permission");
-    } catch (error) {
-      next(error);
+    if (!admin[0] || !admin[0].roleId) {
+        throw new ForbiddenError("No role assigned");
     }
-  };
+
+    const role = await db
+        .select()
+        .from(roles)
+        .where(eq(roles.id, admin[0].roleId))
+        .limit(1);
+
+    if (!role[0]) {
+        throw new ForbiddenError("Role not found");
+    }
+
+    return role[0].permissions as Permission[];
+};
+
+// ✅ Middleware واحد للتحقق من الصلاحيات
+export const checkPermission = (module: ModuleName, action?: ActionName) => {
+    return async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const user = req.user;
+
+            if (!user) {
+                throw new UnauthorizedError("Authentication required");
+            }
+
+            // SuperAdmin و Organizer عندهم كل الصلاحيات
+            if (user.role === "superadmin" || user.role === "organizer") {
+                return next();
+            }
+
+            // للـ Admin - نتحقق من الصلاحيات
+            if (user.role === "admin") {
+                const permissions = await getAdminPermissions(user.id);
+
+                if (!hasPermission(permissions, module, action)) {
+                    const errorMsg = action
+                        ? `You don't have permission to ${action} ${module}`
+                        : `You don't have access to ${module}`;
+                    throw new ForbiddenError(errorMsg);
+                }
+            }
+
+            next();
+        } catch (error) {
+            next(error);
+        }
+    };
 };
