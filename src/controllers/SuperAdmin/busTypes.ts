@@ -25,12 +25,12 @@ export const getBusTypeById = async (req: Request, res: Response) => {
 };
 
 export const createBusType = async (req: Request, res: Response) => {
-    const { organization_id, name, capacity, description } = req.body;
-    if (!organization_id || !name || !capacity) {
+    const { name, capacity, description } = req.body;
+    if (!name || !capacity) {
         throw new BadRequest("Missing required fields");
     }
     const newBusType = await db.insert(busTypes).values({
-        organizationId: organization_id,
+        organizationId: "org-123", // This should be replaced with actual organization ID from context
         name,
         capacity,
         description
