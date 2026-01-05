@@ -74,6 +74,25 @@ export declare const payment: import("drizzle-orm/mysql-core").MySqlTableWithCol
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        promocodeId: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "promocode_id";
+            tableName: "payments";
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
+            driverParam: string | number;
+            notNull: false;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {
+            length: 36;
+        }>;
         status: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "status";
             tableName: "payments";

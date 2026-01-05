@@ -50,7 +50,7 @@ export const createPlan = async (req, res) => {
         maxDrivers: max_drivers,
         maxStudents: max_students
     });
-    return SuccessResponse(res, { message: "Plan Created Successfully", plan: newPlan }, 201);
+    return SuccessResponse(res, { message: "Plan Created Successfully" }, 201);
 };
 export const updatePlan = async (req, res) => {
     const { Id } = req.params;
@@ -73,6 +73,6 @@ export const updatePlan = async (req, res) => {
         maxDrivers: max_drivers !== undefined ? max_drivers : plan.maxDrivers,
         maxStudents: max_students !== undefined ? max_students : plan.maxStudents,
     }).where(eq(plans.id, Id));
-    return SuccessResponse(res, { message: "Plan Updated Successfully", plan: updatedPlan }, 200);
+    return SuccessResponse(res, { message: "Plan Updated Successfully" }, 200);
 };
 //# sourceMappingURL=plan.js.map
