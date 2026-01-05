@@ -2,9 +2,8 @@
 
 import { Request, Response, NextFunction } from "express";
 import { db } from "../models/db";
-import { organizationAdmins } from "../models/schema";
-import { roles } from "../models/schema";
-import { and, eq } from "drizzle-orm";
+import { admins, roles } from "../models/schema";
+import { eq } from "drizzle-orm";
 import { UnauthorizedError } from "../Errors";
 import { Permission } from "../types/custom";
 import { ModuleName, ActionName } from "../types/constant";
@@ -24,44 +23,44 @@ export const checkPermission = (module: ModuleName, action: ActionName) => {
     try {
       const { id, role, organizationId } = req.user || {};
 
-      if (!id || !role || !organizationId) {
+      if (!id || !role) {
         throw new UnauthorizedError("Not authenticated");
       }
 
-      // Organizer عنده كل الصلاحيات
+      // SuperAdmin عنده كل الصلاحيات
+      if (role === "superadmin") {
+        return next();
+      }
+
+      // Organizer عنده كل الصلاحيات في الـ Organization بتاعته
       if (role === "organizer") {
         return next();
       }
 
       // Admin - شيك على الصلاحيات
       if (role === "admin") {
-        const orgAdmin = await db
+        const admin = await db
           .select()
-          .from(organizationAdmins)
-          .where(
-            and(
-              eq(organizationAdmins.adminId, id),
-              eq(organizationAdmins.organizationId, organizationId)
-            )
-          )
+          .from(admins)
+          .where(eq(admins.id, id))
           .limit(1);
 
-        if (!orgAdmin[0]) {
+        if (!admin[0]) {
           throw new UnauthorizedError("Admin not found");
         }
 
-        // 1. شيك صلاحيات الـ Admin الخاصة
-        const adminPermissions = (orgAdmin[0].permissions as Permission[]) || [];
+        // 1. شيك صلاحيات الـ Admin الخاصة (override)
+        const adminPermissions = (admin[0].permissions as Permission[]) || [];
         if (hasPermission(adminPermissions, module, action)) {
           return next();
         }
 
         // 2. شيك صلاحيات الـ Role
-        if (orgAdmin[0].roleId) {
+        if (admin[0].roleId) {
           const roleData = await db
             .select()
             .from(roles)
-            .where(eq(roles.id, orgAdmin[0].roleId)) // roleId بقى string UUID
+            .where(eq(roles.id, admin[0].roleId))
             .limit(1);
 
           if (roleData[0]) {

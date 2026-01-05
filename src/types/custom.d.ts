@@ -1,40 +1,27 @@
 // src/types/custom.ts
 
-import { Request } from "express";
 import { ModuleName, ActionName } from "./constant";
 
-// Permission Action
-export type PermissionAction = {
+export interface PermissionAction {
   id: string;
   action: ActionName;
-};
+}
 
-// Permission (module + actions)
-export type Permission = {
+export interface Permission {
   module: ModuleName;
   actions: PermissionAction[];
-};
+}
 
-// Super Admin (أنت - البائع)
 export type SuperAdminType = "superadmin";
-
-// Website Users (جوه Organization)
-// organizer = صاحب المؤسسة (كل الصلاحيات)
-// admin = موظف (Role + Permissions)
 export type AdminType = "organizer" | "admin";
-
-// Mobile App Users
 export type MobileUserType = "driver" | "codriver";
-
-// All Roles
 export type Role = SuperAdminType | AdminType | MobileUserType;
 
-// Token Payload
 export interface TokenPayload {
   id: string;
   name: string;
   role: Role;
-  organizationId?: string; // SuperAdmin مش هيكون عنده organizationId
+  organizationId?: string; // 👈 optional عشان SuperAdmin مش عنده
 }
 
 export type AppUser = TokenPayload;
