@@ -5,7 +5,6 @@ import {
   createRole,
   updateRole,   
     deleteRole,
-    toggleRoleStatus
 } from "../../controllers/admin/roles";
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
@@ -23,6 +22,5 @@ router.post("/", validate(createRoleSchema), catchAsync(createRole));
 router.put("/:id", validate(updateRoleSchema), catchAsync(updateRole));
 // ✅ Delete Role
 router.delete("/:id", catchAsync(deleteRole));
-// ✅ Toggle Role Status
-router.put("/:id/status", catchAsync(toggleRoleStatus));
+
 export default router;

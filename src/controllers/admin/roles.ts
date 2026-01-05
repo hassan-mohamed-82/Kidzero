@@ -93,24 +93,3 @@ export const deleteRole = async (req: Request, res: Response) => {
 
   SuccessResponse(res, { message: "Role deleted successfully" }, 200);
 };
-
-// ✅ Toggle Role Status
-export const toggleRoleStatus = async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  const existingRole = await db
-    .select()
-    .from(roles)
-    .where(eq(roles.id, id))
-    .limit(1);
-
-  if (!existingRole[0]) {
-    throw new NotFound("Role not found");
-  }
-
-  const newStatus = existingRole[0].status === "active" ? "inactive" : "active";
-
-  await db.update(roles).set({ status: newStatus }).where(eq(roles.id, id));
-
-  SuccessResponse(res, { message: `Role ${newStatus}` }, 200);
-};
