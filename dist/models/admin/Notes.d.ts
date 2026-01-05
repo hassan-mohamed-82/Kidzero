@@ -62,20 +62,22 @@ export declare const notes: import("drizzle-orm/mysql-core").MySqlTableWithColum
         rideId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "ride_id";
             tableName: "notes";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: false;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: number | undefined;
+        }>;
         title: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "title";
             tableName: "notes";

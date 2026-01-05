@@ -7,27 +7,27 @@ export declare const updateUserProfileSchema: z.ZodObject<{
         dateOfBirth: z.ZodOptional<z.ZodEffects<z.ZodString, string, string>>;
     }, "strip", z.ZodTypeAny, {
         name?: string | undefined;
-        imagePath?: string | undefined;
         dateOfBirth?: string | undefined;
         purpose?: string | undefined;
+        imagePath?: string | undefined;
     }, {
         name?: string | undefined;
-        imagePath?: string | undefined;
         dateOfBirth?: string | undefined;
         purpose?: string | undefined;
+        imagePath?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         name?: string | undefined;
-        imagePath?: string | undefined;
         dateOfBirth?: string | undefined;
         purpose?: string | undefined;
+        imagePath?: string | undefined;
     };
 }, {
     body: {
         name?: string | undefined;
-        imagePath?: string | undefined;
         dateOfBirth?: string | undefined;
         purpose?: string | undefined;
+        imagePath?: string | undefined;
     };
 }>;

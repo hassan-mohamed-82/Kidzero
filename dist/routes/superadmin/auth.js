@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { login } from "../../controllers/SuperAdmin/auth";
+import { login } from "../../controllers/superadmin/auth";
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
 import { loginSchema } from "../../validators/admin/auth";

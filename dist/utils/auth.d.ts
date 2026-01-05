@@ -4,11 +4,12 @@ export declare const generateSuperAdminToken: (data: {
     id: string;
     name: string;
 }) => string;
-export declare const generateOrganizationToken: (data: {
+export declare const generateOrganizerToken: (data: {
     id: string;
     name: string;
+    organizationId: string;
 }) => string;
-export declare const generateParentToken: (data: {
+export declare const generateAdminToken: (data: {
     id: string;
     name: string;
     organizationId: string;

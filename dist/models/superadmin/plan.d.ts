@@ -5,20 +5,22 @@ export declare const plans: import("drizzle-orm/mysql-core").MySqlTableWithColum
         id: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "id";
             tableName: "plan";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: true;
             hasDefault: true;
             isPrimaryKey: true;
-            isAutoincrement: true;
+            isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: 36;
+        }>;
         name: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "name";
             tableName: "plan";

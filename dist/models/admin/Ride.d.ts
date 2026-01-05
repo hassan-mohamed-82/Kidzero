@@ -43,20 +43,22 @@ export declare const rides: import("drizzle-orm/mysql-core").MySqlTableWithColum
         busId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "bus_id";
             tableName: "rides";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: true;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: number | undefined;
+        }>;
         driverId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "driver_id";
             tableName: "rides";
@@ -98,20 +100,22 @@ export declare const rides: import("drizzle-orm/mysql-core").MySqlTableWithColum
         routeId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "route_id";
             tableName: "rides";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: false;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: number | undefined;
+        }>;
         name: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "name";
             tableName: "rides";

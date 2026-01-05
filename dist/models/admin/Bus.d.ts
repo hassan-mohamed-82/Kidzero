@@ -41,22 +41,24 @@ export declare const buses: import("drizzle-orm/mysql-core").MySqlTableWithColum
             length: 36;
         }>;
         busTypeId: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "bus_type_id";
+            name: "bus_types_id";
             tableName: "buses";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: true;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: number | undefined;
+        }>;
         busNumber: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "bus_number";
             tableName: "buses";

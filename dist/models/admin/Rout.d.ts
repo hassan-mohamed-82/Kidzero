@@ -188,37 +188,41 @@ export declare const routePickupPoints: import("drizzle-orm/mysql-core").MySqlTa
         routeId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "route_id";
             tableName: "route_pickup_points";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: true;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: 36;
+        }>;
         pickupPointId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "pickup_point_id";
             tableName: "route_pickup_points";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: true;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: 36;
+        }>;
         stopOrder: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "stop_order";
             tableName: "route_pickup_points";

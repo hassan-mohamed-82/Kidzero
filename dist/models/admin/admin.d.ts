@@ -145,6 +145,23 @@ export declare const admins: import("drizzle-orm/mysql-core").MySqlTableWithColu
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        type: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "type";
+            tableName: "admins";
+            dataType: "string";
+            columnType: "MySqlEnumColumn";
+            data: "organizer" | "admin";
+            driverParam: string;
+            notNull: true;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: ["organizer", "admin"];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         permissions: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "permissions";
             tableName: "admins";
@@ -201,123 +218,6 @@ export declare const admins: import("drizzle-orm/mysql-core").MySqlTableWithColu
         updatedAt: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "updated_at";
             tableName: "admins";
-            dataType: "date";
-            columnType: "MySqlTimestamp";
-            data: Date;
-            driverParam: string | number;
-            notNull: false;
-            hasDefault: true;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: undefined;
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
-    };
-    dialect: "mysql";
-}>;
-export declare const organizationAdmins: import("drizzle-orm/mysql-core").MySqlTableWithColumns<{
-    name: "organization_admins";
-    schema: undefined;
-    columns: {
-        organizationId: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "organization_id";
-            tableName: "organization_admins";
-            dataType: "string";
-            columnType: "MySqlChar";
-            data: string;
-            driverParam: string | number;
-            notNull: true;
-            hasDefault: false;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {
-            length: 36;
-        }>;
-        adminId: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "admin_id";
-            tableName: "organization_admins";
-            dataType: "string";
-            columnType: "MySqlChar";
-            data: string;
-            driverParam: string | number;
-            notNull: true;
-            hasDefault: false;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {
-            length: 36;
-        }>;
-        type: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "type";
-            tableName: "organization_admins";
-            dataType: "string";
-            columnType: "MySqlEnumColumn";
-            data: "organizer" | "admin";
-            driverParam: string;
-            notNull: true;
-            hasDefault: true;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: ["organizer", "admin"];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
-        roleId: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "role_id";
-            tableName: "organization_admins";
-            dataType: "string";
-            columnType: "MySqlChar";
-            data: string;
-            driverParam: string | number;
-            notNull: false;
-            hasDefault: false;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {
-            length: 36;
-        }>;
-        permissions: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "permissions";
-            tableName: "organization_admins";
-            dataType: "json";
-            columnType: "MySqlJson";
-            data: Permission[];
-            driverParam: string;
-            notNull: false;
-            hasDefault: true;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: undefined;
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {
-            $type: Permission[];
-        }>;
-        createdAt: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "created_at";
-            tableName: "organization_admins";
             dataType: "date";
             columnType: "MySqlTimestamp";
             data: Date;
