@@ -1,0 +1,28 @@
+import { Router } from "express";
+import {
+  getAllRoles,
+  getRoleById,
+  createRole,
+  updateRole,   
+    deleteRole,
+    toggleRoleStatus
+} from "../../controllers/admin/roles";
+import { catchAsync } from "../../utils/catchAsync";
+import { validate } from "../../middlewares/validation";
+import { createRoleSchema, updateRoleSchema } from "../../validators/admin/roles";
+
+const router = Router();
+
+// ✅ Get All Roles
+router.get("/", catchAsync(getAllRoles));
+// ✅ Get Role By ID
+router.get("/:id", catchAsync(getRoleById));
+// ✅ Create Role
+router.post("/", validate(createRoleSchema), catchAsync(createRole));   
+// ✅ Update Role
+router.put("/:id", validate(updateRoleSchema), catchAsync(updateRole));
+// ✅ Delete Role
+router.delete("/:id", catchAsync(deleteRole));
+// ✅ Toggle Role Status
+router.put("/:id/status", catchAsync(toggleRoleStatus));
+export default router;
