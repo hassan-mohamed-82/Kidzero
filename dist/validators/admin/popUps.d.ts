@@ -8,35 +8,35 @@ export declare const createPopUpSchema: z.ZodObject<{
         status: z.ZodOptional<z.ZodEnum<["active", "disabled"]>>;
         pageIds: z.ZodArray<z.ZodString, "many">;
     }, "strip", z.ZodTypeAny, {
-        imagePath: string;
         startDate: string;
         endDate: string;
         title: string;
+        imagePath: string;
         pageIds: string[];
         status?: "active" | "disabled" | undefined;
     }, {
-        imagePath: string;
         startDate: string;
         endDate: string;
         title: string;
+        imagePath: string;
         pageIds: string[];
         status?: "active" | "disabled" | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
-        imagePath: string;
         startDate: string;
         endDate: string;
         title: string;
+        imagePath: string;
         pageIds: string[];
         status?: "active" | "disabled" | undefined;
     };
 }, {
     body: {
-        imagePath: string;
         startDate: string;
         endDate: string;
         title: string;
+        imagePath: string;
         pageIds: string[];
         status?: "active" | "disabled" | undefined;
     };
@@ -50,36 +50,36 @@ export declare const updatePopUpSchema: z.ZodObject<{
         status: z.ZodOptional<z.ZodEnum<["active", "disabled"]>>;
         pageIds: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
-        imagePath?: string | undefined;
         status?: "active" | "disabled" | undefined;
         startDate?: string | undefined;
         endDate?: string | undefined;
         title?: string | undefined;
+        imagePath?: string | undefined;
         pageIds?: string[] | undefined;
     }, {
-        imagePath?: string | undefined;
         status?: "active" | "disabled" | undefined;
         startDate?: string | undefined;
         endDate?: string | undefined;
         title?: string | undefined;
+        imagePath?: string | undefined;
         pageIds?: string[] | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
-        imagePath?: string | undefined;
         status?: "active" | "disabled" | undefined;
         startDate?: string | undefined;
         endDate?: string | undefined;
         title?: string | undefined;
+        imagePath?: string | undefined;
         pageIds?: string[] | undefined;
     };
 }, {
     body: {
-        imagePath?: string | undefined;
         status?: "active" | "disabled" | undefined;
         startDate?: string | undefined;
         endDate?: string | undefined;
         title?: string | undefined;
+        imagePath?: string | undefined;
         pageIds?: string[] | undefined;
     };
 }>;

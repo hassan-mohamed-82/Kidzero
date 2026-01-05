@@ -1,6 +1,6 @@
 import express from "express";
 import path from "path";
-// import ApiRoute from "./routes";
+import ApiRoute from "./routes";
 import { errorHandler } from "./middlewares/errorHandler";
 import { NotFound } from "./Errors";
 import dotenv from "dotenv";
@@ -20,7 +20,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.get("/api/test", (req, res, next) => {
     res.json({ message: "API is working! notify token" });
 });
-// app.use("/api", ApiRoute);
+app.use("/api", ApiRoute);
 app.use((req, res, next) => {
     throw new NotFound("Route not found");
 });

@@ -1,25 +1,21 @@
 // src/constants/permissions.ts
 
 export const MODULES = [
-  "students",
-  "trips",
+  "admins",
+  "roles",
+  "bus_types",
   "buses",
   "drivers",
-  "parents",
+  "codrivers",
   "pickup_points",
-  "attendance",
+  "routes",
+  "rides",
+  "notes",
   "reports",
-  "users",
-  "roles",
   "settings",
 ] as const;
 
-export const ACTIONS = ["view", "add", "edit", "delete", "status"] as const;
+export const ACTION_NAMES = ["View", "Add", "Edit", "Delete", "Status"] as const;
 
 export type ModuleName = (typeof MODULES)[number];
-export type ActionName = (typeof ACTIONS)[number];
-
-// Helper لإنشاء كل الصلاحيات
-export const ALL_PERMISSIONS = MODULES.flatMap((module) =>
-  ACTIONS.map((action) => `${module}.${action}`)
-);
+export type ActionName = (typeof ACTION_NAMES)[number];

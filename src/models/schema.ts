@@ -6,3 +6,18 @@ export * from "./superadmin/organizationPayment"
 export * from "./superadmin/plan"
 export * from "./superadmin/payment"
 
+
+
+
+// Admin Models
+// src/models/schema/index.ts
+
+export * from "./admin/admin";
+export * from "./admin/roles";
+export * from "./admin/Bus";    
+export * from "./admin/driver";
+export * from "./admin/codriver";
+export * from "./admin/Rout";
+export * from "./admin/Ride";
+export * from "./admin/Notes";
+export * from "./admin/pickuppoints";

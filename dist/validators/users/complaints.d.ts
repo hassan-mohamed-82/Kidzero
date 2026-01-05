@@ -4,20 +4,20 @@ export declare const createComplaintSchema: z.ZodObject<{
         categoryId: z.ZodString;
         content: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        categoryId: string;
         content: string;
+        categoryId: string;
     }, {
-        categoryId: string;
         content: string;
+        categoryId: string;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
-        categoryId: string;
         content: string;
+        categoryId: string;
     };
 }, {
     body: {
-        categoryId: string;
         content: string;
+        categoryId: string;
     };
 }>;

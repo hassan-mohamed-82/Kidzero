@@ -1,1 +1,1 @@
-{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../src/routes/superadmin/index.ts"],"names":[],"mappings":""}
+{"version":3,"file":"index.js","sourceRoot":"","sources":["../../../src/routes/superadmin/index.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,MAAM,EAAE,MAAM,SAAS,CAAC;AACjC,OAAO,mBAAmB,MAAM,QAAQ,CAAC;AACzC,MAAM,KAAK,GAAG,MAAM,EAAE,CAAC;AACvB,KAAK,CAAC,GAAG,CAAC,OAAO,EAAE,mBAAmB,CAAC,CAAC;AAExC,eAAe,KAAK,CAAC"}

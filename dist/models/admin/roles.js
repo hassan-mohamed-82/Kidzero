@@ -1,12 +1,12 @@
 // src/models/schema/role.ts
-import { mysqlTable, varchar, int, timestamp, mysqlEnum, json, } from "drizzle-orm/mysql-core";
-import { organizations } from "../user/orgnization";
+import { mysqlTable, varchar, timestamp, mysqlEnum, json, char, } from "drizzle-orm/mysql-core";
+import { sql } from "drizzle-orm";
 export const roles = mysqlTable("roles", {
-    id: int("id").primaryKey().autoincrement(),
-    organizationId: int("organization_id").notNull().references(() => organizations.id),
+    id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
+    organizationId: char("organization_id", { length: 36 }).notNull(),
     name: varchar("name", { length: 100 }).notNull(),
-    status: mysqlEnum("status", ["active", "inactive"]).default("active"),
     permissions: json("permissions").$type().default([]),
+    status: mysqlEnum("status", ["active", "inactive"]).default("active"),
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });

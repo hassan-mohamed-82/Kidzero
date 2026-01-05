@@ -8,26 +8,26 @@ export declare const updateUserProfileSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         name?: string | undefined;
         imagePath?: string | undefined;
-        purpose?: string | undefined;
         dateOfBirth?: string | undefined;
+        purpose?: string | undefined;
     }, {
         name?: string | undefined;
         imagePath?: string | undefined;
-        purpose?: string | undefined;
         dateOfBirth?: string | undefined;
+        purpose?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         name?: string | undefined;
         imagePath?: string | undefined;
-        purpose?: string | undefined;
         dateOfBirth?: string | undefined;
+        purpose?: string | undefined;
     };
 }, {
     body: {
         name?: string | undefined;
         imagePath?: string | undefined;
-        purpose?: string | undefined;
         dateOfBirth?: string | undefined;
+        purpose?: string | undefined;
     };
 }>;

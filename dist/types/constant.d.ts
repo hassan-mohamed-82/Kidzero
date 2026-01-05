@@ -1,5 +1,4 @@
-export declare const MODULES: readonly ["students", "trips", "buses", "drivers", "parents", "pickup_points", "attendance", "reports", "users", "roles", "settings"];
-export declare const ACTIONS: readonly ["view", "add", "edit", "delete", "status"];
+export declare const MODULES: readonly ["admins", "roles", "bus_types", "buses", "drivers", "codrivers", "pickup_points", "routes", "rides", "notes", "reports", "settings"];
+export declare const ACTION_NAMES: readonly ["View", "Add", "Edit", "Delete", "Status"];
 export type ModuleName = (typeof MODULES)[number];
-export type ActionName = (typeof ACTIONS)[number];
-export declare const ALL_PERMISSIONS: string[];
+export type ActionName = (typeof ACTION_NAMES)[number];

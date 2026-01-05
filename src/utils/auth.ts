@@ -7,7 +7,11 @@ import "dotenv/config";
 
 const JWT_SECRET = process.env.JWT_SECRET as string;
 
-export const generateSuperAdminToken = (data: { id: string; name: string }): string => {
+// للـ SuperAdmin (أنت - البائع)
+export const generateSuperAdminToken = (data: { 
+  id: string; 
+  name: string;
+}): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,
@@ -16,27 +20,42 @@ export const generateSuperAdminToken = (data: { id: string; name: string }): str
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
-export const generateOrganizationToken = (data: { id: string; name: string }): string => {
+// للـ Organizer (صاحب المؤسسة)
+export const generateOrganizerToken = (data: { 
+  id: string; 
+  name: string; 
+  organizationId: string;
+}): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,
-    role: "organization",
-    organizationId: data.id,
-  };
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
-};
-
-export const generateParentToken = (data: { id: string; name: string; organizationId: string }): string => {
-  const payload: TokenPayload = {
-    id: data.id,
-    name: data.name,
-    role: "parent",
+    role: "organizer",
     organizationId: data.organizationId,
   };
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
-export const generateDriverToken = (data: { id: string; name: string; organizationId: string }): string => {
+// للـ Admin (موظف بصلاحيات)
+export const generateAdminToken = (data: { 
+  id: string; 
+  name: string; 
+  organizationId: string;
+}): string => {
+  const payload: TokenPayload = {
+    id: data.id,
+    name: data.name,
+    role: "admin",
+    organizationId: data.organizationId,
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+};
+
+// للـ Driver (Mobile App)
+export const generateDriverToken = (data: { 
+  id: string; 
+  name: string; 
+  organizationId: string;
+}): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,
@@ -46,7 +65,12 @@ export const generateDriverToken = (data: { id: string; name: string; organizati
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
-export const generateCoDriverToken = (data: { id: string; name: string; organizationId: string }): string => {
+// للـ CoDriver (Mobile App)
+export const generateCoDriverToken = (data: { 
+  id: string; 
+  name: string; 
+  organizationId: string;
+}): string => {
   const payload: TokenPayload = {
     id: data.id,
     name: data.name,
@@ -56,6 +80,7 @@ export const generateCoDriverToken = (data: { id: string; name: string; organiza
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
+// Verify Token
 export const verifyToken = (token: string): TokenPayload => {
   try {
     return jwt.verify(token, JWT_SECRET) as TokenPayload;

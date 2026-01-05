@@ -13,66 +13,66 @@ export declare const signupSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         name: string;
         email: string;
-        role: "member" | "guest";
         password: string;
+        role: "member" | "guest";
         phoneNumber?: string | undefined;
+        dateOfBirth?: string | undefined;
         purpose?: string | undefined;
         cardId?: string | undefined;
-        dateOfBirth?: string | undefined;
         imageBase64?: string | undefined;
     }, {
         name: string;
         email: string;
-        role: "member" | "guest";
         password: string;
+        role: "member" | "guest";
         phoneNumber?: string | undefined;
+        dateOfBirth?: string | undefined;
         purpose?: string | undefined;
         cardId?: string | undefined;
-        dateOfBirth?: string | undefined;
         imageBase64?: string | undefined;
     }>, {
         name: string;
         email: string;
-        role: "member" | "guest";
         password: string;
+        role: "member" | "guest";
         phoneNumber?: string | undefined;
+        dateOfBirth?: string | undefined;
         purpose?: string | undefined;
         cardId?: string | undefined;
-        dateOfBirth?: string | undefined;
         imageBase64?: string | undefined;
     }, {
         name: string;
         email: string;
-        role: "member" | "guest";
         password: string;
+        role: "member" | "guest";
         phoneNumber?: string | undefined;
+        dateOfBirth?: string | undefined;
         purpose?: string | undefined;
         cardId?: string | undefined;
-        dateOfBirth?: string | undefined;
         imageBase64?: string | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         name: string;
         email: string;
-        role: "member" | "guest";
         password: string;
+        role: "member" | "guest";
         phoneNumber?: string | undefined;
+        dateOfBirth?: string | undefined;
         purpose?: string | undefined;
         cardId?: string | undefined;
-        dateOfBirth?: string | undefined;
         imageBase64?: string | undefined;
     };
 }, {
     body: {
         name: string;
         email: string;
-        role: "member" | "guest";
         password: string;
+        role: "member" | "guest";
         phoneNumber?: string | undefined;
+        dateOfBirth?: string | undefined;
         purpose?: string | undefined;
         cardId?: string | undefined;
-        dateOfBirth?: string | undefined;
         imageBase64?: string | undefined;
     };
 }>;
@@ -103,21 +103,21 @@ export declare const verifyEmailSchema: z.ZodObject<{
         userId: z.ZodString;
         code: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        userId: string;
         code: string;
+        userId: string;
     }, {
-        userId: string;
         code: string;
+        userId: string;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
-        userId: string;
         code: string;
+        userId: string;
     };
 }, {
     body: {
-        userId: string;
         code: string;
+        userId: string;
     };
 }>;
 export declare const sendResetCodeSchema: z.ZodObject<{

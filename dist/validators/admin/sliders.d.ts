@@ -7,27 +7,27 @@ export declare const createSliderSchema: z.ZodObject<{
         images: z.ZodArray<z.ZodString, "many">;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        order: number;
         images: string[];
+        order: number;
         status?: "active" | "disabled" | undefined;
     }, {
         name: string;
-        order: number;
         images: string[];
+        order: number;
         status?: "active" | "disabled" | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         name: string;
-        order: number;
         images: string[];
+        order: number;
         status?: "active" | "disabled" | undefined;
     };
 }, {
     body: {
         name: string;
-        order: number;
         images: string[];
+        order: number;
         status?: "active" | "disabled" | undefined;
     };
 }>;
@@ -40,27 +40,27 @@ export declare const updateSliderSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         name?: string | undefined;
         status?: "active" | "disabled" | undefined;
-        order?: number | undefined;
         images?: any[] | undefined;
+        order?: number | undefined;
     }, {
         name?: string | undefined;
         status?: "active" | "disabled" | undefined;
-        order?: number | undefined;
         images?: any[] | undefined;
+        order?: number | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         name?: string | undefined;
         status?: "active" | "disabled" | undefined;
-        order?: number | undefined;
         images?: any[] | undefined;
+        order?: number | undefined;
     };
 }, {
     body: {
         name?: string | undefined;
         status?: "active" | "disabled" | undefined;
-        order?: number | undefined;
         images?: any[] | undefined;
+        order?: number | undefined;
     };
 }>;
 export declare const changeStatus: z.ZodObject<{

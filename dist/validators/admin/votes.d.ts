@@ -8,31 +8,31 @@ export declare const createFullVoteSchema: z.ZodObject<{
         endDate: z.ZodString;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        maxSelections: number;
         startDate: string;
         endDate: string;
+        maxSelections: number;
         items?: string[] | undefined;
     }, {
         name: string;
-        maxSelections: number;
         startDate: string;
         endDate: string;
+        maxSelections: number;
         items?: string[] | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         name: string;
-        maxSelections: number;
         startDate: string;
         endDate: string;
+        maxSelections: number;
         items?: string[] | undefined;
     };
 }, {
     body: {
         name: string;
-        maxSelections: number;
         startDate: string;
         endDate: string;
+        maxSelections: number;
         items?: string[] | undefined;
     };
 }>;
@@ -45,31 +45,31 @@ export declare const updateVoteSchema: z.ZodObject<{
         items: z.ZodOptional<z.ZodArray<z.ZodAny, "many">>;
     }, "strip", z.ZodTypeAny, {
         name?: string | undefined;
-        maxSelections?: number | undefined;
         startDate?: string | undefined;
         endDate?: string | undefined;
+        maxSelections?: number | undefined;
         items?: any[] | undefined;
     }, {
         name?: string | undefined;
-        maxSelections?: number | undefined;
         startDate?: string | undefined;
         endDate?: string | undefined;
+        maxSelections?: number | undefined;
         items?: any[] | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
     body: {
         name?: string | undefined;
-        maxSelections?: number | undefined;
         startDate?: string | undefined;
         endDate?: string | undefined;
+        maxSelections?: number | undefined;
         items?: any[] | undefined;
     };
 }, {
     body: {
         name?: string | undefined;
-        maxSelections?: number | undefined;
         startDate?: string | undefined;
         endDate?: string | undefined;
+        maxSelections?: number | undefined;
         items?: any[] | undefined;
     };
 }>;

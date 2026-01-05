@@ -1,18 +1,17 @@
 // src/constants/permissions.ts
 export const MODULES = [
-    "students",
-    "trips",
+    "admins",
+    "roles",
+    "bus_types",
     "buses",
     "drivers",
-    "parents",
+    "codrivers",
     "pickup_points",
-    "attendance",
+    "routes",
+    "rides",
+    "notes",
     "reports",
-    "users",
-    "roles",
     "settings",
 ];
-export const ACTIONS = ["view", "add", "edit", "delete", "status"];
-// Helper لإنشاء كل الصلاحيات
-export const ALL_PERMISSIONS = MODULES.flatMap((module) => ACTIONS.map((action) => `${module}.${action}`));
+export const ACTION_NAMES = ["View", "Add", "Edit", "Delete", "Status"];
 //# sourceMappingURL=constant.js.map

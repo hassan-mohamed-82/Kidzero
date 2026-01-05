@@ -1,9 +1,8 @@
 // src/middlewares/checkPermission.ts
 import { db } from "../models/db";
-import { codrivers } from "../models/user/codrivers";
-import { drivers } from "../models/user/drivers";
-import { roles } from "../models/admin/roles";
-import { eq } from "drizzle-orm";
+import { organizationAdmins } from "../models/schema";
+import { roles } from "../models/schema";
+import { and, eq } from "drizzle-orm";
 import { UnauthorizedError } from "../Errors";
 const hasPermission = (permissions, module, action) => {
     const modulePerm = permissions.find((p) => p.module === module);
@@ -11,67 +10,48 @@ const hasPermission = (permissions, module, action) => {
         return false;
     return modulePerm.actions.some((a) => a.action === action);
 };
-// Helper: Get user data by role
-const getUserData = async (userId, role) => {
-    if (role === "driver") {
-        const result = await db.select().from(drivers).where(eq(drivers.id, userId)).limit(1);
-        return result[0];
-    }
-    if (role === "codriver") {
-        const result = await db.select().from(codrivers).where(eq(codrivers.id, userId)).limit(1);
-        return result[0];
-    }
-    return null;
-};
-// Helper: Get role data
-const getRoleData = async (roleId) => {
-    const result = await db.select().from(roles).where(eq(roles.id, roleId)).limit(1);
-    return result[0];
-};
 export const checkPermission = (module, action) => {
     return async (req, res, next) => {
         try {
-            const { id: userId, role } = req.user || {};
-            if (!userId || !role) {
-                throw new UnauthorizedError("User not authenticated");
+            const { id, role, organizationId } = req.user || {};
+            if (!id || !role || !organizationId) {
+                throw new UnauthorizedError("Not authenticated");
             }
-            // SuperAdmin و Organization عندهم كل الصلاحيات
-            if (role === "superadmin" || role === "organization") {
+            // Organizer عنده كل الصلاحيات
+            if (role === "organizer") {
                 return next();
             }
-            // Parent عنده صلاحيات ثابتة
-            if (role === "parent") {
-                const parentAllowed = [
-                    { module: "children", actions: [{ id: "1", action: "View" }] },
-                    { module: "trips", actions: [{ id: "2", action: "View" }] },
-                    { module: "notifications", actions: [{ id: "3", action: "View" }] },
-                ];
-                if (hasPermission(parentAllowed, module, action)) {
+            // Admin - شيك على الصلاحيات
+            if (role === "admin") {
+                const orgAdmin = await db
+                    .select()
+                    .from(organizationAdmins)
+                    .where(and(eq(organizationAdmins.adminId, id), eq(organizationAdmins.organizationId, organizationId)))
+                    .limit(1);
+                if (!orgAdmin[0]) {
+                    throw new UnauthorizedError("Admin not found");
+                }
+                // 1. شيك صلاحيات الـ Admin الخاصة
+                const adminPermissions = orgAdmin[0].permissions || [];
+                if (hasPermission(adminPermissions, module, action)) {
                     return next();
                 }
-                throw new UnauthorizedError("You don't have permission for this action");
-            }
-            // Driver و CoDriver
-            const userData = await getUserData(userId, role);
-            if (!userData) {
-                throw new UnauthorizedError("User not found");
-            }
-            // 1. شيك على صلاحيات اليوزر الخاصة (override)
-            const userPermissions = userData.permissions || [];
-            if (hasPermission(userPermissions, module, action)) {
-                return next();
-            }
-            // 2. شيك على صلاحيات الـ Role
-            if (userData.roleId) {
-                const roleData = await getRoleData(userData.roleId);
-                if (roleData) {
-                    const rolePermissions = roleData.permissions || [];
-                    if (hasPermission(rolePermissions, module, action)) {
-                        return next();
+                // 2. شيك صلاحيات الـ Role
+                if (orgAdmin[0].roleId) {
+                    const roleData = await db
+                        .select()
+                        .from(roles)
+                        .where(eq(roles.id, orgAdmin[0].roleId)) // roleId بقى string UUID
+                        .limit(1);
+                    if (roleData[0]) {
+                        const rolePermissions = roleData[0].permissions || [];
+                        if (hasPermission(rolePermissions, module, action)) {
+                            return next();
+                        }
                     }
                 }
             }
-            throw new UnauthorizedError("You don't have permission for this action");
+            throw new UnauthorizedError("You don't have permission");
         }
         catch (error) {
             next(error);

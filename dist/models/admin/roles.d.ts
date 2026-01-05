@@ -1,10 +1,4 @@
-export type Permission = {
-    module: string;
-    actions: {
-        id: string;
-        action: string;
-    }[];
-};
+import { Permission } from "../../types/custom";
 export declare const roles: import("drizzle-orm/mysql-core").MySqlTableWithColumns<{
     name: "roles";
     schema: undefined;
@@ -12,37 +6,41 @@ export declare const roles: import("drizzle-orm/mysql-core").MySqlTableWithColum
         id: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "id";
             tableName: "roles";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: true;
             hasDefault: true;
             isPrimaryKey: true;
-            isAutoincrement: true;
+            isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: 36;
+        }>;
         organizationId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "organization_id";
             tableName: "roles";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: true;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: 36;
+        }>;
         name: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "name";
             tableName: "roles";
@@ -56,23 +54,6 @@ export declare const roles: import("drizzle-orm/mysql-core").MySqlTableWithColum
             isAutoincrement: false;
             hasRuntimeDefault: false;
             enumValues: [string, ...string[]];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {}>;
-        status: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "status";
-            tableName: "roles";
-            dataType: "string";
-            columnType: "MySqlEnumColumn";
-            data: "active" | "inactive";
-            driverParam: string;
-            notNull: false;
-            hasDefault: true;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: ["active", "inactive"];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
@@ -96,6 +77,23 @@ export declare const roles: import("drizzle-orm/mysql-core").MySqlTableWithColum
         }, {}, {
             $type: Permission[];
         }>;
+        status: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "status";
+            tableName: "roles";
+            dataType: "string";
+            columnType: "MySqlEnumColumn";
+            data: "active" | "inactive";
+            driverParam: string;
+            notNull: false;
+            hasDefault: true;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: ["active", "inactive"];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         createdAt: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "created_at";
             tableName: "roles";

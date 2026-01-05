@@ -1,26 +1,26 @@
 import { TokenPayload } from "../types/custom";
 import "dotenv/config";
 export declare const generateSuperAdminToken: (data: {
-    id: number;
+    id: string;
     name: string;
 }) => string;
 export declare const generateOrganizationToken: (data: {
-    id: number;
+    id: string;
     name: string;
 }) => string;
 export declare const generateParentToken: (data: {
-    id: number;
+    id: string;
     name: string;
-    organizationId: number;
+    organizationId: string;
 }) => string;
 export declare const generateDriverToken: (data: {
-    id: number;
+    id: string;
     name: string;
-    organizationId: number;
+    organizationId: string;
 }) => string;
 export declare const generateCoDriverToken: (data: {
-    id: number;
+    id: string;
     name: string;
-    organizationId: number;
+    organizationId: string;
 }) => string;
 export declare const verifyToken: (token: string) => TokenPayload;
