@@ -18,7 +18,7 @@ export const notes = mysqlTable("notes", {
   organizationId: char("organization_id", { length: 36 }).notNull(),
   createdById: char("created_by_id", { length: 36 }).notNull().references(() => admins.id),
 
-  rideId: int("ride_id").references(() => rides.id),
+  rideId: char("ride_id").references(() => rides.id),
 
   title: varchar("title", { length: 255 }).notNull(),
   content: text("content").notNull(),

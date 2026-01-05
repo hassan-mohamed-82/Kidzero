@@ -5,6 +5,7 @@ export * from "./superadmin/subscription";
 export * from "./superadmin/organizationPayment"
 export * from "./superadmin/plan"
 export * from "./superadmin/payment"
+export * from "./superadmin/Bustype";
 
 
 

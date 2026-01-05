@@ -14,7 +14,7 @@ import { buses } from "./Bus";
 export const drivers = mysqlTable("drivers", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   organizationId: char("organization_id", { length: 36 }).notNull(),
-  busId: int("bus_id").references(() => buses.id),
+  busId: char("bus_id").references(() => buses.id),
 
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),
