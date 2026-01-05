@@ -18,7 +18,7 @@ export const admins = mysqlTable("admins", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   
   // الـ Organization اللي تابع ليها
-  organizationId: char("organization_id", { length: 36 }).notNull(),
+  organizationId: char("organization_id", { length: 36 }).notNull().references(() => organizations.id),
   
   // الـ Role (اختياري - للـ Admin العادي)
   roleId: char("role_id", { length: 36 }).references(() => roles.id),
