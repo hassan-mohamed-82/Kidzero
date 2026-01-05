@@ -30,9 +30,6 @@ export const superAdmins = mysqlTable("super_admins", {
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
 
-// // ==================== ORGANIZATIONS (Admin) ====================
-
-
 // // ==================== ROLES ====================
 // export const roles = mysqlTable("roles", {
 //   id: int("id").primaryKey().autoincrement(),

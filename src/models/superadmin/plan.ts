@@ -1,12 +1,13 @@
-import { mysqlTable, int, varchar, timestamp } from "drizzle-orm/mysql-core";
+import { mysqlTable, int, varchar, timestamp, char, double } from "drizzle-orm/mysql-core";
 
 export const plans = mysqlTable("plan", {
   id: int("id").primaryKey().autoincrement(),
   name: varchar("name", { length: 255 }).notNull(),
+  price_semester: double("price_semester").notNull().default(0),
+  price_year: double("price_year").notNull().default(0),
 
   maxBuses: int("max_buses").default(10),
   maxDrivers: int("max_drivers").default(20),
-  
   maxStudents: int("max_students").default(100),
 
   createdAt: timestamp("created_at").defaultNow(),
