@@ -72,6 +72,23 @@ export declare const promocode: import("drizzle-orm/mysql-core").MySqlTableWithC
             identity: undefined;
             generated: undefined;
         }, {}, {}>;
+        promocodeType: import("drizzle-orm/mysql-core").MySqlColumn<{
+            name: "promocode_type";
+            tableName: "promocodes";
+            dataType: "string";
+            columnType: "MySqlEnumColumn";
+            data: "amount" | "percentage";
+            driverParam: string;
+            notNull: true;
+            hasDefault: false;
+            isPrimaryKey: false;
+            isAutoincrement: false;
+            hasRuntimeDefault: false;
+            enumValues: ["percentage", "amount"];
+            baseColumn: never;
+            identity: undefined;
+            generated: undefined;
+        }, {}, {}>;
         description: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "description";
             tableName: "promocodes";

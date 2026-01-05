@@ -15,8 +15,9 @@ export const routes = mysqlTable("routes", {
 });
 export const routePickupPoints = mysqlTable("route_pickup_points", {
     id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
-    routeId: int("route_id").notNull().references(() => routes.id),
-    pickupPointId: int("pickup_point_id").notNull().references(() => pickupPoints.id),
+    // ✅ غيّر من int إلى char بطول 36
+    routeId: char("route_id", { length: 36 }).notNull().references(() => routes.id),
+    pickupPointId: char("pickup_point_id", { length: 36 }).notNull().references(() => pickupPoints.id),
     stopOrder: int("stop_order").notNull(),
     estimatedArrival: time("estimated_arrival"),
     createdAt: timestamp("created_at").defaultNow(),

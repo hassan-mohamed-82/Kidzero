@@ -1,5 +1,5 @@
 // src/models/schema/ride.ts
-import { mysqlTable, int, varchar, timestamp, mysqlEnum, decimal, date, char, } from "drizzle-orm/mysql-core";
+import { mysqlTable, varchar, timestamp, mysqlEnum, decimal, date, char, } from "drizzle-orm/mysql-core";
 import { buses } from "./Bus";
 import { drivers } from "./driver";
 import { codrivers } from "./codriver";
@@ -8,10 +8,10 @@ import { sql } from "drizzle-orm";
 export const rides = mysqlTable("rides", {
     id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
     organizationId: char("organization_id", { length: 36 }).notNull(),
-    busId: int("bus_id").notNull().references(() => buses.id),
+    busId: char("bus_id").notNull().references(() => buses.id),
     driverId: char("driver_id", { length: 36 }).notNull().references(() => drivers.id),
     codriverId: char("codriver_id", { length: 36 }).references(() => codrivers.id),
-    routeId: int("route_id").references(() => routes.id),
+    routeId: char("route_id").references(() => routes.id),
     name: varchar("name", { length: 255 }),
     rideDate: date("ride_date").notNull(),
     rideType: mysqlEnum("ride_type", ["morning", "afternoon"]).notNull(),

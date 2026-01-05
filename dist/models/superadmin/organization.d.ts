@@ -116,20 +116,22 @@ export declare const organizations: import("drizzle-orm/mysql-core").MySqlTableW
         subscriptionId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "subscription_id";
             tableName: "organizations";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: false;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: number | undefined;
+        }>;
         name: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "name";
             tableName: "organizations";

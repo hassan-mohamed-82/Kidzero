@@ -3,7 +3,6 @@ import { mysqlTable, varchar, timestamp, mysqlEnum, json, char, } from "drizzle-
 import { sql } from "drizzle-orm";
 export const roles = mysqlTable("roles", {
     id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
-    organizationId: char("organization_id", { length: 36 }).notNull(),
     name: varchar("name", { length: 100 }).notNull(),
     permissions: json("permissions").$type().default([]),
     status: mysqlEnum("status", ["active", "inactive"]).default("active"),
