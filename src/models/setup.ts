@@ -16,5 +16,4 @@ async function createDatabase() {
   
   await connection.end();
 }
-
 createDatabase().catch(console.error);

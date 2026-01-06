@@ -8,7 +8,6 @@ import adminRouter from "./admin";
 import busRouter from "./bus";
 import RoutRouter from "./Rout";
 import profileRouter from "./profile";
-
 import { Router } from "express";
 const route = Router();
 route.use("/auth",catchAsync(AuthRoute));
