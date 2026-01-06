@@ -59,7 +59,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         throw new BadRequest("Organization ID is required");
     }
     if (id !== currentUserId) {
-        throw new BadRequest("You can only update your own profile");
+        throw new BadRequest("You can only  update your own profile");
     }
 
     const admin = await db
