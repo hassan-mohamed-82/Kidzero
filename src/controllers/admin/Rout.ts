@@ -1,81 +1,314 @@
+// src/controllers/admin/routeController.ts
+
 import { Request, Response } from "express";
 import { db } from "../../models/db";
+import { Rout, routePickupPoints, pickupPoints } from "../../models/schema";
+import { eq, and, inArray } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
+import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
-import { Rout } from "../../models/schema";
-import { eq } from "drizzle-orm";
 
-export const getAllRoutes = async (req: Request, res: Response) => {
-    const routes = await db.query.Rout.findMany();
-    return SuccessResponse(res, { routes }, 200);
+import { v4 as uuidv4 } from "uuid";  // ✅ أضف ده
+
+// ✅ Create Route with Pickup Points
+export const createRoute = async (req: Request, res: Response) => {
+    const { name, description, startTime, endTime, pickupPoints: points } = req.body;
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+
+    // تحقق من عدم تكرار اسم الـ Route
+    const existingRoute = await db
+        .select()
+        .from(Rout)
+        .where(and(eq(Rout.name, name), eq(Rout.organizationId, organizationId)))
+        .limit(1);
+
+    if (existingRoute[0]) {
+        throw new BadRequest("Route with this name already exists");
+    }
+
+    // تحقق من وجود كل الـ Pickup Points
+    const pickupPointIds = points.map((p: any) => p.pickupPointId);
+    const existingPoints = await db
+        .select()
+        .from(pickupPoints)
+        .where(inArray(pickupPoints.id, pickupPointIds));
+
+    if (existingPoints.length !== pickupPointIds.length) {
+        throw new BadRequest("One or more pickup points not found");
+    }
+
+    // إنشاء UUID
+    const routeId = uuidv4();
+
+    // إنشاء الـ Route
+    await db.insert(Rout).values({
+        id: routeId,
+        organizationId,
+        name,
+        description: description || null,
+        startTime: startTime || null,
+        endTime: endTime || null,
+    });
+
+    // إضافة الـ Pickup Points للـ Route
+    const routePickupPointsData = points.map((point: any) => ({
+        routeId,
+        pickupPointId: point.pickupPointId,
+        stopOrder: point.stopOrder,
+        estimatedArrival: point.estimatedArrival || null,
+    }));
+
+    await db.insert(routePickupPoints).values(routePickupPointsData);
+
+    SuccessResponse(res, { message: "Route created successfully", routeId }, 201);
 };
 
+// ✅ Get All Routes
+export const getAllRoutes = async (req: Request, res: Response) => {
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+
+    const allRoutes = await db
+        .select()
+        .from(Rout)
+        .where(eq(Rout.organizationId, organizationId));
+
+    // جلب الـ Pickup Points لكل Route
+    const routesWithPickupPoints = await Promise.all(
+        allRoutes.map(async (route) => {
+            const points = await db
+                .select({
+                    id: routePickupPoints.id,
+                    stopOrder: routePickupPoints.stopOrder,
+                    estimatedArrival: routePickupPoints.estimatedArrival,
+                    pickupPoint: {
+                        id: pickupPoints.id,
+                        name: pickupPoints.name,
+                        address: pickupPoints.address,
+                        lat: pickupPoints.lat,
+                        lng: pickupPoints.lng,
+                    },
+                })
+                .from(routePickupPoints)
+                .leftJoin(pickupPoints, eq(routePickupPoints.pickupPointId, pickupPoints.id))
+                .where(eq(routePickupPoints.routeId, route.id))
+                .orderBy(routePickupPoints.stopOrder);
+
+            return {
+                ...route,
+                pickupPoints: points,
+            };
+        })
+    );
+
+    SuccessResponse(res, { routes: routesWithPickupPoints }, 200);
+};
+
+// ✅ Get Route By ID
 export const getRouteById = async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) {
-        throw new BadRequest("Please Enter Route Id");
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
     }
-    const route = await db.query.Rout.findFirst({
-        where: (Rout, { eq }) => eq(Rout.id, id)
-    });
-    if (!route) {
-        throw new BadRequest("Route not found");
+
+    const route = await db
+        .select()
+        .from(Rout)
+        .where(and(eq(Rout.id, id), eq(Rout.organizationId, organizationId)))
+        .limit(1);
+
+    if (!route[0]) {
+        throw new NotFound("Route not found");
     }
-    return SuccessResponse(res, { route }, 200);
+
+    // جلب الـ Pickup Points
+    const points = await db
+        .select({
+            id: routePickupPoints.id,
+            stopOrder: routePickupPoints.stopOrder,
+            estimatedArrival: routePickupPoints.estimatedArrival,
+            pickupPoint: {
+                id: pickupPoints.id,
+                name: pickupPoints.name,
+                address: pickupPoints.address,
+                lat: pickupPoints.lat,
+                lng: pickupPoints.lng,
+            },
+        })
+        .from(routePickupPoints)
+        .leftJoin(pickupPoints, eq(routePickupPoints.pickupPointId, pickupPoints.id))
+        .where(eq(routePickupPoints.routeId, id))
+        .orderBy(routePickupPoints.stopOrder);
+
+    SuccessResponse(res, {
+        route: {
+            ...route[0],
+            pickupPoints: points,
+        },
+    }, 200);
 };
 
-export const createRoute = async (req: Request, res: Response) => {
-    const { name, description, startTime, endTime, organizationId } = req.body;
-    if (!name || !organizationId || !startTime || !endTime) {
-        throw new BadRequest("Missing required fields");
-    }
 
-    if(startTime >= endTime) {
-        throw new BadRequest("Start time must be before end time");
-    }
-
-    const newRoute = await db.insert(Rout).values({
-        name,
-        description,
-        startTime,
-        endTime,
-        organizationId
-    });
-    return SuccessResponse(res, { message: "Route created successfully" }, 201);
-};
-
-export const deleteRouteById = async (req: Request, res: Response) => {
+// ✅ Update Route
+export const updateRoute = async (req: Request, res: Response) => {
     const { id } = req.params;
-    if (!id) {
-        throw new BadRequest("Please Enter Route Id");
+    const { name, description, startTime, endTime, pickupPoints: points, status } = req.body;
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
     }
-    const selectedRoute = await db.query.Rout.findFirst({
-        where: eq(Rout.id, id)
-    });
+
+    // تحقق من وجود الـ Route
+    const existingRoute = await db
+        .select()
+        .from(Rout)
+        .where(and(eq(Rout.id, id), eq(Rout.organizationId, organizationId)))
+        .limit(1);
+
+    if (!existingRoute[0]) {
+        throw new NotFound("Route not found");
+    }
+
+    // لو بيغير الاسم، نتحقق إنه مش مكرر
+    if (name && name !== existingRoute[0].name) {
+        const duplicateName = await db
+            .select()
+            .from(Rout)
+            .where(and(eq(Rout.name, name), eq(Rout.organizationId, organizationId)))
+            .limit(1);
+
+        if (duplicateName[0]) {
+            throw new BadRequest("Route with this name already exists");
+        }
+    }
+
+    // تحديث الـ Route
+    await db
+        .update(Rout)
+        .set({
+            name: name ?? existingRoute[0].name,
+            description: description !== undefined ? description : existingRoute[0].description,
+            startTime: startTime !== undefined ? startTime : existingRoute[0].startTime,
+            endTime: endTime !== undefined ? endTime : existingRoute[0].endTime,
+            status: status ?? existingRoute[0].status,
+        })
+        .where(eq(Rout.id, id));
+
+    // لو فيه Pickup Points في الـ Request
+    if (points !== undefined) {
+        // لو Array فاضي - نحذف كل الـ Pickup Points
+        if (points.length === 0) {
+            await db.delete(routePickupPoints).where(eq(routePickupPoints.routeId, id));
+        } else {
+            // تحقق من وجود كل الـ Pickup Points
+            const pickupPointIds = points.map((p: any) => p.pickupPointId);
+            const existingPoints = await db
+                .select()
+                .from(pickupPoints)
+                .where(inArray(pickupPoints.id, pickupPointIds));
+
+            if (existingPoints.length !== pickupPointIds.length) {
+                throw new BadRequest("One or more pickup points not found");
+            }
+
+            // تحقق من عدم تكرار الـ Pickup Points
+            const uniqueIds = [...new Set(pickupPointIds)];
+            if (uniqueIds.length !== pickupPointIds.length) {
+                throw new BadRequest("Duplicate pickup points not allowed");
+            }
+
+            // تحقق من عدم تكرار الـ Stop Order
+            const stopOrders = points.map((p: any) => p.stopOrder);
+            const uniqueOrders = [...new Set(stopOrders)];
+            if (uniqueOrders.length !== stopOrders.length) {
+                throw new BadRequest("Duplicate stop orders not allowed");
+            }
+
+            // حذف الـ Pickup Points القديمة
+            await db.delete(routePickupPoints).where(eq(routePickupPoints.routeId, id));
+
+            // إضافة الـ Pickup Points الجديدة
+            const routePickupPointsData = points.map((point: any) => ({
+                routeId: id,
+                pickupPointId: point.pickupPointId,
+                stopOrder: point.stopOrder,
+                estimatedArrival: point.estimatedArrival || null,
+            }));
+
+            await db.insert(routePickupPoints).values(routePickupPointsData);
+        }
+    }
+
+    // جلب الـ Route المحدث مع الـ Pickup Points
+    const updatedPoints = await db
+        .select({
+            id: routePickupPoints.id,
+            stopOrder: routePickupPoints.stopOrder,
+            estimatedArrival: routePickupPoints.estimatedArrival,
+            pickupPoint: {
+                id: pickupPoints.id,
+                name: pickupPoints.name,
+                address: pickupPoints.address,
+                lat: pickupPoints.lat,
+                lng: pickupPoints.lng,
+            },
+        })
+        .from(routePickupPoints)
+        .leftJoin(pickupPoints, eq(routePickupPoints.pickupPointId, pickupPoints.id))
+        .where(eq(routePickupPoints.routeId, id))
+        .orderBy(routePickupPoints.stopOrder);
+
+    const updatedRoute = await db
+        .select()
+        .from(Rout)
+        .where(eq(Rout.id, id))
+        .limit(1);
+
+    SuccessResponse(res, {
+        message: "Route updated successfully",
+        route: {
+            ...updatedRoute[0],
+            pickupPoints: updatedPoints,
+        },
+    }, 200);
 };
 
-export const updateRouteById = async (req: Request, res: Response) => {
+
+// ✅ Delete Route
+export const deleteRoute = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, description, startTime, endTime, status , organizationId} = req.body;
-    if (!id) {
-        throw new BadRequest("Please Enter Route Id");
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
     }
-    const existingRoute = await db.query.Rout.findFirst({
-        where: eq(Rout.id, id)
-    });
-    if (!existingRoute) {
-        throw new BadRequest("Route not found");
+
+    const existingRoute = await db
+        .select()
+        .from(Rout)
+        .where(and(eq(Rout.id, id), eq(Rout.organizationId, organizationId)))
+        .limit(1);
+
+    if (!existingRoute[0]) {
+        throw new NotFound("Route not found");
     }
-    if(startTime >= endTime) {
-        throw new BadRequest("Start time must be before end time");
-    }
-    await db.update(Rout).set({
-        name: name || existingRoute.name,
-        description: description || existingRoute.description,
-        startTime: startTime || existingRoute.startTime,
-        endTime: endTime || existingRoute.endTime,
-        status: status || existingRoute.status,
-        organizationId: organizationId || existingRoute.organizationId,
-    }).where(eq(Rout.id, id));
-    return SuccessResponse(res, { message: "Route updated successfully" }, 200);
+
+    // حذف الـ Pickup Points المرتبطة أولاً
+    await db.delete(routePickupPoints).where(eq(routePickupPoints.routeId, id));
+
+    // حذف الـ Route
+    await db.delete(Rout).where(eq(Rout.id, id));
+
+    SuccessResponse(res, { message: "Route deleted successfully" }, 200);
 };
+
