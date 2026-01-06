@@ -13,7 +13,7 @@ import {
 import { pickupPoints } from "./pickuppoints";
 import { sql } from "drizzle-orm";
 
-export const routes = mysqlTable("routes", {
+export const Rout = mysqlTable("routes", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   organizationId: char("organization_id", { length: 36 }).notNull(),
 
@@ -32,7 +32,7 @@ export const routePickupPoints = mysqlTable("route_pickup_points", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   
   // ✅ غيّر من int إلى char بطول 36
-  routeId: char("route_id", { length: 36 }).notNull().references(() => routes.id),
+  routeId: char("route_id", { length: 36 }).notNull().references(() => Rout.id),
   pickupPointId: char("pickup_point_id", { length: 36 }).notNull().references(() => pickupPoints.id),
 
   stopOrder: int("stop_order").notNull(),
