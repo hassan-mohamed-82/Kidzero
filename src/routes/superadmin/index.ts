@@ -6,6 +6,8 @@ import busTypeRoute from "./busTypes";
 import {authorizeRoles} from "../../middlewares/authorized"
 import { authenticated } from "../../middlewares/authenticated";
 import organizationRoute from "./organization";
+import profileRoute from "./profile";
+
 const route = Router();
 route.use("/auth", superAdminAuthRoute);
 route.use(authenticated,authorizeRoles("superadmin"));
@@ -13,4 +15,5 @@ route.use("/plans", PlanRoute);
 route.use("/promocodes", promocodeRoute);
 route.use("/bustypes", busTypeRoute);
 route.use("/organizations", organizationRoute);
+route.use("/profile", profileRoute);
 export default route;                           

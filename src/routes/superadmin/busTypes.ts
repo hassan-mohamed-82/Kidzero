@@ -1,14 +1,14 @@
 import { Router } from "express";
 import { getAllBusTypes, getBusTypeById, createBusType, updateBusType , deleteBusType } from "../../controllers/superadmin/busTypes";
 import { validate } from "../../middlewares/validation";
-import { createBusTypeSchema, updateBusTypeSchema } from "../../validators/superadmin/busTypes";
-
+import { createBusTypeSchema, updateBusTypeSchema } from "../../validators/superAdmin/busTypes";
+import { catchAsync } from "../../utils/catchAsync";
 const route = Router();
 
-route.get("/", getAllBusTypes);
-route.post("/", validate(createBusTypeSchema), createBusType);
-route.get("/:Id", getBusTypeById);
-route.put("/:Id", validate(updateBusTypeSchema), updateBusType);
-route.delete("/:Id", deleteBusType);
+route.get("/", catchAsync(getAllBusTypes));
+route.post("/", validate(createBusTypeSchema), catchAsync(createBusType));
+route.get("/:Id", catchAsync(getBusTypeById));
+route.put("/:Id", validate(updateBusTypeSchema), catchAsync(updateBusType));
+route.delete("/:Id", catchAsync(deleteBusType));
 
 export default route;
