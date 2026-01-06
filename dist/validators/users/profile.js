@@ -6,7 +6,7 @@ exports.updateUserProfileSchema = zod_1.z.object({
     body: zod_1.z.object({
         name: zod_1.z.string().min(2).max(255).optional(),
         purpose: zod_1.z.string().max(1000).optional(),
-        imagePath: zod_1.z.string().optional(), // base64 or path
+        imagePath: zod_1.z.string().optional(),
         dateOfBirth: zod_1.z
             .string()
             .refine((date) => !isNaN(Date.parse(date)), {
