@@ -79,41 +79,14 @@ export const updatePromoCodeById = async (req, res) => {
     if (!promoCode) {
         throw new BadRequest("Promo code not found");
     }
-    const updateData = {};
-    if (name)
-        updateData.name = name;
-    if (code)
-        updateData.code = code;
-    if (promocode_type) {
-        if (!["percentage", "amount"].includes(promocode_type)) {
-            throw new BadRequest("Invalid promocode type");
-        }
-        updateData.promocodeType = promocode_type;
-    }
-    if (amount) {
-        if (isNaN(amount) || amount <= 0) {
-            throw new BadRequest("Amount must be a positive number");
-        }
-        updateData.amount = Number(amount);
-    }
-    if (description)
-        updateData.description = description;
-    if (start_date) {
-        const startDateObj = new Date(start_date);
-        updateData.startDate = startDateObj;
-    }
-    if (end_date) {
-        const endDateObj = new Date(end_date);
-        updateData.endDate = endDateObj;
-    }
-    if (start_date && end_date) {
-        const startDateObj = new Date(start_date);
-        const endDateObj = new Date(end_date);
-        if (startDateObj >= endDateObj) {
-            throw new BadRequest("Start date must be before end date");
-        }
-    }
-    await db.update(promocode).set(updateData).where(eq(promocode.id, Id));
+    await db.update(promocode).set({
+        name: name || promoCode.name,
+        promocodeType: promocode_type || promoCode.promocodeType,
+        amount: amount !== undefined ? Number(amount) : promoCode.amount,
+        description: description || promoCode.description,
+        startDate: start_date ? new Date(start_date) : promoCode.startDate,
+        endDate: end_date ? new Date(end_date) : promoCode.endDate,
+    }).where(eq(promocode.id, Id));
     return SuccessResponse(res, { message: "Promo code updated successfully" }, 200);
 };
 //# sourceMappingURL=promocodes.js.map

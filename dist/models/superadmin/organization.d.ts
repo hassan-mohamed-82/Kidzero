@@ -5,20 +5,22 @@ export declare const organizationTypes: import("drizzle-orm/mysql-core").MySqlTa
         id: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "id";
             tableName: "organization_types";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
             notNull: true;
             hasDefault: true;
             isPrimaryKey: true;
-            isAutoincrement: true;
+            isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: 36;
+        }>;
         name: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "name";
             tableName: "organization_types";
@@ -99,20 +101,22 @@ export declare const organizations: import("drizzle-orm/mysql-core").MySqlTableW
         organizationTypeId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "organization_type_id";
             tableName: "organizations";
-            dataType: "number";
-            columnType: "MySqlInt";
-            data: number;
+            dataType: "string";
+            columnType: "MySqlChar";
+            data: string;
             driverParam: string | number;
-            notNull: false;
+            notNull: true;
             hasDefault: false;
             isPrimaryKey: false;
             isAutoincrement: false;
             hasRuntimeDefault: false;
-            enumValues: undefined;
+            enumValues: [string, ...string[]];
             baseColumn: never;
             identity: undefined;
             generated: undefined;
-        }, {}, {}>;
+        }, {}, {
+            length: 36;
+        }>;
         subscriptionId: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "subscription_id";
             tableName: "organizations";

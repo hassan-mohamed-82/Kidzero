@@ -1,4 +1,4 @@
-export declare const routes: import("drizzle-orm/mysql-core").MySqlTableWithColumns<{
+export declare const Rout: import("drizzle-orm/mysql-core").MySqlTableWithColumns<{
     name: "routes";
     schema: undefined;
     columns: {

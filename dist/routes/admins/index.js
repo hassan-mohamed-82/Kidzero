@@ -5,6 +5,8 @@ import AuthRoute from "./auth";
 import rolesRouter from "./roles";
 import pickupPointRouter from "./pickuppoint";
 import adminRouter from "./admin";
+import busRouter from "./bus";
+import RoutRouter from "./Rout";
 import { Router } from "express";
 const route = Router();
 route.use("/auth", catchAsync(AuthRoute));
@@ -12,5 +14,7 @@ route.use(authenticated, authorizeRoles("admin", "organizer"));
 route.use("/roles", catchAsync(rolesRouter));
 route.use("/pickuppoints", catchAsync(pickupPointRouter));
 route.use("/admins", catchAsync(adminRouter));
+route.use("/buses", catchAsync(busRouter));
+route.use("/routes", catchAsync(RoutRouter));
 export default route;
 //# sourceMappingURL=index.js.map

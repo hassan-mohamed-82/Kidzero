@@ -1,7 +1,6 @@
 import { BadRequest } from "../../Errors/BadRequest";
 import { db } from "../../models/db";
 import { eq } from "drizzle-orm";
-import { promocode } from "../../models/schema";
 import { SuccessResponse } from "../../utils/response";
 import { busTypes } from "../../models/superadmin/Bustype";
 export const getAllBusTypes = async (req, res) => {
@@ -14,7 +13,7 @@ export const getBusTypeById = async (req, res) => {
         throw new BadRequest("Please Enter Bus Type Id");
     }
     const busType = await db.query.busTypes.findFirst({
-        where: eq(promocode.id, Id)
+        where: eq(busTypes.id, Id)
     });
     if (!busType) {
         throw new BadRequest("Bus Type not found");
@@ -27,7 +26,6 @@ export const createBusType = async (req, res) => {
         throw new BadRequest("Missing required fields");
     }
     const newBusType = await db.insert(busTypes).values({
-        organizationId: "org-123", // This should be replaced with actual organization ID from context
         name,
         capacity,
         description

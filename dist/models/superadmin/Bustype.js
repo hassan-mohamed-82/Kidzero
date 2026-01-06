@@ -3,7 +3,7 @@ import { mysqlTable, int, varchar, timestamp, mysqlEnum, char, } from "drizzle-o
 import { sql } from "drizzle-orm";
 export const busTypes = mysqlTable("bus_types", {
     id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
-    organizationId: char("organization_id", { length: 36 }).notNull(),
+    // organizationId: char("organization_id", { length: 36 }).notNull(),
     name: varchar("name", { length: 100 }).notNull(),
     capacity: int("capacity").notNull(),
     description: varchar("description", { length: 255 }),

@@ -57,7 +57,7 @@ export declare const buses: import("drizzle-orm/mysql-core").MySqlTableWithColum
             identity: undefined;
             generated: undefined;
         }, {}, {
-            length: number | undefined;
+            length: 36;
         }>;
         busNumber: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "bus_number";

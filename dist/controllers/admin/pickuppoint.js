@@ -35,7 +35,7 @@ export const createPickupPoint = async (req, res) => {
         throw new BadRequest("name, lat, and lng are required");
     }
     await db.insert(pickupPoints).values({
-        organizationId, // ✅ دلوقتي TypeScript متأكد إنه string مش undefined
+        organizationId,
         name,
         address: address || null,
         lat,

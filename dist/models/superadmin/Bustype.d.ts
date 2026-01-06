@@ -21,25 +21,6 @@ export declare const busTypes: import("drizzle-orm/mysql-core").MySqlTableWithCo
         }, {}, {
             length: 36;
         }>;
-        organizationId: import("drizzle-orm/mysql-core").MySqlColumn<{
-            name: "organization_id";
-            tableName: "bus_types";
-            dataType: "string";
-            columnType: "MySqlChar";
-            data: string;
-            driverParam: string | number;
-            notNull: true;
-            hasDefault: false;
-            isPrimaryKey: false;
-            isAutoincrement: false;
-            hasRuntimeDefault: false;
-            enumValues: [string, ...string[]];
-            baseColumn: never;
-            identity: undefined;
-            generated: undefined;
-        }, {}, {
-            length: 36;
-        }>;
         name: import("drizzle-orm/mysql-core").MySqlColumn<{
             name: "name";
             tableName: "bus_types";

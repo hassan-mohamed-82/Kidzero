@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 export const buses = mysqlTable("buses", {
     id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
     organizationId: char("organization_id", { length: 36 }).notNull(),
-    busTypeId: char("bus_types_id").notNull().references(() => busTypes.id),
+    busTypeId: char("bus_types_id", { length: 36 }).notNull().references(() => busTypes.id), // ✅ أضف { length: 36 }
     busNumber: varchar("bus_number", { length: 50 }).notNull(),
     plateNumber: varchar("plate_number", { length: 20 }).notNull(),
     model: varchar("model", { length: 100 }),

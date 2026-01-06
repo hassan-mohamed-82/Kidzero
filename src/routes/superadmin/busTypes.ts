@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getAllBusTypes, getBusTypeById, createBusType, updateBusType , deleteBusType } from "../../controllers/superadmin/busTypes";
 import { validate } from "../../middlewares/validation";
-import { createBusTypeSchema, updateBusTypeSchema } from "../../validators/superAdmin/busTypes";
+import { createBusTypeSchema, updateBusTypeSchema } from "../../validators/superadmin/busTypes";
 
 const route = Router();
 

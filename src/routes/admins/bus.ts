@@ -24,7 +24,7 @@ router.post("/", validate(createBusSchema), catchAsync(createBus));
 // ✅ الـ Dynamic Routes في الآخر (اللي فيها :id)
 router.get("/:id", catchAsync(getBusById));
 router.put("/:id", validate(updateBusSchema), catchAsync(updateBus));
-router.patch("/:id/status", catchAsync(updateBusStatus));  // ✅ غيّر لـ PATCH و /:id/status
+router.put("/:id/status", catchAsync(updateBusStatus));  // ✅ غيّر لـ PATCH و /:id/status
 router.delete("/:id", catchAsync(deleteBus));
 
 export default router;

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { createPromoCode, getAllPromoCodes, getPromocodeById, updatePromoCodeById, deletePromoCodeById } from "../../controllers/superadmin/promocodes";
 import { validate } from "../../middlewares/validation";
-import { createPromoCodeSchema, updatePromoCodeSchema ,} from "../../validators/superAdmin/promocodes";
+import { createPromoCodeSchema, updatePromoCodeSchema ,} from "../../validators/superadmin/promocodes";
 const router = Router();
 
 
