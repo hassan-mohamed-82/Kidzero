@@ -13,16 +13,17 @@ import {
 import { buses } from "./Bus";
 import { drivers } from "./driver";
 import { codrivers } from "./codriver";
-import { routes } from "./Rout";
+import { Rout } from "./Rout";
 import { sql } from "drizzle-orm";
+import { organizations } from "../schema";
 
 export const rides = mysqlTable("rides", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
-  organizationId: char("organization_id", { length: 36 }).notNull(),
+  organizationId: char("organization_id", { length: 36 }).notNull().references(() => organizations.id),
   busId:    char("bus_id").notNull().references(() => buses.id),
   driverId: char("driver_id", { length: 36 }).notNull().references(() => drivers.id),
   codriverId: char("codriver_id", { length: 36 }).references(() => codrivers.id),
-  routeId:  char("route_id").references(() => routes.id),
+  routeId:  char("route_id").references(() => Rout.id),
 
   name: varchar("name", { length: 255 }),
   rideDate: date("ride_date").notNull(),
