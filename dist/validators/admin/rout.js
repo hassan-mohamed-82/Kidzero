@@ -1,67 +1,69 @@
-import { z } from "zod";
-const pickupPointSchema = z.object({
-    pickupPointId: z.string().uuid("Invalid Pickup Point ID"),
-    stopOrder: z.number().int().min(1, "Stop order must be at least 1"),
-    estimatedArrival: z.string().optional(), // "08:30:00"
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.routeIdSchema = exports.updateRouteSchema = exports.createRouteSchema = void 0;
+const zod_1 = require("zod");
+const pickupPointSchema = zod_1.z.object({
+    pickupPointId: zod_1.z.string().uuid("Invalid Pickup Point ID"),
+    stopOrder: zod_1.z.number().int().min(1, "Stop order must be at least 1"),
+    estimatedArrival: zod_1.z.string().optional(), // "08:30:00"
 });
-export const createRouteSchema = z.object({
-    body: z.object({
-        name: z
+exports.createRouteSchema = zod_1.z.object({
+    body: zod_1.z.object({
+        name: zod_1.z
             .string({ required_error: "Route name is required" })
             .min(1, "Route name cannot be empty")
             .max(255, "Route name cannot exceed 255 characters"),
-        description: z
+        description: zod_1.z
             .string()
             .optional()
             .nullable(),
-        startTime: z
+        startTime: zod_1.z
             .string()
             .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format (HH:MM or HH:MM:SS)")
             .optional(),
-        endTime: z
+        endTime: zod_1.z
             .string()
             .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format (HH:MM or HH:MM:SS)")
             .optional(),
-        pickupPoints: z
+        pickupPoints: zod_1.z
             .array(pickupPointSchema)
             .min(1, "At least one pickup point is required"),
     }),
 });
-export const updateRouteSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid Route ID"),
+exports.updateRouteSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: zod_1.z.string().uuid("Invalid Route ID"),
     }),
-    body: z.object({
-        name: z
+    body: zod_1.z.object({
+        name: zod_1.z
             .string()
             .min(1, "Route name cannot be empty")
             .max(255, "Route name cannot exceed 255 characters")
             .optional(),
-        description: z
+        description: zod_1.z
             .string()
             .optional()
             .nullable(),
-        startTime: z
-            .string()
-            .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format")
-            .optional()
-            .nullable(),
-        endTime: z
+        startTime: zod_1.z
             .string()
             .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format")
             .optional()
             .nullable(),
-        pickupPoints: z
+        endTime: zod_1.z
+            .string()
+            .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format")
+            .optional()
+            .nullable(),
+        pickupPoints: zod_1.z
             .array(pickupPointSchema)
             .optional(),
-        status: z
+        status: zod_1.z
             .enum(["active", "inactive"])
             .optional(),
     }),
 });
-export const routeIdSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid Route ID"),
+exports.routeIdSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: zod_1.z.string().uuid("Invalid Route ID"),
     }),
 });
-//# sourceMappingURL=rout.js.map

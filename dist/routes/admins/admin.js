@@ -1,13 +1,14 @@
-import { Router } from "express";
-import { getAllAdmins, getAdminById, createAdmin, updateAdmin, deleteAdmin } from "../../controllers/admin/admin";
-import { catchAsync } from "../../utils/catchAsync";
-import { validate } from "../../middlewares/validation";
-import { createAdminSchema, updateAdminSchema } from "../../validators/admin/admin";
-const router = Router();
-router.get("/", catchAsync(getAllAdmins));
-router.get("/:id", catchAsync(getAdminById));
-router.post("/", validate(createAdminSchema), catchAsync(createAdmin));
-router.put("/:id", validate(updateAdminSchema), catchAsync(updateAdmin));
-router.delete("/:id", catchAsync(deleteAdmin));
-export default router;
-//# sourceMappingURL=admin.js.map
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const admin_1 = require("../../controllers/admin/admin");
+const catchAsync_1 = require("../../utils/catchAsync");
+const validation_1 = require("../../middlewares/validation");
+const admin_2 = require("../../validators/admin/admin");
+const router = (0, express_1.Router)();
+router.get("/", (0, catchAsync_1.catchAsync)(admin_1.getAllAdmins));
+router.get("/:id", (0, catchAsync_1.catchAsync)(admin_1.getAdminById));
+router.post("/", (0, validation_1.validate)(admin_2.createAdminSchema), (0, catchAsync_1.catchAsync)(admin_1.createAdmin));
+router.put("/:id", (0, validation_1.validate)(admin_2.updateAdminSchema), (0, catchAsync_1.catchAsync)(admin_1.updateAdmin));
+router.delete("/:id", (0, catchAsync_1.catchAsync)(admin_1.deleteAdmin));
+exports.default = router;

@@ -1,19 +1,22 @@
+"use strict";
 // // src/models/schema.ts
-import { mysqlTable, varchar, char, timestamp, } from "drizzle-orm/mysql-core";
-import { sql } from "drizzle-orm";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.superAdmins = void 0;
+const mysql_core_1 = require("drizzle-orm/mysql-core");
+const drizzle_orm_1 = require("drizzle-orm");
 // // ==================== TYPES ====================
 // export type Permission = {
 //   module: string;
 //   actions: string[];
 // };
 // ==================== SUPER ADMIN ====================
-export const superAdmins = mysqlTable("super_admins", {
-    id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
-    name: varchar("name", { length: 255 }).notNull(),
-    email: varchar("email", { length: 255 }).notNull().unique(),
-    passwordHashed: varchar("password_hashed", { length: 255 }).notNull(),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+exports.superAdmins = (0, mysql_core_1.mysqlTable)("super_admins", {
+    id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
+    name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
+    email: (0, mysql_core_1.varchar)("email", { length: 255 }).notNull().unique(),
+    passwordHashed: (0, mysql_core_1.varchar)("password_hashed", { length: 255 }).notNull(),
+    createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
+    updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });
 // // ==================== ROLES ====================
 // export const roles = mysqlTable("roles", {
@@ -65,4 +68,3 @@ export const superAdmins = mysqlTable("super_admins", {
 //     references: [roles.id],
 //   }),
 // }));
-//# sourceMappingURL=superadmin.js.map

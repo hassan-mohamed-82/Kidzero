@@ -1,11 +1,12 @@
-import { Router } from "express";
-import { getAllOrganizationTypes, getOrganizationTypeById, createOrganizationType, updateOrganizationType, deleteOrganizationType } from "../../controllers/superadmin/organization";
-const router = Router();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const organization_1 = require("../../controllers/superadmin/organization");
+const router = (0, express_1.Router)();
 // Organization Types Routes
-router.get("/types", getAllOrganizationTypes);
-router.post("/types", createOrganizationType);
-router.get("/types/:id", getOrganizationTypeById);
-router.put("/types/:id", updateOrganizationType);
-router.delete("/types/:id", deleteOrganizationType);
-export default router;
-//# sourceMappingURL=organization.js.map
+router.get("/types", organization_1.getAllOrganizationTypes);
+router.post("/types", organization_1.createOrganizationType);
+router.get("/types/:id", organization_1.getOrganizationTypeById);
+router.put("/types/:id", organization_1.updateOrganizationType);
+router.delete("/types/:id", organization_1.deleteOrganizationType);
+exports.default = router;

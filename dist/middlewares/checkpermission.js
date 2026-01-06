@@ -1,8 +1,11 @@
+"use strict";
 // src/middleware/checkPermission.ts
-import { db } from "../models/db";
-import { admins, roles } from "../models/schema";
-import { eq } from "drizzle-orm";
-import { ForbiddenError, UnauthorizedError } from "../Errors";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.checkPermission = void 0;
+const db_1 = require("../models/db");
+const schema_1 = require("../models/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const Errors_1 = require("../Errors");
 // التحقق من صلاحية معينة
 const hasPermission = (permissions, module, action) => {
     const modulePermission = permissions.find((p) => p.module === module);
@@ -16,31 +19,31 @@ const hasPermission = (permissions, module, action) => {
 };
 // جلب الـ Permissions للـ Admin
 const getAdminPermissions = async (adminId) => {
-    const admin = await db
+    const admin = await db_1.db
         .select()
-        .from(admins)
-        .where(eq(admins.id, adminId))
+        .from(schema_1.admins)
+        .where((0, drizzle_orm_1.eq)(schema_1.admins.id, adminId))
         .limit(1);
     if (!admin[0] || !admin[0].roleId) {
-        throw new ForbiddenError("No role assigned");
+        throw new Errors_1.ForbiddenError("No role assigned");
     }
-    const role = await db
+    const role = await db_1.db
         .select()
-        .from(roles)
-        .where(eq(roles.id, admin[0].roleId))
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.id, admin[0].roleId))
         .limit(1);
     if (!role[0]) {
-        throw new ForbiddenError("Role not found");
+        throw new Errors_1.ForbiddenError("Role not found");
     }
     return role[0].permissions;
 };
 // ✅ Middleware واحد للتحقق من الصلاحيات
-export const checkPermission = (module, action) => {
+const checkPermission = (module, action) => {
     return async (req, res, next) => {
         try {
             const user = req.user;
             if (!user) {
-                throw new UnauthorizedError("Authentication required");
+                throw new Errors_1.UnauthorizedError("Authentication required");
             }
             // SuperAdmin و Organizer عندهم كل الصلاحيات
             if (user.role === "superadmin" || user.role === "organizer") {
@@ -53,7 +56,7 @@ export const checkPermission = (module, action) => {
                     const errorMsg = action
                         ? `You don't have permission to ${action} ${module}`
                         : `You don't have access to ${module}`;
-                    throw new ForbiddenError(errorMsg);
+                    throw new Errors_1.ForbiddenError(errorMsg);
                 }
             }
             next();
@@ -63,4 +66,4 @@ export const checkPermission = (module, action) => {
         }
     };
 };
-//# sourceMappingURL=checkpermission.js.map
+exports.checkPermission = checkPermission;

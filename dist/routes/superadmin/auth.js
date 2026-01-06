@@ -1,9 +1,10 @@
-import { Router } from "express";
-import { login } from "../../controllers/superadmin/auth";
-import { catchAsync } from "../../utils/catchAsync";
-import { validate } from "../../middlewares/validation";
-import { loginSchema } from "../../validators/admin/auth";
-const route = Router();
-route.post("/login", validate(loginSchema), catchAsync(login));
-export default route;
-//# sourceMappingURL=auth.js.map
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = require("../../controllers/superadmin/auth");
+const catchAsync_1 = require("../../utils/catchAsync");
+const validation_1 = require("../../middlewares/validation");
+const auth_2 = require("../../validators/admin/auth");
+const route = (0, express_1.Router)();
+route.post("/login", (0, validation_1.validate)(auth_2.loginSchema), (0, catchAsync_1.catchAsync)(auth_1.login));
+exports.default = route;

@@ -1,12 +1,13 @@
-import { Router } from "express";
-import { createPromoCode, getAllPromoCodes, getPromocodeById, updatePromoCodeById, deletePromoCodeById } from "../../controllers/superadmin/promocodes";
-import { validate } from "../../middlewares/validation";
-import { createPromoCodeSchema, updatePromoCodeSchema, } from "../../validators/superadmin/promocodes";
-const router = Router();
-router.post("/", validate(createPromoCodeSchema), createPromoCode);
-router.get("/", getAllPromoCodes);
-router.get("/:Id", getPromocodeById);
-router.delete("/:Id", deletePromoCodeById);
-router.put("/:Id", validate(updatePromoCodeSchema), updatePromoCodeById);
-export default router;
-//# sourceMappingURL=promocodes.js.map
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const promocodes_1 = require("../../controllers/superadmin/promocodes");
+const validation_1 = require("../../middlewares/validation");
+const promocodes_2 = require("../../validators/superadmin/promocodes");
+const router = (0, express_1.Router)();
+router.post("/", (0, validation_1.validate)(promocodes_2.createPromoCodeSchema), promocodes_1.createPromoCode);
+router.get("/", promocodes_1.getAllPromoCodes);
+router.get("/:Id", promocodes_1.getPromocodeById);
+router.delete("/:Id", promocodes_1.deletePromoCodeById);
+router.put("/:Id", (0, validation_1.validate)(promocodes_2.updatePromoCodeSchema), promocodes_1.updatePromoCodeById);
+exports.default = router;

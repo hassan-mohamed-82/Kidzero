@@ -1,5 +1,8 @@
+"use strict";
 // src/constants/permissions.ts
-export const MODULES = [
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ACTION_NAMES = exports.MODULES = void 0;
+exports.MODULES = [
     "admins",
     "roles",
     "bus_types",
@@ -13,5 +16,4 @@ export const MODULES = [
     "reports",
     "settings",
 ];
-export const ACTION_NAMES = ["View", "Add", "Edit", "Delete", "Status"];
-//# sourceMappingURL=constant.js.map
+exports.ACTION_NAMES = ["View", "Add", "Edit", "Delete", "Status"];

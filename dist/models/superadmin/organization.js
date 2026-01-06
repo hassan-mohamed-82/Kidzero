@@ -1,22 +1,24 @@
+"use strict";
 // src/models/schema/organization/organization.ts
-import { mysqlTable, varchar, timestamp, boolean, text, char } from "drizzle-orm/mysql-core";
-import { sql } from "drizzle-orm";
-import { subscriptions } from "./subscription";
-export const organizationTypes = mysqlTable("organization_types", {
-    id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
-    name: varchar("name", { length: 100 }).notNull().unique(),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.organizations = exports.organizationTypes = void 0;
+const mysql_core_1 = require("drizzle-orm/mysql-core");
+const drizzle_orm_1 = require("drizzle-orm");
+const subscription_1 = require("./subscription");
+exports.organizationTypes = (0, mysql_core_1.mysqlTable)("organization_types", {
+    id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
+    name: (0, mysql_core_1.varchar)("name", { length: 100 }).notNull().unique(),
+    createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
+    updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });
-export const organizations = mysqlTable("organizations", {
-    id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
-    organizationTypeId: char("organization_type_id", { length: 36 }).notNull().references(() => organizationTypes.id),
-    subscriptionId: char("subscription_id").references(() => subscriptions.id),
-    name: varchar("name", { length: 255 }).notNull(),
-    address: text("address"),
-    logo: varchar("logo", { length: 500 }),
-    isActive: boolean("is_active").default(true),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+exports.organizations = (0, mysql_core_1.mysqlTable)("organizations", {
+    id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
+    organizationTypeId: (0, mysql_core_1.char)("organization_type_id", { length: 36 }).notNull().references(() => exports.organizationTypes.id),
+    subscriptionId: (0, mysql_core_1.char)("subscription_id").references(() => subscription_1.subscriptions.id),
+    name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
+    address: (0, mysql_core_1.text)("address"),
+    logo: (0, mysql_core_1.varchar)("logo", { length: 500 }),
+    isActive: (0, mysql_core_1.boolean)("is_active").default(true),
+    createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
+    updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });
-//# sourceMappingURL=organization.js.map

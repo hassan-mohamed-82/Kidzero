@@ -1,30 +1,32 @@
+"use strict";
 // src/validators/roleSchema.ts
-import { z } from "zod";
-import { MODULES, ACTION_NAMES } from "../../types/constant";
-const actionSchema = z.object({
-    id: z.string().optional(),
-    action: z.enum(ACTION_NAMES),
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.roleIdSchema = exports.updateRoleSchema = exports.createRoleSchema = void 0;
+const zod_1 = require("zod");
+const constant_1 = require("../../types/constant");
+const actionSchema = zod_1.z.object({
+    id: zod_1.z.string().optional(),
+    action: zod_1.z.enum(constant_1.ACTION_NAMES),
 });
-const permissionSchema = z.object({
-    module: z.enum(MODULES),
-    actions: z.array(actionSchema).min(1, "At least one action is required"),
+const permissionSchema = zod_1.z.object({
+    module: zod_1.z.enum(constant_1.MODULES),
+    actions: zod_1.z.array(actionSchema).min(1, "At least one action is required"),
 });
-export const createRoleSchema = z.object({
-    body: z.object({
-        name: z.string().min(1, "Role name is required"),
-        permissions: z.array(permissionSchema).min(1, "At least one permission is required"),
+exports.createRoleSchema = zod_1.z.object({
+    body: zod_1.z.object({
+        name: zod_1.z.string().min(1, "Role name is required"),
+        permissions: zod_1.z.array(permissionSchema).min(1, "At least one permission is required"),
     }),
 });
-export const updateRoleSchema = z.object({
-    body: z.object({
-        name: z.string().min(1, "Role name is required").optional(),
-        permissions: z.array(permissionSchema).optional(),
-        status: z.enum(["active", "inactive"]).optional(),
+exports.updateRoleSchema = zod_1.z.object({
+    body: zod_1.z.object({
+        name: zod_1.z.string().min(1, "Role name is required").optional(),
+        permissions: zod_1.z.array(permissionSchema).optional(),
+        status: zod_1.z.enum(["active", "inactive"]).optional(),
     }),
 });
-export const roleIdSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid Role ID"),
+exports.roleIdSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: zod_1.z.string().uuid("Invalid Role ID"),
     }),
 });
-//# sourceMappingURL=roles.js.map

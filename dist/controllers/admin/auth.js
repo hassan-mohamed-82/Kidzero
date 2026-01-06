@@ -1,30 +1,36 @@
+"use strict";
 // src/controllers/auth/authController.ts
-import { db } from "../../models/db";
-import { admins, roles } from "../../models/schema";
-import { eq } from "drizzle-orm";
-import bcrypt from "bcrypt";
-import { generateOrganizerToken, generateAdminToken } from "../../utils/auth";
-import { UnauthorizedError } from "../../Errors";
-import { SuccessResponse } from "../../utils/response";
-export async function login(req, res) {
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.login = login;
+const db_1 = require("../../models/db");
+const schema_1 = require("../../models/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const bcrypt_1 = __importDefault(require("bcrypt"));
+const auth_1 = require("../../utils/auth");
+const Errors_1 = require("../../Errors");
+const response_1 = require("../../utils/response");
+async function login(req, res) {
     const { email, password } = req.body;
     // 1) جلب الأدمن بالإيميل
-    const admin = await db
+    const admin = await db_1.db
         .select()
-        .from(admins)
-        .where(eq(admins.email, email))
+        .from(schema_1.admins)
+        .where((0, drizzle_orm_1.eq)(schema_1.admins.email, email))
         .limit(1);
     if (!admin[0]) {
-        throw new UnauthorizedError("Invalid email or password");
+        throw new Errors_1.UnauthorizedError("Invalid email or password");
     }
     // 2) التحقق من الباسورد
-    const match = await bcrypt.compare(password, admin[0].password);
+    const match = await bcrypt_1.default.compare(password, admin[0].password);
     if (!match) {
-        throw new UnauthorizedError("Invalid email or password");
+        throw new Errors_1.UnauthorizedError("Invalid email or password");
     }
     // 3) التحقق من حالة الحساب
     if (admin[0].status !== "active") {
-        throw new UnauthorizedError("Your account is inactive");
+        throw new Errors_1.UnauthorizedError("Your account is inactive");
     }
     // 4) جلب الـ Role والـ Permissions
     let role = null;
@@ -35,10 +41,10 @@ export async function login(req, res) {
     }
     else if (admin[0].roleId) {
         // Admin - جلب الـ Role
-        const roleData = await db
+        const roleData = await db_1.db
             .select()
-            .from(roles)
-            .where(eq(roles.id, admin[0].roleId))
+            .from(schema_1.roles)
+            .where((0, drizzle_orm_1.eq)(schema_1.roles.id, admin[0].roleId))
             .limit(1);
         if (roleData[0]) {
             role = {
@@ -60,10 +66,10 @@ export async function login(req, res) {
         organizationId: admin[0].organizationId,
     };
     const token = admin[0].type === "organizer"
-        ? generateOrganizerToken(tokenPayload)
-        : generateAdminToken(tokenPayload);
+        ? (0, auth_1.generateOrganizerToken)(tokenPayload)
+        : (0, auth_1.generateAdminToken)(tokenPayload);
     // 6) الرد
-    SuccessResponse(res, {
+    (0, response_1.SuccessResponse)(res, {
         message: "Login successful",
         token,
         user: {
@@ -100,4 +106,3 @@ function mergePermissions(rolePermissions, adminPermissions) {
     }
     return merged;
 }
-//# sourceMappingURL=auth.js.map

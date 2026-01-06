@@ -1,5 +1,11 @@
-import { ZodError } from "zod";
-import fs from "fs/promises";
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.validate = void 0;
+const zod_1 = require("zod");
+const promises_1 = __importDefault(require("fs/promises"));
 function gatherFiles(req) {
     const files = [];
     if (req.file)
@@ -18,7 +24,7 @@ function gatherFiles(req) {
     }
     return files;
 }
-export const validate = (schema) => {
+const validate = (schema) => {
     return async (req, res, next) => {
         try {
             await schema.parseAsync({
@@ -29,10 +35,10 @@ export const validate = (schema) => {
             next();
         }
         catch (error) {
-            if (error instanceof ZodError) {
+            if (error instanceof zod_1.ZodError) {
                 const files = gatherFiles(req);
                 const deleteOps = files.map((file) => file.path
-                    ? fs.unlink(file.path).catch(console.error)
+                    ? promises_1.default.unlink(file.path).catch(console.error)
                     : Promise.resolve());
                 await Promise.all(deleteOps);
                 throw error;
@@ -41,4 +47,4 @@ export const validate = (schema) => {
         }
     };
 };
-//# sourceMappingURL=validation.js.map
+exports.validate = validate;

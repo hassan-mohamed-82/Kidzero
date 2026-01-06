@@ -1,100 +1,108 @@
+"use strict";
 // src/controllers/admin/adminController.ts
-import { db } from "../../models/db";
-import { admins, roles } from "../../models/schema";
-import { eq, and, ne } from "drizzle-orm";
-import { SuccessResponse } from "../../utils/response";
-import { NotFound } from "../../Errors/NotFound";
-import { BadRequest } from "../../Errors/BadRequest";
-import bcrypt from "bcrypt";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteAdmin = exports.updateAdmin = exports.createAdmin = exports.getAdminById = exports.getAllAdmins = void 0;
+const db_1 = require("../../models/db");
+const schema_1 = require("../../models/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const response_1 = require("../../utils/response");
+const NotFound_1 = require("../../Errors/NotFound");
+const BadRequest_1 = require("../../Errors/BadRequest");
+const bcrypt_1 = __importDefault(require("bcrypt"));
 // ✅ Get All Admins (للـ Organization الحالية)
-export const getAllAdmins = async (req, res) => {
+const getAllAdmins = async (req, res) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
+        throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const allAdmins = await db
+    const allAdmins = await db_1.db
         .select({
-        id: admins.id,
-        organizationId: admins.organizationId,
-        roleId: admins.roleId,
-        name: admins.name,
-        email: admins.email,
-        phone: admins.phone,
-        avatar: admins.avatar,
-        type: admins.type,
-        status: admins.status,
-        createdAt: admins.createdAt,
-        updatedAt: admins.updatedAt,
+        id: schema_1.admins.id,
+        organizationId: schema_1.admins.organizationId,
+        roleId: schema_1.admins.roleId,
+        name: schema_1.admins.name,
+        email: schema_1.admins.email,
+        phone: schema_1.admins.phone,
+        avatar: schema_1.admins.avatar,
+        type: schema_1.admins.type,
+        status: schema_1.admins.status,
+        createdAt: schema_1.admins.createdAt,
+        updatedAt: schema_1.admins.updatedAt,
     })
-        .from(admins)
-        .where(eq(admins.organizationId, organizationId));
-    SuccessResponse(res, { admins: allAdmins }, 200);
+        .from(schema_1.admins)
+        .where((0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId));
+    (0, response_1.SuccessResponse)(res, { admins: allAdmins }, 200);
 };
+exports.getAllAdmins = getAllAdmins;
 // ✅ Get Admin By ID (مع الـ Role Details)
-export const getAdminById = async (req, res) => {
+const getAdminById = async (req, res) => {
     const { id } = req.params;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
+        throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const admin = await db
+    const admin = await db_1.db
         .select({
-        id: admins.id,
-        organizationId: admins.organizationId,
-        name: admins.name,
-        email: admins.email,
-        phone: admins.phone,
-        avatar: admins.avatar,
-        type: admins.type,
-        permissions: admins.permissions,
-        status: admins.status,
-        createdAt: admins.createdAt,
-        updatedAt: admins.updatedAt,
+        id: schema_1.admins.id,
+        organizationId: schema_1.admins.organizationId,
+        name: schema_1.admins.name,
+        email: schema_1.admins.email,
+        phone: schema_1.admins.phone,
+        avatar: schema_1.admins.avatar,
+        type: schema_1.admins.type,
+        permissions: schema_1.admins.permissions,
+        status: schema_1.admins.status,
+        createdAt: schema_1.admins.createdAt,
+        updatedAt: schema_1.admins.updatedAt,
         role: {
-            id: roles.id,
-            name: roles.name,
-            permissions: roles.permissions,
+            id: schema_1.roles.id,
+            name: schema_1.roles.name,
+            permissions: schema_1.roles.permissions,
         },
     })
-        .from(admins)
-        .leftJoin(roles, eq(admins.roleId, roles.id))
-        .where(and(eq(admins.id, id), eq(admins.organizationId, organizationId)))
+        .from(schema_1.admins)
+        .leftJoin(schema_1.roles, (0, drizzle_orm_1.eq)(schema_1.admins.roleId, schema_1.roles.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, id), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
         .limit(1);
     if (!admin[0]) {
-        throw new NotFound("Admin not found");
+        throw new NotFound_1.NotFound("Admin not found");
     }
-    SuccessResponse(res, { admin: admin[0] }, 200);
+    (0, response_1.SuccessResponse)(res, { admin: admin[0] }, 200);
 };
+exports.getAdminById = getAdminById;
 // ✅ Create Admin
-export const createAdmin = async (req, res) => {
+const createAdmin = async (req, res) => {
     const { name, email, password, phone, avatar, roleId, type } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
+        throw new BadRequest_1.BadRequest("Organization ID is required");
     }
     // تحقق من عدم وجود admin بنفس الـ email
-    const existingAdmin = await db
+    const existingAdmin = await db_1.db
         .select()
-        .from(admins)
-        .where(eq(admins.email, email))
+        .from(schema_1.admins)
+        .where((0, drizzle_orm_1.eq)(schema_1.admins.email, email))
         .limit(1);
     if (existingAdmin[0]) {
-        throw new BadRequest("Email already exists");
+        throw new BadRequest_1.BadRequest("Email already exists");
     }
     // لو فيه roleId، نتحقق إنه موجود
     if (roleId) {
-        const role = await db
+        const role = await db_1.db
             .select()
-            .from(roles)
-            .where(eq(roles.id, roleId))
+            .from(schema_1.roles)
+            .where((0, drizzle_orm_1.eq)(schema_1.roles.id, roleId))
             .limit(1);
         if (!role[0]) {
-            throw new BadRequest("Role not found");
+            throw new BadRequest_1.BadRequest("Role not found");
         }
     }
     // Hash الـ password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await db.insert(admins).values({
+    const hashedPassword = await bcrypt_1.default.hash(password, 10);
+    await db_1.db.insert(schema_1.admins).values({
         organizationId,
         name,
         email,
@@ -104,45 +112,46 @@ export const createAdmin = async (req, res) => {
         roleId: roleId || null,
         type: type || "admin",
     });
-    SuccessResponse(res, { message: "Admin created successfully" }, 201);
+    (0, response_1.SuccessResponse)(res, { message: "Admin created successfully" }, 201);
 };
+exports.createAdmin = createAdmin;
 // ✅ Update Admin
-export const updateAdmin = async (req, res) => {
+const updateAdmin = async (req, res) => {
     const { id } = req.params;
     const { name, email, password, phone, avatar, roleId, type, status } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
+        throw new BadRequest_1.BadRequest("Organization ID is required");
     }
     // تحقق من وجود الـ Admin
-    const existingAdmin = await db
+    const existingAdmin = await db_1.db
         .select()
-        .from(admins)
-        .where(and(eq(admins.id, id), eq(admins.organizationId, organizationId)))
+        .from(schema_1.admins)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, id), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
         .limit(1);
     if (!existingAdmin[0]) {
-        throw new NotFound("Admin not found");
+        throw new NotFound_1.NotFound("Admin not found");
     }
     // لو بيغير الـ email، نتحقق إنه مش موجود
     if (email && email !== existingAdmin[0].email) {
-        const duplicateEmail = await db
+        const duplicateEmail = await db_1.db
             .select()
-            .from(admins)
-            .where(and(eq(admins.email, email), ne(admins.id, id)))
+            .from(schema_1.admins)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.email, email), (0, drizzle_orm_1.ne)(schema_1.admins.id, id)))
             .limit(1);
         if (duplicateEmail[0]) {
-            throw new BadRequest("Email already exists");
+            throw new BadRequest_1.BadRequest("Email already exists");
         }
     }
     // لو فيه roleId جديد، نتحقق إنه موجود
     if (roleId) {
-        const role = await db
+        const role = await db_1.db
             .select()
-            .from(roles)
-            .where(eq(roles.id, roleId))
+            .from(schema_1.roles)
+            .where((0, drizzle_orm_1.eq)(schema_1.roles.id, roleId))
             .limit(1);
         if (!role[0]) {
-            throw new BadRequest("Role not found");
+            throw new BadRequest_1.BadRequest("Role not found");
         }
     }
     // تجهيز البيانات للتحديث
@@ -157,32 +166,33 @@ export const updateAdmin = async (req, res) => {
     };
     // لو فيه password جديد
     if (password) {
-        updateData.password = await bcrypt.hash(password, 10);
+        updateData.password = await bcrypt_1.default.hash(password, 10);
     }
-    await db.update(admins).set(updateData).where(eq(admins.id, id));
-    SuccessResponse(res, { message: "Admin updated successfully" }, 200);
+    await db_1.db.update(schema_1.admins).set(updateData).where((0, drizzle_orm_1.eq)(schema_1.admins.id, id));
+    (0, response_1.SuccessResponse)(res, { message: "Admin updated successfully" }, 200);
 };
+exports.updateAdmin = updateAdmin;
 // ✅ Delete Admin
-export const deleteAdmin = async (req, res) => {
+const deleteAdmin = async (req, res) => {
     const { id } = req.params;
     const organizationId = req.user?.organizationId;
     const currentUserId = req.user?.id;
     if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
+        throw new BadRequest_1.BadRequest("Organization ID is required");
     }
     // منع حذف النفس
     if (id === currentUserId) {
-        throw new BadRequest("You cannot delete yourself");
+        throw new BadRequest_1.BadRequest("You cannot delete yourself");
     }
-    const existingAdmin = await db
+    const existingAdmin = await db_1.db
         .select()
-        .from(admins)
-        .where(and(eq(admins.id, id), eq(admins.organizationId, organizationId)))
+        .from(schema_1.admins)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, id), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
         .limit(1);
     if (!existingAdmin[0]) {
-        throw new NotFound("Admin not found");
+        throw new NotFound_1.NotFound("Admin not found");
     }
-    await db.delete(admins).where(eq(admins.id, id));
-    SuccessResponse(res, { message: "Admin deleted successfully" }, 200);
+    await db_1.db.delete(schema_1.admins).where((0, drizzle_orm_1.eq)(schema_1.admins.id, id));
+    (0, response_1.SuccessResponse)(res, { message: "Admin deleted successfully" }, 200);
 };
-//# sourceMappingURL=admin.js.map
+exports.deleteAdmin = deleteAdmin;

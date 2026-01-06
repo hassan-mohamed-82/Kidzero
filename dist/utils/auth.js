@@ -1,64 +1,75 @@
+"use strict";
 // src/utils/auth.ts
-import jwt from "jsonwebtoken";
-import { UnauthorizedError } from "../Errors";
-import "dotenv/config";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.verifyToken = exports.generateCoDriverToken = exports.generateDriverToken = exports.generateAdminToken = exports.generateOrganizerToken = exports.generateSuperAdminToken = void 0;
+const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const Errors_1 = require("../Errors");
+require("dotenv/config");
 const JWT_SECRET = process.env.JWT_SECRET;
 // للـ SuperAdmin (أنت - البائع)
-export const generateSuperAdminToken = (data) => {
+const generateSuperAdminToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
         role: "superadmin",
     };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
+exports.generateSuperAdminToken = generateSuperAdminToken;
 // للـ Organizer (صاحب المؤسسة)
-export const generateOrganizerToken = (data) => {
+const generateOrganizerToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
         role: "organizer",
         organizationId: data.organizationId,
     };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
+exports.generateOrganizerToken = generateOrganizerToken;
 // للـ Admin (موظف بصلاحيات)
-export const generateAdminToken = (data) => {
+const generateAdminToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
         role: "admin",
         organizationId: data.organizationId,
     };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
+exports.generateAdminToken = generateAdminToken;
 // للـ Driver (Mobile App)
-export const generateDriverToken = (data) => {
+const generateDriverToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
         role: "driver",
         organizationId: data.organizationId,
     };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
+exports.generateDriverToken = generateDriverToken;
 // للـ CoDriver (Mobile App)
-export const generateCoDriverToken = (data) => {
+const generateCoDriverToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
         role: "codriver",
         organizationId: data.organizationId,
     };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
+exports.generateCoDriverToken = generateCoDriverToken;
 // Verify Token
-export const verifyToken = (token) => {
+const verifyToken = (token) => {
     try {
-        return jwt.verify(token, JWT_SECRET);
+        return jsonwebtoken_1.default.verify(token, JWT_SECRET);
     }
     catch (error) {
-        throw new UnauthorizedError("Invalid token");
+        throw new Errors_1.UnauthorizedError("Invalid token");
     }
 };
-//# sourceMappingURL=auth.js.map
+exports.verifyToken = verifyToken;

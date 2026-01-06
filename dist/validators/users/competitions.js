@@ -1,11 +1,13 @@
-import { z } from "zod";
-export const participateCompetitionSchema = z.object({
-    body: z.object({
-        name: z.string().min(1, "Name is required"),
-        dateOfBirth: z.string().refine((val) => !isNaN(Date.parse(val)), {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.participateCompetitionSchema = void 0;
+const zod_1 = require("zod");
+exports.participateCompetitionSchema = zod_1.z.object({
+    body: zod_1.z.object({
+        name: zod_1.z.string().min(1, "Name is required"),
+        dateOfBirth: zod_1.z.string().refine((val) => !isNaN(Date.parse(val)), {
             message: "Invalid date format",
         }),
-        gender: z.enum(["male", "female"]),
+        gender: zod_1.z.enum(["male", "female"]),
     }),
 });
-//# sourceMappingURL=competitions.js.map

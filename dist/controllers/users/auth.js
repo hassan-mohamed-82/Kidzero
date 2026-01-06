@@ -17,6 +17,7 @@
 // import { generateToken } from "../../utils/auth";
 // import { sendEmail } from "../../utils/sendEmails";
 // import { BadRequest } from "../../Errors/BadRequest";
+Object.defineProperty(exports, "__esModule", { value: true });
 // export const signup = async (req: Request, res: Response) => {
 //   const data = req.body;
 //   const email = (data.email || "").trim().toLowerCase();
@@ -291,4 +292,3 @@
 //   );
 //   SuccessResponse(res, { message: "تم إرسال كود جديد للبريد الالكتروني" }, 200);
 // };
-//# sourceMappingURL=auth.js.map

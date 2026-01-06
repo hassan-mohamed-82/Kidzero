@@ -1,14 +1,16 @@
+"use strict";
 // src/models/schema/busType.ts
-import { mysqlTable, int, varchar, timestamp, mysqlEnum, char, } from "drizzle-orm/mysql-core";
-import { sql } from "drizzle-orm";
-export const busTypes = mysqlTable("bus_types", {
-    id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.busTypes = void 0;
+const mysql_core_1 = require("drizzle-orm/mysql-core");
+const drizzle_orm_1 = require("drizzle-orm");
+exports.busTypes = (0, mysql_core_1.mysqlTable)("bus_types", {
+    id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
     // organizationId: char("organization_id", { length: 36 }).notNull(),
-    name: varchar("name", { length: 100 }).notNull(),
-    capacity: int("capacity").notNull(),
-    description: varchar("description", { length: 255 }),
-    status: mysqlEnum("status", ["active", "inactive"]).default("active"),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+    name: (0, mysql_core_1.varchar)("name", { length: 100 }).notNull(),
+    capacity: (0, mysql_core_1.int)("capacity").notNull(),
+    description: (0, mysql_core_1.varchar)("description", { length: 255 }),
+    status: (0, mysql_core_1.mysqlEnum)("status", ["active", "inactive"]).default("active"),
+    createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
+    updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });
-//# sourceMappingURL=Bustype.js.map

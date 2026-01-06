@@ -1,13 +1,14 @@
-import { Router } from "express";
-import { getAllRoutes, getRouteById, createRoute, deleteRoute, updateRoute } from "../../controllers/admin/Rout";
-import { catchAsync } from "../../utils/catchAsync";
-import { validate } from "../../middlewares/validation";
-import { createRouteSchema, updateRouteSchema } from "../../validators/admin/rout";
-const router = Router();
-router.get("/", catchAsync(getAllRoutes));
-router.post("/", validate(createRouteSchema), catchAsync(createRoute));
-router.get("/:id", catchAsync(getRouteById));
-router.delete("/:id", catchAsync(deleteRoute));
-router.put("/:id", validate(updateRouteSchema), catchAsync(updateRoute));
-export default router;
-//# sourceMappingURL=Rout.js.map
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const Rout_1 = require("../../controllers/admin/Rout");
+const catchAsync_1 = require("../../utils/catchAsync");
+const validation_1 = require("../../middlewares/validation");
+const rout_1 = require("../../validators/admin/rout");
+const router = (0, express_1.Router)();
+router.get("/", (0, catchAsync_1.catchAsync)(Rout_1.getAllRoutes));
+router.post("/", (0, validation_1.validate)(rout_1.createRouteSchema), (0, catchAsync_1.catchAsync)(Rout_1.createRoute));
+router.get("/:id", (0, catchAsync_1.catchAsync)(Rout_1.getRouteById));
+router.delete("/:id", (0, catchAsync_1.catchAsync)(Rout_1.deleteRoute));
+router.put("/:id", (0, validation_1.validate)(rout_1.updateRouteSchema), (0, catchAsync_1.catchAsync)(Rout_1.updateRoute));
+exports.default = router;

@@ -1,25 +1,27 @@
+"use strict";
 // src/models/schema/route.ts
-import { mysqlTable, int, varchar, timestamp, mysqlEnum, text, time, char, } from "drizzle-orm/mysql-core";
-import { pickupPoints } from "./pickuppoints";
-import { sql } from "drizzle-orm";
-export const Rout = mysqlTable("routes", {
-    id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
-    organizationId: char("organization_id", { length: 36 }).notNull(),
-    name: varchar("name", { length: 255 }).notNull(),
-    description: text("description"),
-    startTime: time("start_time"),
-    endTime: time("end_time"),
-    status: mysqlEnum("status", ["active", "inactive"]).default("active"),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.routePickupPoints = exports.Rout = void 0;
+const mysql_core_1 = require("drizzle-orm/mysql-core");
+const pickuppoints_1 = require("./pickuppoints");
+const drizzle_orm_1 = require("drizzle-orm");
+exports.Rout = (0, mysql_core_1.mysqlTable)("routes", {
+    id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
+    organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull(),
+    name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
+    description: (0, mysql_core_1.text)("description"),
+    startTime: (0, mysql_core_1.time)("start_time"),
+    endTime: (0, mysql_core_1.time)("end_time"),
+    status: (0, mysql_core_1.mysqlEnum)("status", ["active", "inactive"]).default("active"),
+    createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
+    updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });
-export const routePickupPoints = mysqlTable("route_pickup_points", {
-    id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
+exports.routePickupPoints = (0, mysql_core_1.mysqlTable)("route_pickup_points", {
+    id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
     // ✅ غيّر من int إلى char بطول 36
-    routeId: char("route_id", { length: 36 }).notNull().references(() => Rout.id),
-    pickupPointId: char("pickup_point_id", { length: 36 }).notNull().references(() => pickupPoints.id),
-    stopOrder: int("stop_order").notNull(),
-    estimatedArrival: time("estimated_arrival"),
-    createdAt: timestamp("created_at").defaultNow(),
+    routeId: (0, mysql_core_1.char)("route_id", { length: 36 }).notNull().references(() => exports.Rout.id),
+    pickupPointId: (0, mysql_core_1.char)("pickup_point_id", { length: 36 }).notNull().references(() => pickuppoints_1.pickupPoints.id),
+    stopOrder: (0, mysql_core_1.int)("stop_order").notNull(),
+    estimatedArrival: (0, mysql_core_1.time)("estimated_arrival"),
+    createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
 });
-//# sourceMappingURL=Rout.js.map

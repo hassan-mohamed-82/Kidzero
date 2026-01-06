@@ -1,12 +1,13 @@
-import { Router } from "express";
-import { getAllBusTypes, getBusTypeById, createBusType, updateBusType, deleteBusType } from "../../controllers/superadmin/busTypes";
-import { validate } from "../../middlewares/validation";
-import { createBusTypeSchema, updateBusTypeSchema } from "../../validators/superadmin/busTypes";
-const route = Router();
-route.get("/", getAllBusTypes);
-route.post("/", validate(createBusTypeSchema), createBusType);
-route.get("/:Id", getBusTypeById);
-route.put("/:Id", validate(updateBusTypeSchema), updateBusType);
-route.delete("/:Id", deleteBusType);
-export default route;
-//# sourceMappingURL=busTypes.js.map
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const busTypes_1 = require("../../controllers/superadmin/busTypes");
+const validation_1 = require("../../middlewares/validation");
+const busTypes_2 = require("../../validators/superadmin/busTypes");
+const route = (0, express_1.Router)();
+route.get("/", busTypes_1.getAllBusTypes);
+route.post("/", (0, validation_1.validate)(busTypes_2.createBusTypeSchema), busTypes_1.createBusType);
+route.get("/:Id", busTypes_1.getBusTypeById);
+route.put("/:Id", (0, validation_1.validate)(busTypes_2.updateBusTypeSchema), busTypes_1.updateBusType);
+route.delete("/:Id", busTypes_1.deleteBusType);
+exports.default = route;

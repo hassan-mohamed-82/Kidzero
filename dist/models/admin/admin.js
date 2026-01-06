@@ -1,25 +1,27 @@
+"use strict";
 // src/models/schema/admin.ts
-import { mysqlTable, varchar, timestamp, mysqlEnum, json, char, } from "drizzle-orm/mysql-core";
-import { sql } from "drizzle-orm";
-import { roles } from "./roles";
-import { organizations } from "../superadmin/organization";
-export const admins = mysqlTable("admins", {
-    id: char("id", { length: 36 }).primaryKey().default(sql `(UUID())`),
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.admins = void 0;
+const mysql_core_1 = require("drizzle-orm/mysql-core");
+const drizzle_orm_1 = require("drizzle-orm");
+const roles_1 = require("./roles");
+const organization_1 = require("../superadmin/organization");
+exports.admins = (0, mysql_core_1.mysqlTable)("admins", {
+    id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
     // الـ Organization اللي تابع ليها
-    organizationId: char("organization_id", { length: 36 }).notNull().references(() => organizations.id),
+    organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull().references(() => organization_1.organizations.id),
     // الـ Role (اختياري - للـ Admin العادي)
-    roleId: char("role_id", { length: 36 }).references(() => roles.id),
-    name: varchar("name", { length: 255 }).notNull(),
-    email: varchar("email", { length: 255 }).notNull().unique(),
-    password: varchar("password", { length: 255 }).notNull(),
-    phone: varchar("phone", { length: 20 }),
-    avatar: varchar("avatar", { length: 500 }),
+    roleId: (0, mysql_core_1.char)("role_id", { length: 36 }).references(() => roles_1.roles.id),
+    name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
+    email: (0, mysql_core_1.varchar)("email", { length: 255 }).notNull().unique(),
+    password: (0, mysql_core_1.varchar)("password", { length: 255 }).notNull(),
+    phone: (0, mysql_core_1.varchar)("phone", { length: 20 }),
+    avatar: (0, mysql_core_1.varchar)("avatar", { length: 500 }),
     // النوع: organizer أو admin
-    type: mysqlEnum("type", ["organizer", "admin"]).notNull().default("admin"),
+    type: (0, mysql_core_1.mysqlEnum)("type", ["organizer", "admin"]).notNull().default("admin"),
     // صلاحيات إضافية (override)
-    permissions: json("permissions").$type().default([]),
-    status: mysqlEnum("status", ["active", "inactive"]).default("active"),
-    createdAt: timestamp("created_at").defaultNow(),
-    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
+    permissions: (0, mysql_core_1.json)("permissions").$type().default([]),
+    status: (0, mysql_core_1.mysqlEnum)("status", ["active", "inactive"]).default("active"),
+    createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
+    updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });
-//# sourceMappingURL=admin.js.map

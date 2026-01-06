@@ -1,8 +1,11 @@
-import { AppError } from "./appError";
-import { StatusCodes } from "http-status-codes";
-export class DatabaseError extends AppError {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DatabaseError = void 0;
+const appError_1 = require("./appError");
+const http_status_codes_1 = require("http-status-codes");
+class DatabaseError extends appError_1.AppError {
     constructor(message = "Database Operation Failed", details) {
-        super(message, StatusCodes.INTERNAL_SERVER_ERROR, details);
+        super(message, http_status_codes_1.StatusCodes.INTERNAL_SERVER_ERROR, details);
     }
 }
-//# sourceMappingURL=databaseError.js.map
+exports.DatabaseError = DatabaseError;

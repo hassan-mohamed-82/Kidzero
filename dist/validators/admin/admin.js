@@ -1,77 +1,79 @@
-import { z } from "zod";
-export const createAdminSchema = z.object({
-    body: z.object({
-        name: z
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.adminIdSchema = exports.updateAdminSchema = exports.createAdminSchema = void 0;
+const zod_1 = require("zod");
+exports.createAdminSchema = zod_1.z.object({
+    body: zod_1.z.object({
+        name: zod_1.z
             .string({ required_error: "Name is required" })
             .min(1, "Name cannot be empty")
             .max(255, "Name cannot exceed 255 characters"),
-        email: z
+        email: zod_1.z
             .string({ required_error: "Email is required" })
             .email("Invalid email format"),
-        password: z
+        password: zod_1.z
             .string({ required_error: "Password is required" })
             .min(6, "Password must be at least 6 characters"),
-        phone: z
+        phone: zod_1.z
             .string()
             .max(20, "Phone cannot exceed 20 characters")
             .optional(),
-        avatar: z
+        avatar: zod_1.z
             .string()
             .url("Avatar must be a valid URL")
             .optional(),
-        roleId: z
+        roleId: zod_1.z
             .string()
             .uuid("Invalid Role ID")
             .optional(),
-        type: z
+        type: zod_1.z
             .enum(["organizer", "admin"])
             .default("admin"),
     }),
 });
-export const updateAdminSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid Admin ID"),
+exports.updateAdminSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: zod_1.z.string().uuid("Invalid Admin ID"),
     }),
-    body: z.object({
-        name: z
+    body: zod_1.z.object({
+        name: zod_1.z
             .string()
             .min(1, "Name cannot be empty")
             .max(255, "Name cannot exceed 255 characters")
             .optional(),
-        email: z
+        email: zod_1.z
             .string()
             .email("Invalid email format")
             .optional(),
-        password: z
+        password: zod_1.z
             .string()
             .min(6, "Password must be at least 6 characters")
             .optional(),
-        phone: z
+        phone: zod_1.z
             .string()
             .max(20, "Phone cannot exceed 20 characters")
             .optional()
             .nullable(),
-        avatar: z
+        avatar: zod_1.z
             .string()
             .url("Avatar must be a valid URL")
             .optional()
             .nullable(),
-        roleId: z
+        roleId: zod_1.z
             .string()
             .uuid("Invalid Role ID")
             .optional()
             .nullable(),
-        type: z
+        type: zod_1.z
             .enum(["organizer", "admin"])
             .optional(),
-        status: z
+        status: zod_1.z
             .enum(["active", "inactive"])
             .optional(),
     }),
 });
-export const adminIdSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid Admin ID"),
+exports.adminIdSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: zod_1.z.string().uuid("Invalid Admin ID"),
     }),
 });
-//# sourceMappingURL=admin.js.map

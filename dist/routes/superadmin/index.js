@@ -1,17 +1,21 @@
-import { Router } from "express";
-import superAdminAuthRoute from "./auth";
-import PlanRoute from "./plan";
-import promocodeRoute from "./promocodes";
-import busTypeRoute from "./busTypes";
-import { authorizeRoles } from "../../middlewares/authorized";
-import { authenticated } from "../../middlewares/authenticated";
-import organizationRoute from "./organization";
-const route = Router();
-route.use("/auth", superAdminAuthRoute);
-route.use(authenticated, authorizeRoles("superadmin"));
-route.use("/plans", PlanRoute);
-route.use("/promocodes", promocodeRoute);
-route.use("/bustypes", busTypeRoute);
-route.use("/organizations", organizationRoute);
-export default route;
-//# sourceMappingURL=index.js.map
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const auth_1 = __importDefault(require("./auth"));
+const plan_1 = __importDefault(require("./plan"));
+const promocodes_1 = __importDefault(require("./promocodes"));
+const busTypes_1 = __importDefault(require("./busTypes"));
+const authorized_1 = require("../../middlewares/authorized");
+const authenticated_1 = require("../../middlewares/authenticated");
+const organization_1 = __importDefault(require("./organization"));
+const route = (0, express_1.Router)();
+route.use("/auth", auth_1.default);
+route.use(authenticated_1.authenticated, (0, authorized_1.authorizeRoles)("superadmin"));
+route.use("/plans", plan_1.default);
+route.use("/promocodes", promocodes_1.default);
+route.use("/bustypes", busTypes_1.default);
+route.use("/organizations", organization_1.default);
+exports.default = route;

@@ -1,18 +1,19 @@
-import { Router } from "express";
-import { getAllRoles, getRoleById, createRole, updateRole, deleteRole, } from "../../controllers/admin/roles";
-import { catchAsync } from "../../utils/catchAsync";
-import { validate } from "../../middlewares/validation";
-import { createRoleSchema, updateRoleSchema } from "../../validators/admin/roles";
-const router = Router();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const roles_1 = require("../../controllers/admin/roles");
+const catchAsync_1 = require("../../utils/catchAsync");
+const validation_1 = require("../../middlewares/validation");
+const roles_2 = require("../../validators/admin/roles");
+const router = (0, express_1.Router)();
 // ✅ Get All Roles
-router.get("/", catchAsync(getAllRoles));
+router.get("/", (0, catchAsync_1.catchAsync)(roles_1.getAllRoles));
 // ✅ Get Role By ID
-router.get("/:id", catchAsync(getRoleById));
+router.get("/:id", (0, catchAsync_1.catchAsync)(roles_1.getRoleById));
 // ✅ Create Role
-router.post("/", validate(createRoleSchema), catchAsync(createRole));
+router.post("/", (0, validation_1.validate)(roles_2.createRoleSchema), (0, catchAsync_1.catchAsync)(roles_1.createRole));
 // ✅ Update Role
-router.put("/:id", validate(updateRoleSchema), catchAsync(updateRole));
+router.put("/:id", (0, validation_1.validate)(roles_2.updateRoleSchema), (0, catchAsync_1.catchAsync)(roles_1.updateRole));
 // ✅ Delete Role
-router.delete("/:id", catchAsync(deleteRole));
-export default router;
-//# sourceMappingURL=roles.js.map
+router.delete("/:id", (0, catchAsync_1.catchAsync)(roles_1.deleteRole));
+exports.default = router;

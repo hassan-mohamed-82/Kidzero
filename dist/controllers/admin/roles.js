@@ -1,15 +1,18 @@
+"use strict";
 // src/controllers/admin/roleController.ts
-import { db } from "../../models/db";
-import { roles } from "../../models/schema";
-import { eq } from "drizzle-orm";
-import { SuccessResponse } from "../../utils/response";
-import { NotFound } from "../../Errors/NotFound";
-import { BadRequest } from "../../Errors/BadRequest";
-import { MODULES, ACTION_NAMES } from "../../types/constant";
-import { v4 as uuidv4 } from "uuid";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getAvailablePermissions = exports.toggleRoleStatus = exports.deleteRole = exports.updateRole = exports.createRole = exports.getRoleById = exports.getAllRoles = void 0;
+const db_1 = require("../../models/db");
+const schema_1 = require("../../models/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const response_1 = require("../../utils/response");
+const NotFound_1 = require("../../Errors/NotFound");
+const BadRequest_1 = require("../../Errors/BadRequest");
+const constant_1 = require("../../types/constant");
+const uuid_1 = require("uuid");
 // Generate ID للـ Action
 const generateActionId = () => {
-    return uuidv4().replace(/-/g, "").substring(0, 24);
+    return (0, uuid_1.v4)().replace(/-/g, "").substring(0, 24);
 };
 // إضافة IDs للـ Actions
 const addIdsToPermissions = (permissions) => {
@@ -22,125 +25,131 @@ const addIdsToPermissions = (permissions) => {
     }));
 };
 // ✅ Get All Roles
-export const getAllRoles = async (req, res) => {
-    const allRoles = await db.select().from(roles);
-    SuccessResponse(res, { roles: allRoles }, 200);
+const getAllRoles = async (req, res) => {
+    const allRoles = await db_1.db.select().from(schema_1.roles);
+    (0, response_1.SuccessResponse)(res, { roles: allRoles }, 200);
 };
+exports.getAllRoles = getAllRoles;
 // ✅ Get Role By ID
-export const getRoleById = async (req, res) => {
+const getRoleById = async (req, res) => {
     const { id } = req.params;
-    const role = await db
+    const role = await db_1.db
         .select()
-        .from(roles)
-        .where(eq(roles.id, id))
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.id, id))
         .limit(1);
     if (!role[0]) {
-        throw new NotFound("Role not found");
+        throw new NotFound_1.NotFound("Role not found");
     }
-    SuccessResponse(res, { role: role[0] }, 200);
+    (0, response_1.SuccessResponse)(res, { role: role[0] }, 200);
 };
+exports.getRoleById = getRoleById;
 // ✅ Create Role
-export const createRole = async (req, res) => {
+const createRole = async (req, res) => {
     const { name, permissions } = req.body;
     if (!name) {
-        throw new BadRequest("Role name is required");
+        throw new BadRequest_1.BadRequest("Role name is required");
     }
     // تحقق من عدم وجود role بنفس الاسم
-    const existingRole = await db
+    const existingRole = await db_1.db
         .select()
-        .from(roles)
-        .where(eq(roles.name, name))
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.name, name))
         .limit(1);
     if (existingRole[0]) {
-        throw new BadRequest("Role with this name already exists");
+        throw new BadRequest_1.BadRequest("Role with this name already exists");
     }
     // إضافة IDs للـ Actions
     const permissionsWithIds = addIdsToPermissions(permissions || []);
-    await db.insert(roles).values({
+    await db_1.db.insert(schema_1.roles).values({
         name,
         permissions: permissionsWithIds,
     });
-    SuccessResponse(res, { message: "Role created successfully" }, 201);
+    (0, response_1.SuccessResponse)(res, { message: "Role created successfully" }, 201);
 };
+exports.createRole = createRole;
 // ✅ Update Role
-export const updateRole = async (req, res) => {
+const updateRole = async (req, res) => {
     const { id } = req.params;
     const { name, permissions, status } = req.body;
-    const existingRole = await db
+    const existingRole = await db_1.db
         .select()
-        .from(roles)
-        .where(eq(roles.id, id))
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.id, id))
         .limit(1);
     if (!existingRole[0]) {
-        throw new NotFound("Role not found");
+        throw new NotFound_1.NotFound("Role not found");
     }
     // لو بيغير الاسم، نتحقق إنه مش موجود
     if (name && name !== existingRole[0].name) {
-        const duplicateName = await db
+        const duplicateName = await db_1.db
             .select()
-            .from(roles)
-            .where(eq(roles.name, name))
+            .from(schema_1.roles)
+            .where((0, drizzle_orm_1.eq)(schema_1.roles.name, name))
             .limit(1);
         if (duplicateName[0]) {
-            throw new BadRequest("Role with this name already exists");
+            throw new BadRequest_1.BadRequest("Role with this name already exists");
         }
     }
     // إضافة IDs للـ Actions الجديدة
     const updatedPermissions = permissions
         ? addIdsToPermissions(permissions)
         : existingRole[0].permissions;
-    await db
-        .update(roles)
+    await db_1.db
+        .update(schema_1.roles)
         .set({
         name: name ?? existingRole[0].name,
         permissions: updatedPermissions,
         status: status ?? existingRole[0].status,
     })
-        .where(eq(roles.id, id));
-    SuccessResponse(res, { message: "Role updated successfully" }, 200);
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.id, id));
+    (0, response_1.SuccessResponse)(res, { message: "Role updated successfully" }, 200);
 };
+exports.updateRole = updateRole;
 // ✅ Delete Role
-export const deleteRole = async (req, res) => {
+const deleteRole = async (req, res) => {
     const { id } = req.params;
-    const existingRole = await db
+    const existingRole = await db_1.db
         .select()
-        .from(roles)
-        .where(eq(roles.id, id))
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.id, id))
         .limit(1);
     if (!existingRole[0]) {
-        throw new NotFound("Role not found");
+        throw new NotFound_1.NotFound("Role not found");
     }
-    await db.delete(roles).where(eq(roles.id, id));
-    SuccessResponse(res, { message: "Role deleted successfully" }, 200);
+    await db_1.db.delete(schema_1.roles).where((0, drizzle_orm_1.eq)(schema_1.roles.id, id));
+    (0, response_1.SuccessResponse)(res, { message: "Role deleted successfully" }, 200);
 };
+exports.deleteRole = deleteRole;
 // ✅ Toggle Role Status
-export const toggleRoleStatus = async (req, res) => {
+const toggleRoleStatus = async (req, res) => {
     const { id } = req.params;
-    const existingRole = await db
+    const existingRole = await db_1.db
         .select()
-        .from(roles)
-        .where(eq(roles.id, id))
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.id, id))
         .limit(1);
     if (!existingRole[0]) {
-        throw new NotFound("Role not found");
+        throw new NotFound_1.NotFound("Role not found");
     }
     const newStatus = existingRole[0].status === "active" ? "inactive" : "active";
-    await db.update(roles).set({ status: newStatus }).where(eq(roles.id, id));
-    SuccessResponse(res, { message: `Role ${newStatus}` }, 200);
+    await db_1.db.update(schema_1.roles).set({ status: newStatus }).where((0, drizzle_orm_1.eq)(schema_1.roles.id, id));
+    (0, response_1.SuccessResponse)(res, { message: `Role ${newStatus}` }, 200);
 };
+exports.toggleRoleStatus = toggleRoleStatus;
 // ✅ Get Available Permissions (للـ Frontend)
-export const getAvailablePermissions = async (req, res) => {
-    const permissions = MODULES.map((module) => ({
+const getAvailablePermissions = async (req, res) => {
+    const permissions = constant_1.MODULES.map((module) => ({
         module,
-        actions: ACTION_NAMES.map((action) => ({
+        actions: constant_1.ACTION_NAMES.map((action) => ({
             id: generateActionId(),
             action,
         })),
     }));
-    SuccessResponse(res, {
-        modules: MODULES,
-        actions: ACTION_NAMES,
+    (0, response_1.SuccessResponse)(res, {
+        modules: constant_1.MODULES,
+        actions: constant_1.ACTION_NAMES,
         permissions,
     }, 200);
 };
-//# sourceMappingURL=roles.js.map
+exports.getAvailablePermissions = getAvailablePermissions;

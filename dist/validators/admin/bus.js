@@ -1,27 +1,30 @@
+"use strict";
 // src/validators/busSchema.ts
-import { z } from "zod";
-export const createBusSchema = z.object({
-    body: z.object({
-        busTypeId: z
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.busIdSchema = exports.updateBusSchema = exports.createBusSchema = void 0;
+const zod_1 = require("zod");
+exports.createBusSchema = zod_1.z.object({
+    body: zod_1.z.object({
+        busTypeId: zod_1.z
             .string({ required_error: "Bus Type ID is required" })
             .uuid("Invalid Bus Type ID"),
-        busNumber: z
+        busNumber: zod_1.z
             .string({ required_error: "Bus Number is required" })
             .min(1, "Bus Number cannot be empty")
             .max(50, "Bus Number cannot exceed 50 characters"),
-        plateNumber: z
+        plateNumber: zod_1.z
             .string({ required_error: "Plate Number is required" })
             .min(1, "Plate Number cannot be empty")
             .max(20, "Plate Number cannot exceed 20 characters"),
-        model: z
+        model: zod_1.z
             .string()
             .max(100, "Model cannot exceed 100 characters")
             .optional(),
-        color: z
+        color: zod_1.z
             .string()
             .max(50, "Color cannot exceed 50 characters")
             .optional(),
-        year: z
+        year: zod_1.z
             .number()
             .int("Year must be an integer")
             .min(1900, "Year must be at least 1900")
@@ -29,50 +32,49 @@ export const createBusSchema = z.object({
             .optional(),
     }),
 });
-export const updateBusSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid Bus ID"),
+exports.updateBusSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: zod_1.z.string().uuid("Invalid Bus ID"),
     }),
-    body: z.object({
-        busTypeId: z
+    body: zod_1.z.object({
+        busTypeId: zod_1.z
             .string()
             .uuid("Invalid Bus Type ID")
             .optional(),
-        busNumber: z
+        busNumber: zod_1.z
             .string()
             .min(1, "Bus Number cannot be empty")
             .max(50, "Bus Number cannot exceed 50 characters")
             .optional(),
-        plateNumber: z
+        plateNumber: zod_1.z
             .string()
             .min(1, "Plate Number cannot be empty")
             .max(20, "Plate Number cannot exceed 20 characters")
             .optional(),
-        model: z
+        model: zod_1.z
             .string()
             .max(100, "Model cannot exceed 100 characters")
             .optional()
             .nullable(),
-        color: z
+        color: zod_1.z
             .string()
             .max(50, "Color cannot exceed 50 characters")
             .optional()
             .nullable(),
-        year: z
+        year: zod_1.z
             .number()
             .int("Year must be an integer")
             .min(1900, "Year must be at least 1900")
             .max(new Date().getFullYear() + 1, "Year cannot be in the future")
             .optional()
             .nullable(),
-        status: z
+        status: zod_1.z
             .enum(["active", "inactive", "maintenance"])
             .optional(),
     }),
 });
-export const busIdSchema = z.object({
-    params: z.object({
-        id: z.string().uuid("Invalid Bus ID"),
+exports.busIdSchema = zod_1.z.object({
+    params: zod_1.z.object({
+        id: zod_1.z.string().uuid("Invalid Bus ID"),
     }),
 });
-//# sourceMappingURL=bus.js.map
