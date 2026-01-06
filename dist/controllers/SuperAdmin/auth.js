@@ -26,6 +26,7 @@ export async function login(req, res) {
             id: SuperAdmin.id,
             name: SuperAdmin.name,
             email: SuperAdmin.email,
+            role: "superadmin",
         }
     }, 200);
 }
