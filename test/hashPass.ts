@@ -4,7 +4,7 @@ async function testBcrypt() {
   console.log("=== Bcrypt Password Hashing Test ===\n");
 
   // The password to hash
-  const password = "";
+  const password = "123456";
   console.log("Original Password:", password);
 
   // Hash the password
