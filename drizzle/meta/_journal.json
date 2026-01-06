@@ -29,6 +29,13 @@
       "when": 1767691128181,
       "tag": "0003_great_red_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1767710901540,
+      "tag": "0004_green_vertigo",
+      "breakpoints": true
     }
   ]
 }

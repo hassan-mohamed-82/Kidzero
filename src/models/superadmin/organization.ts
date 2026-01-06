@@ -17,13 +17,15 @@ export const organizationTypes = mysqlTable("organization_types", {
 export const organizations = mysqlTable("organizations", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   organizationTypeId: char("organization_type_id", { length: 36 }).notNull().references(() => organizationTypes.id),
-  subscriptionId: char("subscription_id").references(() => subscriptions.id),
+  subscriptionId: char("subscription_id", { length: 36 }).references(() => subscriptions.id),
+  status: mysqlEnum("status", ["active", "blocked", "subscribed"]).default("active"),
 
   name: varchar("name", { length: 255 }).notNull(),
-  address: text("address"),
-  logo: varchar("logo", { length: 500 }),
+  address: text("address").notNull(),
+  phone: varchar("phone", { length: 20 }).notNull().unique(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  logo: varchar("logo", { length: 500 }).notNull(),
 
-  isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
