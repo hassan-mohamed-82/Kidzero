@@ -8,6 +8,7 @@
     "build": "tsc",
     "generate-db": "npx drizzle-kit generate",
     "dbcreate": "tsx src/models/setup.ts",
+        "clean": "npx rimraf \"src/**/*.js\" \"src/**/*.js.map\" \"src/**/*.d.ts\"",
     "migrate-db": "npx drizzle-kit push"
   },
   "keywords": [],

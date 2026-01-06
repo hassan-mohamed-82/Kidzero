@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const pickuppoint_1 = require("../../controllers/admin/pickuppoint");
+const catchAsync_1 = require("../../utils/catchAsync");
+const validation_1 = require("../../middlewares/validation");
+const pickuppoint_2 = require("../../validators/admin/pickuppoint");
+const router = (0, express_1.Router)();
+router.get("/", (0, catchAsync_1.catchAsync)(pickuppoint_1.getAllPickupPoints));
+router.get("/:id", (0, catchAsync_1.catchAsync)(pickuppoint_1.getPickupPointById));
+router.post("/", (0, validation_1.validate)(pickuppoint_2.createPickupPointSchema), (0, catchAsync_1.catchAsync)(pickuppoint_1.createPickupPoint));
+router.put("/:id", (0, validation_1.validate)(pickuppoint_2.updatePickupPointSchema), (0, catchAsync_1.catchAsync)(pickuppoint_1.updatePickupPoint));
+router.delete("/:id", (0, catchAsync_1.catchAsync)(pickuppoint_1.deletePickupPoint));
+exports.default = router;
