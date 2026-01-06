@@ -21,3 +21,4 @@ export * from "./admin/Rout";
 export * from "./admin/Ride";
 export * from "./admin/Notes";
 export * from "./admin/pickuppoints";
+export * from "./admin/department";

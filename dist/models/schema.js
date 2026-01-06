@@ -33,3 +33,4 @@ __exportStar(require("./admin/Rout"), exports);
 __exportStar(require("./admin/Ride"), exports);
 __exportStar(require("./admin/Notes"), exports);
 __exportStar(require("./admin/pickuppoints"), exports);
+__exportStar(require("./admin/department"), exports);
