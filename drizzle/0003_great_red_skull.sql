@@ -1,0 +1,3 @@
+ALTER TABLE `organization_types` MODIFY COLUMN `id` char(36) NOT NULL DEFAULT (UUID());--> statement-breakpoint
+ALTER TABLE `organizations` MODIFY COLUMN `organization_type_id` char(36) NOT NULL;--> statement-breakpoint
+ALTER TABLE `rides` ADD CONSTRAINT `rides_organization_id_organizations_id_fk` FOREIGN KEY (`organization_id`) REFERENCES `organizations`(`id`) ON DELETE no action ON UPDATE no action;

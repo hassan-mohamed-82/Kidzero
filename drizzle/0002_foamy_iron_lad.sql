@@ -1,0 +1,1 @@
+ALTER TABLE `buses` MODIFY COLUMN `bus_types_id` char(36) NOT NULL;
