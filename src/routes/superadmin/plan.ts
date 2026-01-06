@@ -2,8 +2,8 @@ import { Router } from "express";
 import { getAllPlans, getPlanbyId, deletePlanById, createPlan, updatePlan } from "../../controllers/superadmin/plan";
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
-import { createPlanSchema } from "../../validators/superadmin/plan";
-import { updatePlanSchema } from "../../validators/superadmin/plan";
+import { createPlanSchema } from "../../validators/superAdmin/plan";
+import { updatePlanSchema } from "../../validators/superAdmin/plan";
 
 const router = Router();
 
