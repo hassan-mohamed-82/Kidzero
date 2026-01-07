@@ -30,3 +30,4 @@ export const organizations = mysqlTable("organizations", {
 });
 
 
+

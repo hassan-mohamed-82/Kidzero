@@ -91,9 +91,54 @@ export const deleteOrganizationType = async (req: Request, res: Response) => {
 
 // ==================== Organizations ====================
 
+// export const getAllOrganizations = async (req: Request, res: Response) => {
+//     const orgs = await db.query.organizations.findMany();
+//     return SuccessResponse(res, { orgs }, 200);
+// };
+
 export const getAllOrganizations = async (req: Request, res: Response) => {
-    const orgs = await db.query.organizations.findMany();
-    return SuccessResponse(res, { orgs }, 200);
+    try {
+        const orgs = await db.query.organizations.findMany({
+            // Select specific columns from the main table
+            columns: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                status: true, // Item 8: Status (active, blocked, subscribed)
+            },
+            // "Populate" related tables
+            with: {
+                // Item 2: Organization Type
+                organizationType: {
+                    columns: {
+                        name: true, // Only get the name of the type
+                    }
+                },
+                // Item 5: Buses
+                buses: true, // specific columns not needed? 'true' returns all
+                
+                // Item 7: Rides
+                rides: true,
+
+                // Item 6: Students (Uncomment when you add the relation)
+                /* students: {
+                    columns: { id: true, name: true }
+                } 
+                */
+            },
+        });
+
+        const formattedOrgs = orgs.map(org => ({
+            ...org,
+            organizationType: org.organizationType,
+        }));
+
+        return SuccessResponse(res, { orgs: formattedOrgs }, 200);
+
+    } catch (error) {
+        throw new BadRequest(`Failed to retrieve organizations: ${error}`);
+    }
 };
 
 export const getOrganizationById = async (req: Request, res: Response) => {
@@ -113,8 +158,19 @@ export const createOrganization = async (req: Request, res: Response) => {
 
     await findOrganizationType(organizationTypeId);
     const logoUrl = await validateAndSaveLogo(req, logo);
+    const existingOrg = await db.query.organizations.findFirst({
+        where: eq(organizations.email, email),
+    });
+
+    if (existingOrg) {
+        throw new BadRequest("Organization with this email already exists");
+    }
+
+    const orgId = crypto.randomUUID();
+
 
     await db.insert(organizations).values({
+        id: orgId,
         name,
         phone,
         email,
@@ -131,7 +187,7 @@ export const createOrganization = async (req: Request, res: Response) => {
     const AdminName = name + " Admin";
 
     await db.insert(admins).values({
-        organizationId: organizationTypeId,
+        organizationId: orgId,
         name: AdminName,
         email: email,
         password: hashedPassword,

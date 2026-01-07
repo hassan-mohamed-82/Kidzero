@@ -11,10 +11,11 @@ import {
 } from "drizzle-orm/mysql-core";
 import { busTypes } from "../superadmin/Bustype";
 import { sql } from "drizzle-orm";
+import { organizations } from "../schema";
 
 export const buses = mysqlTable("buses", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
-  organizationId: char("organization_id", { length: 36 }).notNull(),
+  organizationId: char("organization_id", { length: 36 }).notNull().references(() => organizations.id ,{ onDelete: "cascade" }), //cascade delete added when deleting organization
   busTypeId: char("bus_types_id", { length: 36 }).notNull().references(() => busTypes.id),
 
   // Plate number - رقم اللوحة
