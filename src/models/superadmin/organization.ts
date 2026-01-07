@@ -2,7 +2,7 @@
 
 import { mysqlTable, int, varchar, timestamp, boolean, text, char, mysqlEnum, primaryKey, json } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
-import { subscriptions } from "./subscription";
+import { subscriptions } from "./subscribtion";
 import { roles } from "../admin/roles";
 import { Permission } from "../../types/custom";
 import { admins } from "../admin/admin";

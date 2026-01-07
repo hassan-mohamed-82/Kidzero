@@ -9,7 +9,7 @@ const organization_1 = require("../superadmin/organization");
 exports.admins = (0, mysql_core_1.mysqlTable)("admins", {
     id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
     // الـ Organization اللي تابع ليها
-    organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull().references(() => organization_1.organizations.id),
+    organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull().references(() => organization_1.organizations.id, { onDelete: "cascade" }), //cascade delete added when deleting organization
     // الـ Role (اختياري - للـ Admin العادي)
     roleId: (0, mysql_core_1.char)("role_id", { length: 36 }).references(() => roles_1.roles.id),
     name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
