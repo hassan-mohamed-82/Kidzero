@@ -131,7 +131,7 @@ export const createOrganization = async (req: Request, res: Response) => {
     const AdminName = name + " Admin";
 
     await db.insert(admins).values({
-        organizationId: orgId,
+        organizationId: organizationTypeId,
         name: AdminName,
         email: email,
         password: hashedPassword,
