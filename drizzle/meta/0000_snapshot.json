@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "2a37a546-fb69-4805-bdf5-9b96046e70e0",
+  "id": "b1b7d1bf-abcf-4934-b29f-8adee4345e68",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "super_admins": {
@@ -79,10 +79,11 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "int",
+          "type": "char(36)",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": true
+          "autoincrement": false,
+          "default": "(UUID())"
         },
         "name": {
           "name": "name",
@@ -142,17 +143,18 @@
         },
         "organization_type_id": {
           "name": "organization_type_id",
-          "type": "int",
+          "type": "char(36)",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "subscription_id": {
-          "name": "subscription_id",
-          "type": "char",
+        "status": {
+          "name": "status",
+          "type": "enum('active','blocked','subscribed')",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'active'"
         },
         "name": {
           "name": "name",
@@ -165,23 +167,29 @@
           "name": "address",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         },
         "logo": {
           "name": "logo",
           "type": "varchar(500)",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": true
         },
         "created_at": {
           "name": "created_at",
@@ -215,19 +223,6 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "organizations_subscription_id_subscriptions_id_fk": {
-          "name": "organizations_subscription_id_subscriptions_id_fk",
-          "tableFrom": "organizations",
-          "tableTo": "subscriptions",
-          "columnsFrom": [
-            "subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -238,7 +233,20 @@
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "organizations_phone_unique": {
+          "name": "organizations_phone_unique",
+          "columns": [
+            "phone"
+          ]
+        },
+        "organizations_email_unique": {
+          "name": "organizations_email_unique",
+          "columns": [
+            "email"
+          ]
+        }
+      },
       "checkConstraint": {}
     },
     "subscriptions": {
@@ -254,6 +262,13 @@
         },
         "plan_id": {
           "name": "plan_id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_id": {
+          "name": "organization_id",
           "type": "char(36)",
           "primaryKey": false,
           "notNull": true,
@@ -297,6 +312,19 @@
           "tableTo": "plan",
           "columnsFrom": [
             "plan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "subscriptions_organization_id_organizations_id_fk": {
+          "name": "subscriptions_organization_id_organizations_id_fk",
+          "tableFrom": "subscriptions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
           ],
           "columnsTo": [
             "id"
@@ -533,6 +561,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "promocode_id": {
+          "name": "promocode_id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "status": {
           "name": "status",
           "type": "enum('pending','completed','rejected')",
@@ -550,6 +585,19 @@
           "tableTo": "plan",
           "columnsFrom": [
             "plan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "payments_promocode_id_promocodes_id_fk": {
+          "name": "payments_promocode_id_promocodes_id_fk",
+          "tableFrom": "payments",
+          "tableTo": "promocodes",
+          "columnsFrom": [
+            "promocode_id"
           ],
           "columnsTo": [
             "id"
@@ -579,13 +627,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "(UUID())"
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "char(36)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
         },
         "name": {
           "name": "name",
@@ -645,6 +686,87 @@
         }
       },
       "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "promocodes": {
+      "name": "promocodes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(UUID())"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "code": {
+          "name": "code",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "promocode_type": {
+          "name": "promocode_type",
+          "type": "enum('percentage','amount')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "promocodes_id": {
+          "name": "promocodes_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "promocodes_code_unique": {
+          "name": "promocodes_code_unique",
+          "columns": [
+            "code"
+          ]
+        }
+      },
       "checkConstraint": {}
     },
     "admins": {
@@ -881,14 +1003,7 @@
         },
         "bus_types_id": {
           "name": "bus_types_id",
-          "type": "char",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "bus_number": {
-          "name": "bus_number",
-          "type": "varchar(50)",
+          "type": "char(36)",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -900,23 +1015,44 @@
           "notNull": true,
           "autoincrement": false
         },
-        "model": {
-          "name": "model",
-          "type": "varchar(100)",
+        "bus_number": {
+          "name": "bus_number",
+          "type": "varchar(50)",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "color": {
-          "name": "color",
+        "max_seats": {
+          "name": "max_seats",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "license_number": {
+          "name": "license_number",
           "type": "varchar(50)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "year": {
-          "name": "year",
-          "type": "int",
+        "license_expiry_date": {
+          "name": "license_expiry_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "license_image": {
+          "name": "license_image",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bus_image": {
+          "name": "bus_image",
+          "type": "varchar(500)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -1228,6 +1364,91 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "routes": {
+      "name": "routes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(UUID())"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('active','inactive')",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(now())"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "onUpdate": true,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "routes_id": {
+          "name": "routes_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "route_pickup_points": {
       "name": "route_pickup_points",
       "columns": {
@@ -1308,91 +1529,6 @@
       "compositePrimaryKeys": {
         "route_pickup_points_id": {
           "name": "route_pickup_points_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "routes": {
-      "name": "routes",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "char(36)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(UUID())"
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "char(36)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "start_time": {
-          "name": "start_time",
-          "type": "time",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "end_time": {
-          "name": "end_time",
-          "type": "time",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "enum('active','inactive')",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": "'active'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": "(now())"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "onUpdate": true,
-          "default": "(now())"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "routes_id": {
-          "name": "routes_id",
           "columns": [
             "id"
           ]
@@ -1524,6 +1660,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "rides_organization_id_organizations_id_fk": {
+          "name": "rides_organization_id_organizations_id_fk",
+          "tableFrom": "rides",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "rides_bus_id_buses_id_fk": {
           "name": "rides_bus_id_buses_id_fk",
           "tableFrom": "rides",
@@ -1793,6 +1942,45 @@
       "compositePrimaryKeys": {
         "pickup_points_id": {
           "name": "pickup_points_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "departments": {
+      "name": "departments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(UUID())"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "departments_id": {
+          "name": "departments_id",
           "columns": [
             "id"
           ]

@@ -8,7 +8,9 @@ import adminRouter from "./admin";
 import busRouter from "./bus";
 import RoutRouter from "./Rout";
 import profileRouter from "./profile";
+import diverRouter from "./driver";
 import departmentRouter from "./department";
+import codriverRouter from "./codriver"
 import { Router } from "express";
 const route = Router();
 route.use("/auth",catchAsync(AuthRoute));
@@ -17,6 +19,8 @@ route.use("/roles",catchAsync(rolesRouter));
 route.use("/departments",catchAsync(departmentRouter));
 route.use("/pickuppoints",catchAsync(pickupPointRouter));
 route.use("/admins",catchAsync(adminRouter));
+route.use("/codrivers",catchAsync(codriverRouter));
+route.use("/drivers",catchAsync(diverRouter));
 route.use("/buses",catchAsync(busRouter));
 route.use("/routes",catchAsync(RoutRouter));
 route.use("/profile",catchAsync(profileRouter));

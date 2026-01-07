@@ -3,306 +3,554 @@
 import { Request, Response } from "express";
 import { db } from "../../models/db";
 import { buses, busTypes } from "../../models/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
+import { saveBase64Image } from "../../utils/handleImages";
+import { deletePhotoFromServer } from "../../utils/deleteImage";
+import { checkBusLimit, getActiveSubscription } from "../../utils/helperfunction";
+import { v4 as uuidv4 } from "uuid";
 
-// ✅ Get All Buses
 export const getAllBuses = async (req: Request, res: Response) => {
-    const organizationId = req.user?.organizationId;
+  const organizationId = req.user?.organizationId;
 
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
 
-    const allBuses = await db
-        .select({
-            id: buses.id,
-            busNumber: buses.busNumber,
-            plateNumber: buses.plateNumber,
-            model: buses.model,
-            color: buses.color,
-            year: buses.year,
-            status: buses.status,
-            createdAt: buses.createdAt,
-            updatedAt: buses.updatedAt,
-            busType: {
-                id: busTypes.id,
-                name: busTypes.name,
-                capacity: busTypes.capacity,
-            },
-        })
-        .from(buses)
-        .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
-        .where(eq(buses.organizationId, organizationId));
+  const allBuses = await db
+    .select({
+      id: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      maxSeats: buses.maxSeats,
+      licenseNumber: buses.licenseNumber,
+      licenseExpiryDate: buses.licenseExpiryDate,
+      licenseImage: buses.licenseImage,
+      busImage: buses.busImage,
+      status: buses.status,
+      createdAt: buses.createdAt,
+      updatedAt: buses.updatedAt,
+      busType: {
+        id: busTypes.id,
+        name: busTypes.name,
+        capacity: busTypes.capacity,
+      },
+    })
+    .from(buses)
+    .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
+    .where(eq(buses.organizationId, organizationId));
 
-    SuccessResponse(res, { buses: allBuses }, 200);
+  // إضافة معلومات الاستخدام
+  const subscription = await getActiveSubscription(organizationId);
+  const usageInfo = subscription
+    ? {
+        current: allBuses.length,
+        max: subscription.plan.maxBuses,
+        remaining: subscription.plan.maxBuses
+          ? subscription.plan.maxBuses - allBuses.length
+          : "unlimited",
+      }
+    : null;
+
+  SuccessResponse(res, { buses: allBuses, usage: usageInfo }, 200);
 };
 
 // ✅ Get Bus By ID
 export const getBusById = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const organizationId = req.user?.organizationId;
+  const { id } = req.params;
+  const organizationId = req.user?.organizationId;
 
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
 
-    const bus = await db
-        .select({
-            id: buses.id,
-            busNumber: buses.busNumber,
-            plateNumber: buses.plateNumber,
-            model: buses.model,
-            color: buses.color,
-            year: buses.year,
-            status: buses.status,
-            createdAt: buses.createdAt,
-            updatedAt: buses.updatedAt,
-            busType: {
-                id: busTypes.id,
-                name: busTypes.name,
-                capacity: busTypes.capacity,
-                description: busTypes.description,
-            },
-        })
-        .from(buses)
-        .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
-        .where(and(eq(buses.id, id), eq(buses.organizationId, organizationId)))
-        .limit(1);
+  const bus = await db
+    .select({
+      id: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      maxSeats: buses.maxSeats,
+      licenseNumber: buses.licenseNumber,
+      licenseExpiryDate: buses.licenseExpiryDate,
+      licenseImage: buses.licenseImage,
+      busImage: buses.busImage,
+      status: buses.status,
+      createdAt: buses.createdAt,
+      updatedAt: buses.updatedAt,
+      busType: {
+        id: busTypes.id,
+        name: busTypes.name,
+        capacity: busTypes.capacity,
+        description: busTypes.description,
+      },
+    })
+    .from(buses)
+    .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
+    .where(and(eq(buses.id, id), eq(buses.organizationId, organizationId)))
+    .limit(1);
 
-    if (!bus[0]) {
-        throw new NotFound("Bus not found");
-    }
+  if (!bus[0]) {
+    throw new NotFound("Bus not found");
+  }
 
-    SuccessResponse(res, { bus: bus[0] }, 200);
+  SuccessResponse(res, { bus: bus[0] }, 200);
 };
 
 // ✅ Create Bus
 export const createBus = async (req: Request, res: Response) => {
-    const { busTypeId, busNumber, plateNumber, model, color, year } = req.body;
-    const organizationId = req.user?.organizationId;
+  const {
+    busTypeId,
+    plateNumber,
+    busNumber,
+    maxSeats,
+    licenseNumber,
+    licenseExpiryDate,
+    licenseImage,
+    busImage,
+  } = req.body;
 
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
-        console.log("busTypeId:", busTypeId);  // 👈 أضف ده للـ Debug
-        console.log("organizationId:", organizationId);  // 👈 أضف ده للـ Debug
+  const organizationId = req.user?.organizationId;
 
-    // تحقق من وجود الـ Bus Type
-    const busType = await db
-        .select()
-        .from(busTypes)
-        .where(eq(busTypes.id, busTypeId))
-        .limit(1);
-    console.log("busType found:", busType);  // 👈 أضف ده
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
 
-    if (!busType[0]) {
-        throw new BadRequest("Bus Type not found");
-    }
+  // التحقق من الاشتراك وحد الباصات أولاً
+  //await checkBusLimit(organizationId);
 
-    // تحقق من عدم تكرار رقم اللوحة
-    const existingPlate = await db
-        .select()
-        .from(buses)
-        .where(eq(buses.plateNumber, plateNumber))
-        .limit(1);
+  // تحقق من وجود الـ Bus Type
+  const busType = await db
+    .select()
+    .from(busTypes)
+    .where(eq(busTypes.id, busTypeId))
+    .limit(1);
 
-    if (existingPlate[0]) {
-        throw new BadRequest("Plate Number already exists");
-    }
+  if (!busType[0]) {
+    throw new NotFound("Bus Type not found");
+  }
 
-    // تحقق من عدم تكرار رقم الباص في نفس الـ Organization
-    const existingBusNumber = await db
-        .select()
-        .from(buses)
-        .where(and(eq(buses.busNumber, busNumber), eq(buses.organizationId, organizationId)))
-        .limit(1);
+  // تحقق من عدم تكرار رقم اللوحة
+  const existingPlate = await db
+    .select()
+    .from(buses)
+    .where(eq(buses.plateNumber, plateNumber))
+    .limit(1);
 
-    if (existingBusNumber[0]) {
-        throw new BadRequest("Bus Number already exists in this organization");
-    }
+  if (existingPlate[0]) {
+    throw new BadRequest("Plate Number already exists");
+  }
 
-    await db.insert(buses).values({
-        organizationId,
-        busTypeId,
-        busNumber,
-        plateNumber,
-        model: model || null,
-        color: color || null,
-        year: year || null,
-    });
+  // تحقق من عدم تكرار رقم الباص في نفس المنظمة
+  const existingBusNumber = await db
+    .select()
+    .from(buses)
+    .where(
+      and(
+        eq(buses.busNumber, busNumber),
+        eq(buses.organizationId, organizationId)
+      )
+    )
+    .limit(1);
 
-    SuccessResponse(res, { message: "Bus created successfully" }, 201);
+  if (existingBusNumber[0]) {
+    throw new BadRequest("Bus Number already exists");
+  }
+
+  // حفظ الصور
+  let savedLicenseImage: string | null = null;
+  let savedBusImage: string | null = null;
+
+  if (licenseImage) {
+    const result = await saveBase64Image(req, licenseImage, "buses/licenses");
+    savedLicenseImage = result.url;
+  }
+
+  if (busImage) {
+    const result = await saveBase64Image(req, busImage, "buses/photos");
+    savedBusImage = result.url;
+  }
+
+  // توليد ID
+  const newBusId = uuidv4();
+
+  await db.insert(buses).values({
+    id: newBusId,
+    organizationId,
+    busTypeId,
+    plateNumber,
+    busNumber,
+    maxSeats,
+    licenseNumber: licenseNumber || null,
+    licenseExpiryDate: licenseExpiryDate || null,
+    licenseImage: savedLicenseImage,
+    busImage: savedBusImage,
+  });
+
+  // جلب الباص الجديد
+  const [createdBus] = await db
+    .select({
+      id: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      maxSeats: buses.maxSeats,
+      licenseNumber: buses.licenseNumber,
+      licenseExpiryDate: buses.licenseExpiryDate,
+      licenseImage: buses.licenseImage,
+      busImage: buses.busImage,
+      status: buses.status,
+      createdAt: buses.createdAt,
+      busType: {
+        id: busTypes.id,
+        name: busTypes.name,
+        capacity: busTypes.capacity,
+      },
+    })
+    .from(buses)
+    .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
+    .where(eq(buses.id, newBusId))
+    .limit(1);
+
+
+  SuccessResponse(
+    res,
+    { message: "Bus created successfully", bus: createdBus },
+    201
+  );
 };
 
 // ✅ Update Bus
 export const updateBus = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { busTypeId, busNumber, plateNumber, model, color, year, status } = req.body;
-    const organizationId = req.user?.organizationId;
+  const { id } = req.params;
+  const {
+    busTypeId,
+    busNumber,
+    plateNumber,
+    maxSeats,
+    licenseNumber,
+    licenseExpiryDate,
+    licenseImage,
+    busImage,
+    status,
+  } = req.body;
 
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
+
+  // تحقق من وجود الباص
+  const existingBus = await db
+    .select()
+    .from(buses)
+    .where(and(eq(buses.id, id), eq(buses.organizationId, organizationId)))
+    .limit(1);
+
+  if (!existingBus[0]) {
+    throw new NotFound("Bus not found");
+  }
+
+  const bus = existingBus[0];
+
+  // لو بيغير الـ Bus Type، نتحقق إنه موجود
+  if (busTypeId && busTypeId !== bus.busTypeId) {
+    const busType = await db
+      .select()
+      .from(busTypes)
+      .where(eq(busTypes.id, busTypeId))
+      .limit(1);
+
+    if (!busType[0]) {
+      throw new BadRequest("Bus Type not found");
     }
+  }
 
-    // تحقق من وجود الباص
-    const existingBus = await db
-        .select()
-        .from(buses)
-        .where(and(eq(buses.id, id), eq(buses.organizationId, organizationId)))
-        .limit(1);
+  // لو بيغير رقم اللوحة، نتحقق إنه مش مكرر
+  if (plateNumber && plateNumber !== bus.plateNumber) {
+    const existingPlate = await db
+      .select()
+      .from(buses)
+      .where(eq(buses.plateNumber, plateNumber))
+      .limit(1);
 
-    if (!existingBus[0]) {
-        throw new NotFound("Bus not found");
+    if (existingPlate[0]) {
+      throw new BadRequest("Plate Number already exists");
     }
+  }
 
-    // لو بيغير الـ Bus Type، نتحقق إنه موجود
-    if (busTypeId && busTypeId !== existingBus[0].busTypeId) {
-        const busType = await db
-            .select()
-            .from(busTypes)
-            .where(eq(busTypes.id, busTypeId))
-            .limit(1);
+  // لو بيغير رقم الباص، نتحقق إنه مش مكرر في نفس الـ Organization
+  if (busNumber && busNumber !== bus.busNumber) {
+    const existingBusNumber = await db
+      .select()
+      .from(buses)
+      .where(
+        and(
+          eq(buses.busNumber, busNumber),
+          eq(buses.organizationId, organizationId)
+        )
+      )
+      .limit(1);
 
-        if (!busType[0]) {
-            throw new BadRequest("Bus Type not found");
-        }
+    if (existingBusNumber[0]) {
+      throw new BadRequest("Bus Number already exists in this organization");
     }
+  }
 
-    // لو بيغير رقم اللوحة، نتحقق إنه مش مكرر
-    if (plateNumber && plateNumber !== existingBus[0].plateNumber) {
-        const existingPlate = await db
-            .select()
-            .from(buses)
-            .where(eq(buses.plateNumber, plateNumber))
-            .limit(1);
+  // Validate status if provided
+  if (status && !["active", "inactive", "maintenance"].includes(status)) {
+    throw new BadRequest(
+      "Invalid status. Must be: active, inactive, or maintenance"
+    );
+  }
 
-        if (existingPlate[0]) {
-            throw new BadRequest("Plate Number already exists");
-        }
+  // التعامل مع صورة الرخصة
+  let savedLicenseImage = bus.licenseImage;
+  if (licenseImage !== undefined) {
+    if (licenseImage) {
+      const result = await saveBase64Image(req, licenseImage, "buses/licenses");
+      // حذف الصورة القديمة بعد حفظ الجديدة بنجاح
+      if (bus.licenseImage) {
+        await deletePhotoFromServer(bus.licenseImage);
+      }
+      savedLicenseImage = result.url;
+    } else {
+      // حذف الصورة القديمة
+      if (bus.licenseImage) {
+        await deletePhotoFromServer(bus.licenseImage);
+      }
+      savedLicenseImage = null;
     }
+  }
 
-    // لو بيغير رقم الباص، نتحقق إنه مش مكرر في نفس الـ Organization
-    if (busNumber && busNumber !== existingBus[0].busNumber) {
-        const existingBusNumber = await db
-            .select()
-            .from(buses)
-            .where(and(eq(buses.busNumber, busNumber), eq(buses.organizationId, organizationId)))
-            .limit(1);
-
-        if (existingBusNumber[0]) {
-            throw new BadRequest("Bus Number already exists in this organization");
-        }
+  // التعامل مع صورة الباص
+  let savedBusImage = bus.busImage;
+  if (busImage !== undefined) {
+    if (busImage) {
+      const result = await saveBase64Image(req, busImage, "buses/photos");
+      // حذف الصورة القديمة بعد حفظ الجديدة بنجاح
+      if (bus.busImage) {
+        await deletePhotoFromServer(bus.busImage);
+      }
+      savedBusImage = result.url;
+    } else {
+      // حذف الصورة القديمة
+      if (bus.busImage) {
+        await deletePhotoFromServer(bus.busImage);
+      }
+      savedBusImage = null;
     }
+  }
 
-    await db
-        .update(buses)
-        .set({
-            busTypeId: busTypeId ?? existingBus[0].busTypeId,
-            busNumber: busNumber ?? existingBus[0].busNumber,
-            plateNumber: plateNumber ?? existingBus[0].plateNumber,
-            model: model !== undefined ? model : existingBus[0].model,
-            color: color !== undefined ? color : existingBus[0].color,
-            year: year !== undefined ? year : existingBus[0].year,
-            status: status ?? existingBus[0].status,
-        })
-        .where(eq(buses.id, id));
+  await db
+    .update(buses)
+    .set({
+      busTypeId: busTypeId ?? bus.busTypeId,
+      busNumber: busNumber ?? bus.busNumber,
+      plateNumber: plateNumber ?? bus.plateNumber,
+      maxSeats: maxSeats ?? bus.maxSeats,
+      licenseNumber:
+        licenseNumber !== undefined ? licenseNumber : bus.licenseNumber,
+      licenseExpiryDate:
+        licenseExpiryDate !== undefined
+          ? licenseExpiryDate
+          : bus.licenseExpiryDate,
+      licenseImage: savedLicenseImage,
+      busImage: savedBusImage,
+      status: status ?? bus.status,
+    })
+    .where(eq(buses.id, id));
 
-    SuccessResponse(res, { message: "Bus updated successfully" }, 200);
+  // جلب الباص المحدث
+  const [updatedBus] = await db
+    .select({
+      id: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      maxSeats: buses.maxSeats,
+      licenseNumber: buses.licenseNumber,
+      licenseExpiryDate: buses.licenseExpiryDate,
+      licenseImage: buses.licenseImage,
+      busImage: buses.busImage,
+      status: buses.status,
+      updatedAt: buses.updatedAt,
+      busType: {
+        id: busTypes.id,
+        name: busTypes.name,
+        capacity: busTypes.capacity,
+      },
+    })
+    .from(buses)
+    .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
+    .where(eq(buses.id, id))
+    .limit(1);
+
+  SuccessResponse(
+    res,
+    { message: "Bus updated successfully", bus: updatedBus },
+    200
+  );
 };
 
 // ✅ Delete Bus
 export const deleteBus = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const organizationId = req.user?.organizationId;
+  const { id } = req.params;
+  const organizationId = req.user?.organizationId;
 
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
 
-    const existingBus = await db
-        .select()
-        .from(buses)
-        .where(and(eq(buses.id, id), eq(buses.organizationId, organizationId)))
-        .limit(1);
+  const existingBus = await db
+    .select()
+    .from(buses)
+    .where(and(eq(buses.id, id), eq(buses.organizationId, organizationId)))
+    .limit(1);
 
-    if (!existingBus[0]) {
-        throw new NotFound("Bus not found");
-    }
+  if (!existingBus[0]) {
+    throw new NotFound("Bus not found");
+  }
 
-    // TODO: تحقق إن الباص مش مرتبط برحلات قبل الحذف
+  // حذف الصور من السيرفر
+  if (existingBus[0].licenseImage) {
+    await deletePhotoFromServer(existingBus[0].licenseImage);
+  }
+  if (existingBus[0].busImage) {
+    await deletePhotoFromServer(existingBus[0].busImage);
+  }
 
-    await db.delete(buses).where(eq(buses.id, id));
+  await db.delete(buses).where(eq(buses.id, id));
 
-    SuccessResponse(res, { message: "Bus deleted successfully" }, 200);
+  SuccessResponse(res, { message: "Bus deleted successfully" }, 200);
 };
 
 // ✅ Update Bus Status
 export const updateBusStatus = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { status } = req.body;
-    const organizationId = req.user?.organizationId;
+  const { id } = req.params;
+  const { status } = req.body;
+  const organizationId = req.user?.organizationId;
 
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
 
-    if (!["active", "inactive", "maintenance"].includes(status)) {
-        throw new BadRequest("Invalid status. Must be: active, inactive, or maintenance");
-    }
+  if (!status) {
+    throw new BadRequest("Status is required");
+  }
 
-    const existingBus = await db
-        .select()
-        .from(buses)
-        .where(and(eq(buses.id, id), eq(buses.organizationId, organizationId)))
-        .limit(1);
+  if (!["active", "inactive", "maintenance"].includes(status)) {
+    throw new BadRequest(
+      "Invalid status. Must be: active, inactive, or maintenance"
+    );
+  }
 
-    if (!existingBus[0]) {
-        throw new NotFound("Bus not found");
-    }
+  const existingBus = await db
+    .select()
+    .from(buses)
+    .where(and(eq(buses.id, id), eq(buses.organizationId, organizationId)))
+    .limit(1);
 
-    await db.update(buses).set({ status }).where(eq(buses.id, id));
+  if (!existingBus[0]) {
+    throw new NotFound("Bus not found");
+  }
 
-    SuccessResponse(res, { message: `Bus status updated to ${status}` }, 200);
+  await db.update(buses).set({ status }).where(eq(buses.id, id));
+
+  SuccessResponse(res, { message: `Bus status updated to ${status}` }, 200);
 };
 
 // ✅ Get Buses By Status
 export const getBusesByStatus = async (req: Request, res: Response) => {
-    const { status } = req.params;
-    const organizationId = req.user?.organizationId;
+  const { status } = req.params;
+  const organizationId = req.user?.organizationId;
 
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
 
-    if (!["active", "inactive", "maintenance"].includes(status)) {
-        throw new BadRequest("Invalid status");
-    }
+  if (!["active", "inactive", "maintenance"].includes(status)) {
+    throw new BadRequest(
+      "Invalid status. Must be: active, inactive, or maintenance"
+    );
+  }
 
-    const filteredBuses = await db
-        .select({
-            id: buses.id,
-            busNumber: buses.busNumber,
-            plateNumber: buses.plateNumber,
-            model: buses.model,
-            color: buses.color,
-            status: buses.status,
-            busType: {
-                id: busTypes.id,
-                name: busTypes.name,
-                capacity: busTypes.capacity,
-            },
-        })
-        .from(buses)
-        .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
-        .where(
-            and(
-                eq(buses.organizationId, organizationId),
-                eq(buses.status, status as "active" | "inactive" | "maintenance")
-            )
-        );
+  const filteredBuses = await db
+    .select({
+      id: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      maxSeats: buses.maxSeats,
+      licenseImage: buses.licenseImage,
+      busImage: buses.busImage,
+      status: buses.status,
+      busType: {
+        id: busTypes.id,
+        name: busTypes.name,
+        capacity: busTypes.capacity,
+      },
+    })
+    .from(buses)
+    .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
+    .where(
+      and(
+        eq(buses.organizationId, organizationId),
+        eq(buses.status, status as "active" | "inactive" | "maintenance")
+      )
+    );
 
-    SuccessResponse(res, { buses: filteredBuses }, 200);
+  SuccessResponse(
+    res,
+    {
+      buses: filteredBuses,
+      count: filteredBuses.length,
+      status: status,
+    },
+    200
+  );
+};
+
+// ✅ Get Bus Statistics (جديد)
+export const getBusStatistics = async (req: Request, res: Response) => {
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
+
+  // عدد الباصات حسب الحالة
+  const allBuses = await db
+    .select({ status: buses.status })
+    .from(buses)
+    .where(eq(buses.organizationId, organizationId));
+
+  const stats = {
+    total: allBuses.length,
+    active: allBuses.filter((b) => b.status === "active").length,
+    inactive: allBuses.filter((b) => b.status === "inactive").length,
+    maintenance: allBuses.filter((b) => b.status === "maintenance").length,
+  };
+
+  // معلومات الاشتراك
+  const subscription = await getActiveSubscription(organizationId);
+  const subscriptionInfo = subscription
+    ? {
+        planName: subscription.plan.name,
+        maxBuses: subscription.plan.maxBuses,
+        used: stats.total,
+        remaining: subscription.plan.maxBuses
+          ? subscription.plan.maxBuses - stats.total
+          : "unlimited",
+        expiresAt: subscription.subscription.endDate,
+      }
+    : null;
+
+  SuccessResponse(
+    res,
+    {
+      statistics: stats,
+      subscription: subscriptionInfo,
+    },
+    200
+  );
 };
