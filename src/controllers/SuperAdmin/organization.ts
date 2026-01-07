@@ -3,9 +3,11 @@ import { db } from "../../models/db";
 import { SuccessResponse } from "../../utils/response";
 import { BadRequest } from "../../Errors/BadRequest";
 import { eq } from "drizzle-orm";
-import { organizations, organizationTypes } from "../../models/schema";
+import { admins, organizations, organizationTypes } from "../../models/schema";
 import { saveBase64Image } from "../../utils/handleImages";
 import { deletePhotoFromServer } from "../../utils/deleteImage";
+import bcrypt from "bcrypt";
+
 
 // ==================== Helper Functions ====================
 
@@ -89,9 +91,54 @@ export const deleteOrganizationType = async (req: Request, res: Response) => {
 
 // ==================== Organizations ====================
 
+// export const getAllOrganizations = async (req: Request, res: Response) => {
+//     const orgs = await db.query.organizations.findMany();
+//     return SuccessResponse(res, { orgs }, 200);
+// };
+
 export const getAllOrganizations = async (req: Request, res: Response) => {
-    const orgs = await db.query.organizations.findMany();
-    return SuccessResponse(res, { orgs }, 200);
+    try {
+        const orgs = await db.query.organizations.findMany({
+            // Select specific columns from the main table
+            columns: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                status: true, // Item 8: Status (active, blocked, subscribed)
+            },
+            // "Populate" related tables
+            with: {
+                // Item 2: Organization Type
+                organizationType: {
+                    columns: {
+                        name: true, // Only get the name of the type
+                    }
+                },
+                // Item 5: Buses
+                buses: true, // specific columns not needed? 'true' returns all
+                
+                // Item 7: Rides
+                rides: true,
+
+                // Item 6: Students (Uncomment when you add the relation)
+                /* students: {
+                    columns: { id: true, name: true }
+                } 
+                */
+            },
+        });
+
+        const formattedOrgs = orgs.map(org => ({
+            ...org,
+            organizationType: org.organizationType,
+        }));
+
+        return SuccessResponse(res, { orgs: formattedOrgs }, 200);
+
+    } catch (error) {
+        throw new BadRequest(`Failed to retrieve organizations: ${error}`);
+    }
 };
 
 export const getOrganizationById = async (req: Request, res: Response) => {
@@ -111,8 +158,19 @@ export const createOrganization = async (req: Request, res: Response) => {
 
     await findOrganizationType(organizationTypeId);
     const logoUrl = await validateAndSaveLogo(req, logo);
+    const existingOrg = await db.query.organizations.findFirst({
+        where: eq(organizations.email, email),
+    });
+
+    if (existingOrg) {
+        throw new BadRequest("Organization with this email already exists");
+    }
+
+    const orgId = crypto.randomUUID();
+
 
     await db.insert(organizations).values({
+        id: orgId,
         name,
         phone,
         email,
@@ -122,7 +180,27 @@ export const createOrganization = async (req: Request, res: Response) => {
         // شيلت subscriptionId: null
     });
 
-    return SuccessResponse(res, { message: "Organization created successfully" }, 201);
+    // Create the Main Admin for the organization - هنا بكريت الادمن الرئيسي للمنظمة
+    // const passwordAdmin = crypto.randomBytes(8).toString('hex'); // Generate a random password
+    const passwordAdmin = "Admin@1234";
+    const hashedPassword = await bcrypt.hash(passwordAdmin, 10);
+    const AdminName = name + " Admin";
+
+    await db.insert(admins).values({
+        organizationId: orgId,
+        name: AdminName,
+        email: email,
+        password: hashedPassword,
+        phone: phone || null,
+        avatar: logoUrl || null,
+        roleId: null,
+        type: "organizer",
+    });
+
+    return SuccessResponse(res, { message: "Organization created successfully" , adminCredentials: {
+            email: email,
+            password: passwordAdmin
+        } }, 201);
 };
 
 
