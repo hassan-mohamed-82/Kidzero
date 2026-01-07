@@ -6,7 +6,7 @@ import { subscriptions } from "../models/schema";
 import { plans } from "../models/schema";
 import { buses } from "../models/schema";
 import { drivers } from "../models/schema"; // لو عايز تستخدمه لاحقاً
-// import { students } from "../models/schema"; // لو عايز تستخدمه لاحقاً
+import { students } from "../models/schema"; // لو عايز تستخدمه لاحقاً
 import { eq, and, count,gte } from "drizzle-orm";
 interface SubscriptionWithPlan {
   subscription: typeof subscriptions.$inferSelect;
@@ -110,16 +110,16 @@ export const checkStudentLimit = async (organizationId: string): Promise<void> =
     return;
   }
 
-//   const [studentCount] = await db
-//     .select({ count: count() })
-//     .from(students)
-//     .where(eq(students.organizationId, organizationId));
+  const [studentCount] = await db
+    .select({ count: count() })
+    .from(students)
+    .where(eq(students.organizationId, organizationId));
 
-//   if (studentCount.count >= plan.maxStudents) {
-//     throw new ForbiddenError(
-//       `Student limit reached (${studentCount.count}/${plan.maxStudents}). Please upgrade your plan.`
-//     );
-//   }
+  if (studentCount.count >= plan.maxStudents) {
+    throw new ForbiddenError(
+      `Student limit reached (${studentCount.count}/${plan.maxStudents}). Please upgrade your plan.`
+    );
+  }
 };
 
 // ✅ جلب كل معلومات الاستخدام
@@ -142,10 +142,10 @@ export const getUsageInfo = async (organizationId: string) => {
     .from(drivers)
     .where(eq(drivers.organizationId, organizationId));
 
-//   const [studentCount] = await db
-//     .select({ count: count() })
-//     .from(students)
-//     .where(eq(students.organizationId, organizationId));
+  const [studentCount] = await db
+    .select({ count: count() })
+    .from(students)
+    .where(eq(students.organizationId, organizationId));
 
   return {
     plan: {
@@ -163,11 +163,11 @@ export const getUsageInfo = async (organizationId: string) => {
         max: plan.maxDrivers,
         remaining: plan.maxDrivers ? plan.maxDrivers - driverCount.count : "unlimited",
       },
-    //   students: {
-    //     used: studentCount.count,
-    //     max: plan.maxStudents,
-    //     remaining: plan.maxStudents ? plan.maxStudents - studentCount.count : "unlimited",
-    //   },
+      students: {
+        used: studentCount.count,
+        max: plan.maxStudents,
+        remaining: plan.maxStudents ? plan.maxStudents - studentCount.count : "unlimited",
+      },
     },
     subscription: {
       startDate: subscription.startDate,

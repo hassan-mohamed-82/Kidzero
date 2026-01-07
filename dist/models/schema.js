@@ -34,3 +34,6 @@ __exportStar(require("./admin/Ride"), exports);
 __exportStar(require("./admin/Notes"), exports);
 __exportStar(require("./admin/pickuppoints"), exports);
 __exportStar(require("./admin/department"), exports);
+__exportStar(require("./admin/student"), exports);
+__exportStar(require("./admin/parent"), exports);
+__exportStar(require("./admin/studentride"), exports);

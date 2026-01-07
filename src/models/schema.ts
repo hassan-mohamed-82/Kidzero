@@ -22,3 +22,6 @@ export * from "./admin/Ride";
 export * from "./admin/Notes";
 export * from "./admin/pickuppoints";
 export * from "./admin/department";
+export * from "./admin/student";
+export * from "./admin/parent";
+export * from "./admin/studentride";

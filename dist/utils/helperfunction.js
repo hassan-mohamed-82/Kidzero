@@ -8,7 +8,7 @@ const schema_1 = require("../models/schema");
 const schema_2 = require("../models/schema");
 const schema_3 = require("../models/schema");
 const schema_4 = require("../models/schema"); // لو عايز تستخدمه لاحقاً
-// import { students } from "../models/schema"; // لو عايز تستخدمه لاحقاً
+const schema_5 = require("../models/schema"); // لو عايز تستخدمه لاحقاً
 const drizzle_orm_1 = require("drizzle-orm");
 // جلب الاشتراك النشط مع الخطة
 const getActiveSubscription = async (organizationId) => {
@@ -73,15 +73,13 @@ const checkStudentLimit = async (organizationId) => {
     if (plan.maxStudents === null) {
         return;
     }
-    //   const [studentCount] = await db
-    //     .select({ count: count() })
-    //     .from(students)
-    //     .where(eq(students.organizationId, organizationId));
-    //   if (studentCount.count >= plan.maxStudents) {
-    //     throw new ForbiddenError(
-    //       `Student limit reached (${studentCount.count}/${plan.maxStudents}). Please upgrade your plan.`
-    //     );
-    //   }
+    const [studentCount] = await db_1.db
+        .select({ count: (0, drizzle_orm_1.count)() })
+        .from(schema_5.students)
+        .where((0, drizzle_orm_1.eq)(schema_5.students.organizationId, organizationId));
+    if (studentCount.count >= plan.maxStudents) {
+        throw new Errors_1.ForbiddenError(`Student limit reached (${studentCount.count}/${plan.maxStudents}). Please upgrade your plan.`);
+    }
 };
 exports.checkStudentLimit = checkStudentLimit;
 // ✅ جلب كل معلومات الاستخدام
@@ -99,10 +97,10 @@ const getUsageInfo = async (organizationId) => {
         .select({ count: (0, drizzle_orm_1.count)() })
         .from(schema_4.drivers)
         .where((0, drizzle_orm_1.eq)(schema_4.drivers.organizationId, organizationId));
-    //   const [studentCount] = await db
-    //     .select({ count: count() })
-    //     .from(students)
-    //     .where(eq(students.organizationId, organizationId));
+    const [studentCount] = await db_1.db
+        .select({ count: (0, drizzle_orm_1.count)() })
+        .from(schema_5.students)
+        .where((0, drizzle_orm_1.eq)(schema_5.students.organizationId, organizationId));
     return {
         plan: {
             id: plan.id,
@@ -119,11 +117,11 @@ const getUsageInfo = async (organizationId) => {
                 max: plan.maxDrivers,
                 remaining: plan.maxDrivers ? plan.maxDrivers - driverCount.count : "unlimited",
             },
-            //   students: {
-            //     used: studentCount.count,
-            //     max: plan.maxStudents,
-            //     remaining: plan.maxStudents ? plan.maxStudents - studentCount.count : "unlimited",
-            //   },
+            students: {
+                used: studentCount.count,
+                max: plan.maxStudents,
+                remaining: plan.maxStudents ? plan.maxStudents - studentCount.count : "unlimited",
+            },
         },
         subscription: {
             startDate: subscription.startDate,

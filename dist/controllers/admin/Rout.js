@@ -25,6 +25,15 @@ const createRoute = async (req, res) => {
         throw new BadRequest_1.BadRequest("Route with this name already exists");
     }
     const pickupPointIds = points.map((p) => p.pickupPointId);
+    const uniqueIds = [...new Set(pickupPointIds)];
+    if (uniqueIds.length !== pickupPointIds.length) {
+        throw new BadRequest_1.BadRequest("Duplicate pickup points not allowed");
+    }
+    const stopOrders = points.map((p) => p.stopOrder);
+    const uniqueOrders = [...new Set(stopOrders)];
+    if (uniqueOrders.length !== stopOrders.length) {
+        throw new BadRequest_1.BadRequest("Duplicate stop orders not allowed");
+    }
     const existingPoints = await db_1.db
         .select()
         .from(schema_1.pickupPoints)
@@ -33,20 +42,40 @@ const createRoute = async (req, res) => {
         throw new BadRequest_1.BadRequest("One or more pickup points not found");
     }
     const routeId = (0, uuid_1.v4)();
-    await db_1.db.insert(schema_1.Rout).values({
-        id: routeId,
-        organizationId,
-        name,
-        description: description || null,
-    });
-    const routePickupPointsData = points.map((point) => ({
-        routeId,
-        pickupPointId: point.pickupPointId,
-        stopOrder: point.stopOrder,
-        estimatedArrival: point.estimatedArrival || null,
-    }));
-    await db_1.db.insert(schema_1.routePickupPoints).values(routePickupPointsData);
-    (0, response_1.SuccessResponse)(res, { message: "Route created successfully", routeId }, 201);
+    // ✅ Raw SQL - MySQL هيستخدم الـ DEFAULT values
+    await db_1.db.execute((0, drizzle_orm_1.sql) `INSERT INTO routes (id, organization_id, name, description) 
+        VALUES (${routeId}, ${organizationId}, ${name}, ${description || null})`);
+    // ✅ Insert Pickup Points
+    for (const point of points) {
+        await db_1.db.execute((0, drizzle_orm_1.sql) `INSERT INTO route_pickup_points (id, route_id, pickup_point_id, stop_order) 
+          VALUES (${(0, uuid_1.v4)()}, ${routeId}, ${point.pickupPointId}, ${point.stopOrder})`);
+    }
+    // جلب الـ Route الجديد
+    const [createdRoute] = await db_1.db
+        .select()
+        .from(schema_1.Rout)
+        .where((0, drizzle_orm_1.eq)(schema_1.Rout.id, routeId))
+        .limit(1);
+    const createdPoints = await db_1.db
+        .select({
+        id: schema_1.routePickupPoints.id,
+        stopOrder: schema_1.routePickupPoints.stopOrder,
+        pickupPoint: {
+            id: schema_1.pickupPoints.id,
+            name: schema_1.pickupPoints.name,
+            address: schema_1.pickupPoints.address,
+            lat: schema_1.pickupPoints.lat,
+            lng: schema_1.pickupPoints.lng,
+        },
+    })
+        .from(schema_1.routePickupPoints)
+        .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.routePickupPoints.pickupPointId, schema_1.pickupPoints.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, routeId))
+        .orderBy(schema_1.routePickupPoints.stopOrder);
+    (0, response_1.SuccessResponse)(res, {
+        message: "Route created successfully",
+        route: { ...createdRoute, pickupPoints: createdPoints },
+    }, 201);
 };
 exports.createRoute = createRoute;
 // ✅ Get All Routes
@@ -64,7 +93,6 @@ const getAllRoutes = async (req, res) => {
             .select({
             id: schema_1.routePickupPoints.id,
             stopOrder: schema_1.routePickupPoints.stopOrder,
-            estimatedArrival: schema_1.routePickupPoints.estimatedArrival,
             pickupPoint: {
                 id: schema_1.pickupPoints.id,
                 name: schema_1.pickupPoints.name,
@@ -101,7 +129,6 @@ const getRouteById = async (req, res) => {
         .select({
         id: schema_1.routePickupPoints.id,
         stopOrder: schema_1.routePickupPoints.stopOrder,
-        estimatedArrival: schema_1.routePickupPoints.estimatedArrival,
         pickupPoint: {
             id: schema_1.pickupPoints.id,
             name: schema_1.pickupPoints.name,
@@ -143,11 +170,15 @@ const updateRoute = async (req, res) => {
             throw new BadRequest_1.BadRequest("Route with this name already exists");
         }
     }
-    await db_1.db.update(schema_1.Rout).set({
+    // ✅ Update - ده شغال عادي
+    await db_1.db
+        .update(schema_1.Rout)
+        .set({
         name: name ?? existingRoute[0].name,
         description: description !== undefined ? description : existingRoute[0].description,
         status: status ?? existingRoute[0].status,
-    }).where((0, drizzle_orm_1.eq)(schema_1.Rout.id, id));
+    })
+        .where((0, drizzle_orm_1.eq)(schema_1.Rout.id, id));
     if (points !== undefined) {
         await db_1.db.delete(schema_1.routePickupPoints).where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, id));
         if (points.length > 0) {
@@ -168,16 +199,14 @@ const updateRoute = async (req, res) => {
             if (existingPoints.length !== pickupPointIds.length) {
                 throw new BadRequest_1.BadRequest("One or more pickup points not found");
             }
-            const routePickupPointsData = points.map((point) => ({
-                routeId: id,
-                pickupPointId: point.pickupPointId,
-                stopOrder: point.stopOrder,
-                estimatedArrival: point.estimatedArrival || null,
-            }));
-            await db_1.db.insert(schema_1.routePickupPoints).values(routePickupPointsData);
+            // ✅ Raw SQL للـ INSERT
+            for (const point of points) {
+                await db_1.db.execute((0, drizzle_orm_1.sql) `INSERT INTO route_pickup_points (id, route_id, pickup_point_id, stop_order) 
+              VALUES (${(0, uuid_1.v4)()}, ${id}, ${point.pickupPointId}, ${point.stopOrder})`);
+            }
         }
     }
-    const updatedRoute = await db_1.db
+    const [updatedRoute] = await db_1.db
         .select()
         .from(schema_1.Rout)
         .where((0, drizzle_orm_1.eq)(schema_1.Rout.id, id))
@@ -186,7 +215,6 @@ const updateRoute = async (req, res) => {
         .select({
         id: schema_1.routePickupPoints.id,
         stopOrder: schema_1.routePickupPoints.stopOrder,
-        estimatedArrival: schema_1.routePickupPoints.estimatedArrival,
         pickupPoint: {
             id: schema_1.pickupPoints.id,
             name: schema_1.pickupPoints.name,
@@ -201,7 +229,7 @@ const updateRoute = async (req, res) => {
         .orderBy(schema_1.routePickupPoints.stopOrder);
     (0, response_1.SuccessResponse)(res, {
         message: "Route updated successfully",
-        route: { ...updatedRoute[0], pickupPoints: updatedPoints },
+        route: { ...updatedRoute, pickupPoints: updatedPoints },
     }, 200);
 };
 exports.updateRoute = updateRoute;

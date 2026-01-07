@@ -1,0 +1,14 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const student_1 = require("../../controllers/admin/student");
+const catchAsync_1 = require("../../utils/catchAsync");
+const validation_1 = require("../../middlewares/validation");
+const student_2 = require("../../validators/admin/student");
+const router = (0, express_1.Router)();
+router.get("/", (0, catchAsync_1.catchAsync)(student_1.getAllStudents));
+router.post("/", (0, validation_1.validate)(student_2.createStudentSchema), (0, catchAsync_1.catchAsync)(student_1.createStudent));
+router.get("/:id", (0, catchAsync_1.catchAsync)(student_1.getStudentById));
+router.delete("/:id", (0, catchAsync_1.catchAsync)(student_1.deleteStudent));
+router.put("/:id", (0, validation_1.validate)(student_2.updateStudentSchema), (0, catchAsync_1.catchAsync)(student_1.updateStudent));
+exports.default = router;
