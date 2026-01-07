@@ -9,10 +9,11 @@ import {
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 import { parents } from "./parent";
+import { organizations } from "../schema";
 
 export const students = mysqlTable("students", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
-  organizationId: char("organization_id", { length: 36 }).notNull(),
+  organizationId: char("organization_id", { length: 36 }).notNull().references(() => organizations.id),
   parentId: char("parent_id", { length: 36 }).notNull().references(() => parents.id),
 
   name: varchar("name", { length: 255 }).notNull(),

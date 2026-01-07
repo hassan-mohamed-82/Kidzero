@@ -60,7 +60,7 @@ export const getOrganizationTypeById = async (req: Request, res: Response) => {
 export const createOrganizationType = async (req: Request, res: Response) => {
     const { name } = req.body;
     if (!name) throw new BadRequest("Organization type name is required");
-    
+
     await db.insert(organizationTypes).values({ name });
     return SuccessResponse(res, { message: "Organization type created successfully" }, 201);
 };
@@ -68,20 +68,20 @@ export const createOrganizationType = async (req: Request, res: Response) => {
 export const updateOrganizationType = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { name } = req.body;
-    
+
     requireId(id, "Organization type");
     const orgType = await findOrganizationType(id);
 
     await db.update(organizationTypes)
         .set({ name: name || orgType.name })
         .where(eq(organizationTypes.id, id));
-    
+
     return SuccessResponse(res, { message: "Organization type updated successfully" }, 200);
 };
 
 export const deleteOrganizationType = async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     requireId(id, "Organization type");
     await findOrganizationType(id);
 
@@ -117,15 +117,14 @@ export const getAllOrganizations = async (req: Request, res: Response) => {
                 },
                 // Item 5: Buses
                 buses: true, // specific columns not needed? 'true' returns all
-                
+
                 // Item 7: Rides
                 rides: true,
 
-                // Item 6: Students (Uncomment when you add the relation)
-                /* students: {
+                // Item 6: Students
+                students: {
                     columns: { id: true, name: true }
-                } 
-                */
+                }
             },
         });
 
@@ -144,7 +143,7 @@ export const getAllOrganizations = async (req: Request, res: Response) => {
 export const getOrganizationById = async (req: Request, res: Response) => {
     const { id } = req.params;
     requireId(id, "Organization");
-    
+
     const org = await findOrganization(id);
     return SuccessResponse(res, { org }, 200);
 };
@@ -197,10 +196,12 @@ export const createOrganization = async (req: Request, res: Response) => {
         type: "organizer",
     });
 
-    return SuccessResponse(res, { message: "Organization created successfully" , adminCredentials: {
+    return SuccessResponse(res, {
+        message: "Organization created successfully", adminCredentials: {
             email: email,
             password: passwordAdmin
-        } }, 201);
+        }
+    }, 201);
 };
 
 
@@ -235,7 +236,7 @@ export const updateOrganization = async (req: Request, res: Response) => {
 
 export const deleteOrganization = async (req: Request, res: Response) => {
     const { id } = req.params;
-    
+
     requireId(id, "Organization");
     const org = await findOrganization(id);
 

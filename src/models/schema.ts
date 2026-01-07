@@ -7,7 +7,7 @@ export * from "./superadmin/plan"
 export * from "./superadmin/payment"
 export * from "./superadmin/Bustype";
 export * from "./superadmin/promocodes";
-
+export * from "./superadmin/paymentMethod";
 
 // Admin Models
 // src/models/schema/index.ts
@@ -25,3 +25,6 @@ export * from "./admin/department";
 export * from "./admin/student";
 export * from "./admin/parent";
 export * from "./admin/studentride";
+
+// Relations
+export * from "./relations/OrganizationRelations";

@@ -1,6 +1,6 @@
 import { relations } from "drizzle-orm";
-import { organizations, organizationTypes, buses, rides } from "../schema";
-// import { students } from "./student";
+import { organizations, organizationTypes, buses, rides ,students } from "../schema";
+
 
 // 1. Organization Relations
 export const organizationRelations = relations(organizations, ({ one, many }) => ({
@@ -14,7 +14,7 @@ export const organizationRelations = relations(organizations, ({ one, many }) =>
   // An organization "has many" rides
   rides: many(rides),
   // An organization "has many" students (Assuming you have a students table)
-  // students: many(students), 
+  students: many(students), 
 }));
 
 // 2. Organization Type Relations (Inverse)
