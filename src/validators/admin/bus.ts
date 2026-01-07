@@ -4,30 +4,52 @@ import { z } from "zod";
 
 export const createBusSchema = z.object({
     body: z.object({
+        // Bus Type - نوع الباص (من القائمة)
         busTypeId: z
             .string({ required_error: "Bus Type ID is required" })
             .uuid("Invalid Bus Type ID"),
-        busNumber: z
-            .string({ required_error: "Bus Number is required" })
-            .min(1, "Bus Number cannot be empty")
-            .max(50, "Bus Number cannot exceed 50 characters"),
+
+        // Plate number - رقم اللوحة
         plateNumber: z
             .string({ required_error: "Plate Number is required" })
             .min(1, "Plate Number cannot be empty")
             .max(20, "Plate Number cannot exceed 20 characters"),
-        model: z
+
+        // Bus number - رقم الباص
+        busNumber: z
+            .string({ required_error: "Bus Number is required" })
+            .min(1, "Bus Number cannot be empty")
+            .max(50, "Bus Number cannot exceed 50 characters"),
+
+        // Max number of seats - عدد المقاعد
+        maxSeats: z
+            .number({ required_error: "Max seats is required" })
+            .int("Max seats must be an integer")
+            .min(1, "Max seats must be at least 1")
+            .max(100, "Max seats cannot exceed 100"),
+
+        // License number - رقم الرخصة
+        licenseNumber: z
             .string()
-            .max(100, "Model cannot exceed 100 characters")
+            .max(50, "License Number cannot exceed 50 characters")
             .optional(),
-        color: z
+
+        // License end date - تاريخ انتهاء الرخصة
+        licenseExpiryDate: z
             .string()
-            .max(50, "Color cannot exceed 50 characters")
+            .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)")
             .optional(),
-        year: z
-            .number()
-            .int("Year must be an integer")
-            .min(1900, "Year must be at least 1900")
-            .max(new Date().getFullYear() + 1, "Year cannot be in the future")
+
+        // Upload license photo - صورة الرخصة
+        licenseImage: z
+            .string()
+            .url("License image must be a valid URL")
+            .optional(),
+
+        // Upload Bus photo - صورة الباص
+        busImage: z
+            .string()
+            .url("Bus image must be a valid URL")
             .optional(),
     }),
 });
@@ -41,33 +63,50 @@ export const updateBusSchema = z.object({
             .string()
             .uuid("Invalid Bus Type ID")
             .optional(),
-        busNumber: z
-            .string()
-            .min(1, "Bus Number cannot be empty")
-            .max(50, "Bus Number cannot exceed 50 characters")
-            .optional(),
+
         plateNumber: z
             .string()
             .min(1, "Plate Number cannot be empty")
             .max(20, "Plate Number cannot exceed 20 characters")
             .optional(),
-        model: z
+
+        busNumber: z
             .string()
-            .max(100, "Model cannot exceed 100 characters")
-            .optional()
-            .nullable(),
-        color: z
-            .string()
-            .max(50, "Color cannot exceed 50 characters")
-            .optional()
-            .nullable(),
-        year: z
+            .min(1, "Bus Number cannot be empty")
+            .max(50, "Bus Number cannot exceed 50 characters")
+            .optional(),
+
+        maxSeats: z
             .number()
-            .int("Year must be an integer")
-            .min(1900, "Year must be at least 1900")
-            .max(new Date().getFullYear() + 1, "Year cannot be in the future")
+            .int("Max seats must be an integer")
+            .min(1, "Max seats must be at least 1")
+            .max(100, "Max seats cannot exceed 100")
+            .optional(),
+
+        licenseNumber: z
+            .string()
+            .max(50, "License Number cannot exceed 50 characters")
             .optional()
             .nullable(),
+
+        licenseExpiryDate: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)")
+            .optional()
+            .nullable(),
+
+        licenseImage: z
+            .string()
+            .url("License image must be a valid URL")
+            .optional()
+            .nullable(),
+
+        busImage: z
+            .string()
+            .url("Bus image must be a valid URL")
+            .optional()
+            .nullable(),
+
         status: z
             .enum(["active", "inactive", "maintenance"])
             .optional(),

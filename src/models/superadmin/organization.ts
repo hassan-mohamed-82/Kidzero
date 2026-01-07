@@ -17,7 +17,6 @@ export const organizationTypes = mysqlTable("organization_types", {
 export const organizations = mysqlTable("organizations", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   organizationTypeId: char("organization_type_id", { length: 36 }).notNull().references(() => organizationTypes.id),
-  subscriptionId: char("subscription_id").references(() => subscriptions.id),
 
   name: varchar("name", { length: 255 }).notNull(),
   address: text("address"),
