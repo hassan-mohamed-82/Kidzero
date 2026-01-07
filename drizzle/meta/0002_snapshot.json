@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "84123c6b-a0a7-4c6b-92b7-f97899b7e450",
-  "prevId": "bb42c019-4dce-40b5-a018-effc9e58331f",
+  "id": "cedeae78-5b0b-46d2-8e1a-4feac51ae416",
+  "prevId": "b5a7ede4-059e-422a-820b-d3787b7dc339",
   "tables": {
     "super_admins": {
       "name": "super_admins",
@@ -79,10 +79,11 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "int",
+          "type": "char(36)",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": true
+          "autoincrement": false,
+          "default": "(UUID())"
         },
         "name": {
           "name": "name",
@@ -142,17 +143,18 @@
         },
         "organization_type_id": {
           "name": "organization_type_id",
-          "type": "int",
+          "type": "char(36)",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "subscription_id": {
-          "name": "subscription_id",
-          "type": "char",
+        "status": {
+          "name": "status",
+          "type": "enum('active','blocked','subscribed')",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": "'active'"
         },
         "name": {
           "name": "name",
@@ -165,23 +167,29 @@
           "name": "address",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         },
         "logo": {
           "name": "logo",
           "type": "varchar(500)",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": true
         },
         "created_at": {
           "name": "created_at",
@@ -215,19 +223,6 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
-        },
-        "organizations_subscription_id_subscriptions_id_fk": {
-          "name": "organizations_subscription_id_subscriptions_id_fk",
-          "tableFrom": "organizations",
-          "tableTo": "subscriptions",
-          "columnsFrom": [
-            "subscription_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -238,7 +233,20 @@
           ]
         }
       },
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "organizations_phone_unique": {
+          "name": "organizations_phone_unique",
+          "columns": [
+            "phone"
+          ]
+        },
+        "organizations_email_unique": {
+          "name": "organizations_email_unique",
+          "columns": [
+            "email"
+          ]
+        }
+      },
       "checkConstraint": {}
     },
     "subscriptions": {
@@ -254,6 +262,13 @@
         },
         "plan_id": {
           "name": "plan_id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "organization_id": {
+          "name": "organization_id",
           "type": "char(36)",
           "primaryKey": false,
           "notNull": true,
@@ -297,6 +312,19 @@
           "tableTo": "plan",
           "columnsFrom": [
             "plan_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "subscriptions_organization_id_organizations_id_fk": {
+          "name": "subscriptions_organization_id_organizations_id_fk",
+          "tableFrom": "subscriptions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
           ],
           "columnsTo": [
             "id"
@@ -980,13 +1008,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "bus_number": {
-          "name": "bus_number",
-          "type": "varchar(50)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "plate_number": {
           "name": "plate_number",
           "type": "varchar(20)",
@@ -994,23 +1015,44 @@
           "notNull": true,
           "autoincrement": false
         },
-        "model": {
-          "name": "model",
-          "type": "varchar(100)",
+        "bus_number": {
+          "name": "bus_number",
+          "type": "varchar(50)",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "color": {
-          "name": "color",
+        "max_seats": {
+          "name": "max_seats",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "license_number": {
+          "name": "license_number",
           "type": "varchar(50)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "year": {
-          "name": "year",
-          "type": "int",
+        "license_expiry_date": {
+          "name": "license_expiry_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "license_image": {
+          "name": "license_image",
+          "type": "varchar(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bus_image": {
+          "name": "bus_image",
+          "type": "varchar(500)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
@@ -1084,13 +1126,6 @@
           "type": "char(36)",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "bus_id": {
-          "name": "bus_id",
-          "type": "char",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "name": {
@@ -1176,21 +1211,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "drivers_bus_id_buses_id_fk": {
-          "name": "drivers_bus_id_buses_id_fk",
-          "tableFrom": "drivers",
-          "tableTo": "buses",
-          "columnsFrom": [
-            "bus_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {
         "drivers_id": {
           "name": "drivers_id",
@@ -1218,13 +1239,6 @@
           "type": "char(36)",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "bus_id": {
-          "name": "bus_id",
-          "type": "char",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "name": {
@@ -1296,21 +1310,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "codrivers_bus_id_buses_id_fk": {
-          "name": "codrivers_bus_id_buses_id_fk",
-          "tableFrom": "codrivers",
-          "tableTo": "buses",
-          "columnsFrom": [
-            "bus_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {
         "codrivers_id": {
           "name": "codrivers_id",
@@ -1354,20 +1354,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "start_time": {
-          "name": "start_time",
-          "type": "time",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "end_time": {
-          "name": "end_time",
-          "type": "time",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "status": {
           "name": "status",
           "type": "enum('active','inactive')",
@@ -1395,7 +1381,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "routes_organization_id_organizations_id_fk": {
+          "name": "routes_organization_id_organizations_id_fk",
+          "tableFrom": "routes",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
         "routes_id": {
           "name": "routes_id",
@@ -1618,6 +1618,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "rides_organization_id_organizations_id_fk": {
+          "name": "rides_organization_id_organizations_id_fk",
+          "tableFrom": "rides",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "rides_bus_id_buses_id_fk": {
           "name": "rides_bus_id_buses_id_fk",
           "tableFrom": "rides",
@@ -1887,6 +1900,45 @@
       "compositePrimaryKeys": {
         "pickup_points_id": {
           "name": "pickup_points_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
+    "departments": {
+      "name": "departments",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(UUID())"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "char(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "departments_id": {
+          "name": "departments_id",
           "columns": [
             "id"
           ]

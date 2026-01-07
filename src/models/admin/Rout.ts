@@ -12,16 +12,15 @@ import {
 } from "drizzle-orm/mysql-core";
 import { pickupPoints } from "./pickuppoints";
 import { sql } from "drizzle-orm";
+import { organizations } from "../schema";
 
 export const Rout = mysqlTable("routes", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
-  organizationId: char("organization_id", { length: 36 }).notNull(),
+  organizationId: char("organization_id", { length: 36 }).notNull().references(()=> organizations.id),
 
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
 
-  startTime: time("start_time"),
-  endTime: time("end_time"),
 
   status: mysqlEnum("status", ["active", "inactive"]).default("active"),
   createdAt: timestamp("created_at").defaultNow(),

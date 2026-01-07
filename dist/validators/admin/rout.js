@@ -17,14 +17,6 @@ exports.createRouteSchema = zod_1.z.object({
             .string()
             .optional()
             .nullable(),
-        startTime: zod_1.z
-            .string()
-            .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format (HH:MM or HH:MM:SS)")
-            .optional(),
-        endTime: zod_1.z
-            .string()
-            .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format (HH:MM or HH:MM:SS)")
-            .optional(),
         pickupPoints: zod_1.z
             .array(pickupPointSchema)
             .min(1, "At least one pickup point is required"),
@@ -42,16 +34,6 @@ exports.updateRouteSchema = zod_1.z.object({
             .optional(),
         description: zod_1.z
             .string()
-            .optional()
-            .nullable(),
-        startTime: zod_1.z
-            .string()
-            .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format")
-            .optional()
-            .nullable(),
-        endTime: zod_1.z
-            .string()
-            .regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, "Invalid time format")
             .optional()
             .nullable(),
         pickupPoints: zod_1.z
