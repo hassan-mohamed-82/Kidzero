@@ -8,7 +8,7 @@ import { authenticated } from "../../middlewares/authenticated";
 import organizationRoute from "./organization";
 import profileRoute from "./profile";
 import paymentMethodRoute from "./paymentMethod";
-
+import subscriptionRoute from "./subscription";
 const route = Router();
 route.use("/auth", superAdminAuthRoute);
 route.use(authenticated,authorizeRoles("superadmin"));
@@ -18,5 +18,5 @@ route.use("/bustypes", busTypeRoute);
 route.use("/organizations", organizationRoute);
 route.use("/profile", profileRoute);
 route.use("/paymentmethods", paymentMethodRoute);
-
+route.use("/subscriptions", subscriptionRoute);
 export default route;                           

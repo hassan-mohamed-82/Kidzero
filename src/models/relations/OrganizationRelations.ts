@@ -37,3 +37,10 @@ export const rideRelations = relations(rides, ({ one }) => ({
     references: [organizations.id],
   }),
 }));
+
+export const studentRelations = relations(students, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [students.organizationId],
+    references: [organizations.id],
+  }),
+}));
