@@ -11,4 +11,6 @@ export const subscriptions = mysqlTable("subscriptions", {
     endDate: timestamp("end_date").notNull(),
     paymentId: char("payment_id", { length: 36 }).notNull().references(() => payment.id),
     isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
