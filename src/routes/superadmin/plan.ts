@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllPlans, getPlanbyId, deletePlanById, createPlan, updatePlan } from "../../controllers/superadmin/plan";
+import { getAllPlans, getPlanbyId, deletePlanById, createPlan, updatePlan } from "../../controllers/Superadmin/plan";
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
 import { createPlanSchema } from "../../validators/superadmin/plan";

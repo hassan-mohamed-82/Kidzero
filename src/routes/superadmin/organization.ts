@@ -11,7 +11,7 @@ import {
     createOrganization,
     updateOrganization,
     deleteOrganization
-} from "../../controllers/superadmin/organization";
+} from "../../controllers/Superadmin/organization";
 import {catchAsync} from "../../utils/catchAsync";
 const router = Router();
 

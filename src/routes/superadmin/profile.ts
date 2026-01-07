@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getProfile , updateProfile , changePassword } from "../../controllers/superadmin/profile";
+import { getProfile , updateProfile , changePassword } from "../../controllers/Superadmin/profile";
 import { catchAsync } from "../../utils/catchAsync";
 const router = Router();
 

@@ -3,9 +3,11 @@ import { db } from "../../models/db";
 import { SuccessResponse } from "../../utils/response";
 import { BadRequest } from "../../Errors/BadRequest";
 import { eq } from "drizzle-orm";
-import { organizations, organizationTypes } from "../../models/schema";
+import { admins, organizations, organizationTypes } from "../../models/schema";
 import { saveBase64Image } from "../../utils/handleImages";
 import { deletePhotoFromServer } from "../../utils/deleteImage";
+import bcrypt from "bcrypt";
+
 // Organization Types
 export const getAllOrganizationTypes = async (req: Request, res: Response) => {
     const orgTypes = await db.query.organizationTypes.findMany();
@@ -137,8 +139,28 @@ export const createOrganization = async (req: Request, res: Response) => {
         logo: logoUrl,
     });
 
+    // Create the Main Admin for the organization - هنا بكريت الادمن الرئيسي للمنظمة
+    // const passwordAdmin = crypto.randomBytes(8).toString('hex'); // Generate a random password
+    const passwordAdmin = "Admin@1234";
+    const hashedPassword = await bcrypt.hash(passwordAdmin, 10);
+    const AdminName = name + " Admin";
+
+    await db.insert(admins).values({
+        organizationId: orgId,
+        name: AdminName,
+        email: email,
+        password: hashedPassword,
+        phone: phone || null,
+        avatar: logoUrl || null,
+        roleId: null,
+        type: "organizer",
+    });
+
     return SuccessResponse(res, {
-        message: "Organization created successfully"
+        message: "Organization created successfully" , adminCredentials: {
+            email: email,
+            password: passwordAdmin
+        }
     }, 201);
 };
 

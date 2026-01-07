@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllBusTypes, getBusTypeById, createBusType, updateBusType , deleteBusType } from "../../controllers/superadmin/busTypes";
+import { getAllBusTypes, getBusTypeById, createBusType, updateBusType , deleteBusType } from "../../controllers/Superadmin/busTypes";
 import { validate } from "../../middlewares/validation";
 import { createBusTypeSchema, updateBusTypeSchema } from "../../validators/superadmin/busTypes";
 import { catchAsync } from "../../utils/catchAsync";

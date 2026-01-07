@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createPromoCode, getAllPromoCodes, getPromocodeById, updatePromoCodeById, deletePromoCodeById } from "../../controllers/superadmin/promocodes";
+import { createPromoCode, getAllPromoCodes, getPromocodeById, updatePromoCodeById, deletePromoCodeById } from "../../controllers/Superadmin/promocodes";
 import { validate } from "../../middlewares/validation";
 import { createPromoCodeSchema, updatePromoCodeSchema ,} from "../../validators/superadmin/promocodes";
 import { catchAsync } from "../../utils/catchAsync";
