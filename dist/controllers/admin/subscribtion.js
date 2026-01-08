@@ -1,13 +1,16 @@
 "use strict";
 // src/controllers/admin/subscriptionController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSubscriptionById = exports.getMySubscriptions = void 0;
+exports.getPaymentMethods = exports.getAvailablePlans = exports.upgradeSubscription = exports.renewSubscription = exports.subscribe = exports.getSubscriptionById = exports.getMySubscriptions = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
 const response_1 = require("../../utils/response");
 const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
+const drizzle_orm_2 = require("drizzle-orm");
+const uuid_1 = require("uuid");
+const handleImages_1 = require("../../utils/handleImages");
 // ✅ Get My Subscriptions (Active & Inactive)
 const getMySubscriptions = async (req, res) => {
     const organizationId = req.user?.organizationId;
@@ -35,15 +38,33 @@ const getMySubscriptions = async (req, res) => {
             id: schema_1.payment.id,
             amount: schema_1.payment.amount,
             status: schema_1.payment.status,
+            receiptImage: schema_1.payment.receiptImage,
+            rejectedReason: schema_1.payment.rejectedReason,
         },
     })
         .from(schema_1.subscriptions)
         .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_1.plans.id))
         .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
         .where((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId))
-        .orderBy((0, drizzle_orm_1.desc)(schema_1.subscriptions.startDate));
-    const active = allSubscriptions.filter((sub) => sub.isActive && new Date(sub.endDate) >= now);
-    const inactive = allSubscriptions.filter((sub) => !sub.isActive || new Date(sub.endDate) < now);
+        .orderBy((0, drizzle_orm_1.desc)(schema_1.subscriptions.createdAt));
+    // Active: payment completed, isActive = true, not expired
+    const active = allSubscriptions.filter((sub) => sub.payment?.status === "completed" &&
+        sub.isActive &&
+        new Date(sub.endDate) >= now);
+    // Pending: payment status is pending
+    const pending = allSubscriptions.filter((sub) => sub.payment?.status === "pending");
+    // Rejected: payment status is rejected
+    const rejected = allSubscriptions.filter((sub) => sub.payment?.status === "rejected");
+    // Expired: payment completed but endDate < now
+    const expired = allSubscriptions.filter((sub) => sub.payment?.status === "completed" && new Date(sub.endDate) < now);
+    // // Cancelled: payment completed, isActive = false, not expired
+    // const cancelled = allSubscriptions.filter(
+    //   (sub) =>
+    //     sub.payment?.status === "completed" &&
+    //     !sub.isActive &&
+    //     new Date(sub.endDate) >= now
+    // );
+    // Add daysRemaining for active subscriptions
     const activeWithInfo = active.map((sub) => {
         const daysRemaining = Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
         return {
@@ -52,25 +73,39 @@ const getMySubscriptions = async (req, res) => {
             isExpiringSoon: daysRemaining <= 7,
         };
     });
+    // Add daysUntilStart for pending subscriptions
+    const pendingWithInfo = pending.map((sub) => {
+        const daysUntilStart = Math.ceil((new Date(sub.startDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+            ...sub,
+            daysUntilStart: daysUntilStart > 0 ? daysUntilStart : 0,
+        };
+    });
     (0, response_1.SuccessResponse)(res, {
         active: activeWithInfo,
-        inactive: inactive,
+        pending: pendingWithInfo,
+        rejected,
+        expired,
+        //cancelled,
         summary: {
             totalActive: active.length,
-            totalInactive: inactive.length,
+            totalPending: pending.length,
+            totalRejected: rejected.length,
+            totalExpired: expired.length,
+            //totalCancelled: cancelled.length,
             total: allSubscriptions.length,
         },
     }, 200);
 };
 exports.getMySubscriptions = getMySubscriptions;
-// ✅ Get Subscription By ID
+// ✅ Subscribe (اشتراك جديد)
 const getSubscriptionById = async (req, res) => {
     const { id } = req.params;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const [subscription] = await db_1.db
+    const subscription = await db_1.db
         .select({
         id: schema_1.subscriptions.id,
         startDate: schema_1.subscriptions.startDate,
@@ -91,6 +126,8 @@ const getSubscriptionById = async (req, res) => {
             id: schema_1.payment.id,
             amount: schema_1.payment.amount,
             status: schema_1.payment.status,
+            receiptImage: schema_1.payment.receiptImage,
+            rejectedReason: schema_1.payment.rejectedReason,
         },
     })
         .from(schema_1.subscriptions)
@@ -98,9 +135,396 @@ const getSubscriptionById = async (req, res) => {
         .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.id, id), (0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId)))
         .limit(1);
-    if (!subscription) {
+    if (!subscription || subscription.length === 0) {
         throw new NotFound_1.NotFound("Subscription not found");
     }
-    (0, response_1.SuccessResponse)(res, { subscription }, 200);
+    const sub = subscription[0];
+    const now = new Date();
+    const daysRemaining = Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    (0, response_1.SuccessResponse)(res, {
+        subscription: {
+            ...sub,
+            daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
+            isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0,
+            isExpired: daysRemaining <= 0,
+        },
+    }, 200);
 };
 exports.getSubscriptionById = getSubscriptionById;
+// ==================== SUBSCRIPTION ACTIONS ====================
+/**
+ * Subscribe to a new plan
+ */
+const subscribe = async (req, res) => {
+    const { planId, duration, paymentMethodId, receiptImage } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    if (!planId || !duration || !paymentMethodId) {
+        throw new BadRequest_1.BadRequest("planId, duration, and paymentMethodId are required");
+    }
+    if (!["semester", "year"].includes(duration)) {
+        throw new BadRequest_1.BadRequest("Duration must be 'semester' or 'year'");
+    }
+    // Check for existing active subscription
+    const existingActive = await db_1.db
+        .select({ id: schema_1.subscriptions.id })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true), (0, drizzle_orm_1.eq)(schema_1.payment.status, "completed"), (0, drizzle_orm_1.gte)(schema_1.subscriptions.endDate, new Date())))
+        .limit(1);
+    if (existingActive && existingActive.length > 0) {
+        throw new BadRequest_1.BadRequest("You already have an active subscription. Use renew or upgrade instead.");
+    }
+    // Check for existing pending request
+    const existingPending = await db_1.db
+        .select({ id: schema_1.subscriptions.id })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.payment.status, "pending")))
+        .limit(1);
+    if (existingPending && existingPending.length > 0) {
+        throw new BadRequest_1.BadRequest("You already have a pending subscription request. Please wait for approval or cancel it first.");
+    }
+    // Get plan details
+    const planResult = await db_1.db
+        .select()
+        .from(schema_1.plans)
+        .where((0, drizzle_orm_1.eq)(schema_1.plans.id, planId))
+        .limit(1);
+    if (!planResult || planResult.length === 0) {
+        throw new NotFound_1.NotFound("Plan not found");
+    }
+    const plan = planResult[0];
+    // Get payment method details
+    const payMethodResult = await db_1.db
+        .select()
+        .from(schema_1.paymentMethod)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId), (0, drizzle_orm_1.eq)(schema_1.paymentMethod.isActive, true)))
+        .limit(1);
+    if (!payMethodResult || payMethodResult.length === 0) {
+        throw new NotFound_1.NotFound("Payment method not found or inactive");
+    }
+    const payMethod = payMethodResult[0];
+    // Calculate amount
+    const baseAmount = duration === "semester" ? plan.price_semester : plan.price_year;
+    const fee = payMethod.feeStatus ? payMethod.feeAmount : 0;
+    const totalAmount = baseAmount + fee;
+    // Calculate dates
+    const startDate = new Date();
+    const endDate = new Date();
+    const monthsToAdd = duration === "semester" ? 6 : 12;
+    endDate.setMonth(endDate.getMonth() + monthsToAdd);
+    // Save receipt image if provided
+    let receiptImageUrl = null;
+    if (receiptImage) {
+        const savedImage = await (0, handleImages_1.saveBase64Image)(req, receiptImage, "payments/receipts");
+        receiptImageUrl = savedImage.url;
+    }
+    // Create payment
+    const paymentId = (0, uuid_1.v4)();
+    await db_1.db.execute((0, drizzle_orm_2.sql) `INSERT INTO payments (id, organization_id, plan_id, payment_method_id, amount, receipt_image, status)
+        VALUES (${paymentId}, ${organizationId}, ${planId}, ${paymentMethodId}, ${totalAmount}, ${receiptImageUrl}, 'pending')`);
+    // Create subscription
+    const subscriptionId = (0, uuid_1.v4)();
+    await db_1.db.execute((0, drizzle_orm_2.sql) `INSERT INTO subscriptions (id, plan_id, organization_id, start_date, end_date, payment_id, is_active)
+        VALUES (${subscriptionId}, ${planId}, ${organizationId}, ${startDate}, ${endDate}, ${paymentId}, false)`);
+    // Fetch created subscription with details
+    const createdSubscription = await db_1.db
+        .select({
+        id: schema_1.subscriptions.id,
+        startDate: schema_1.subscriptions.startDate,
+        endDate: schema_1.subscriptions.endDate,
+        isActive: schema_1.subscriptions.isActive,
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+        },
+        payment: {
+            id: schema_1.payment.id,
+            amount: schema_1.payment.amount,
+            status: schema_1.payment.status,
+            receiptImage: schema_1.payment.receiptImage,
+        },
+    })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_1.plans.id))
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.subscriptions.id, subscriptionId))
+        .limit(1);
+    (0, response_1.SuccessResponse)(res, {
+        message: "Subscription request submitted. Waiting for admin approval.",
+        subscription: createdSubscription[0],
+        duration,
+        daysUntilStart: 0,
+    }, 201);
+};
+exports.subscribe = subscribe;
+/**
+ * Renew current subscription
+ */
+const renewSubscription = async (req, res) => {
+    const { duration, paymentMethodId, receiptImage } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    if (!duration || !paymentMethodId) {
+        throw new BadRequest_1.BadRequest("duration and paymentMethodId are required");
+    }
+    if (!["semester", "year"].includes(duration)) {
+        throw new BadRequest_1.BadRequest("Duration must be 'semester' or 'year'");
+    }
+    // Get current active subscription
+    const activeSubscription = await db_1.db
+        .select({
+        id: schema_1.subscriptions.id,
+        planId: schema_1.subscriptions.planId,
+        endDate: schema_1.subscriptions.endDate,
+    })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true), (0, drizzle_orm_1.eq)(schema_1.payment.status, "completed"), (0, drizzle_orm_1.gte)(schema_1.subscriptions.endDate, new Date())))
+        .limit(1);
+    if (!activeSubscription || activeSubscription.length === 0) {
+        throw new NotFound_1.NotFound("No active subscription to renew");
+    }
+    const currentSub = activeSubscription[0];
+    // Check for existing pending renewal
+    const existingPending = await db_1.db
+        .select({ id: schema_1.subscriptions.id })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.payment.status, "pending")))
+        .limit(1);
+    if (existingPending && existingPending.length > 0) {
+        throw new BadRequest_1.BadRequest("You already have a pending request. Please wait for approval.");
+    }
+    // Get plan details
+    const planResult = await db_1.db
+        .select()
+        .from(schema_1.plans)
+        .where((0, drizzle_orm_1.eq)(schema_1.plans.id, currentSub.planId))
+        .limit(1);
+    if (!planResult || planResult.length === 0) {
+        throw new NotFound_1.NotFound("Plan not found");
+    }
+    const plan = planResult[0];
+    // Get payment method
+    const payMethodResult = await db_1.db
+        .select()
+        .from(schema_1.paymentMethod)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId), (0, drizzle_orm_1.eq)(schema_1.paymentMethod.isActive, true)))
+        .limit(1);
+    if (!payMethodResult || payMethodResult.length === 0) {
+        throw new NotFound_1.NotFound("Payment method not found or inactive");
+    }
+    const payMethod = payMethodResult[0];
+    // Calculate amount
+    const baseAmount = duration === "semester" ? plan.price_semester : plan.price_year;
+    const fee = payMethod.feeStatus ? payMethod.feeAmount : 0;
+    const totalAmount = baseAmount + fee;
+    // Calculate new dates (starts from current subscription end date)
+    const startDate = new Date(currentSub.endDate);
+    const endDate = new Date(currentSub.endDate);
+    const monthsToAdd = duration === "semester" ? 6 : 12;
+    endDate.setMonth(endDate.getMonth() + monthsToAdd);
+    // Save receipt image if provided
+    let receiptImageUrl = null;
+    if (receiptImage) {
+        const savedImage = await (0, handleImages_1.saveBase64Image)(req, receiptImage, "payments/receipts");
+        receiptImageUrl = savedImage.url;
+    }
+    // Create payment
+    const paymentId = (0, uuid_1.v4)();
+    await db_1.db.execute((0, drizzle_orm_2.sql) `INSERT INTO payments (id, organization_id, plan_id, payment_method_id, amount, receipt_image, status)
+        VALUES (${paymentId}, ${organizationId}, ${currentSub.planId}, ${paymentMethodId}, ${totalAmount}, ${receiptImageUrl}, 'pending')`);
+    // Create renewal subscription
+    const subscriptionId = (0, uuid_1.v4)();
+    await db_1.db.execute((0, drizzle_orm_2.sql) `INSERT INTO subscriptions (id, plan_id, organization_id, start_date, end_date, payment_id, is_active)
+        VALUES (${subscriptionId}, ${currentSub.planId}, ${organizationId}, ${startDate}, ${endDate}, ${paymentId}, false)`);
+    // Fetch created subscription
+    const renewedSubscription = await db_1.db
+        .select({
+        id: schema_1.subscriptions.id,
+        startDate: schema_1.subscriptions.startDate,
+        endDate: schema_1.subscriptions.endDate,
+        isActive: schema_1.subscriptions.isActive,
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+        },
+        payment: {
+            id: schema_1.payment.id,
+            amount: schema_1.payment.amount,
+            status: schema_1.payment.status,
+            receiptImage: schema_1.payment.receiptImage,
+        },
+    })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_1.plans.id))
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.subscriptions.id, subscriptionId))
+        .limit(1);
+    const addedDays = duration === "semester" ? 180 : 365;
+    (0, response_1.SuccessResponse)(res, {
+        message: "Renewal request submitted. Waiting for admin approval.",
+        currentSubscription: {
+            id: currentSub.id,
+            endDate: currentSub.endDate,
+        },
+        renewalSubscription: {
+            ...renewedSubscription[0],
+            addedDays,
+        },
+    }, 201);
+};
+exports.renewSubscription = renewSubscription;
+/**
+ * Upgrade to a new plan
+ */
+const upgradeSubscription = async (req, res) => {
+    const { newPlanId, paymentMethodId, receiptImage } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    if (!newPlanId || !paymentMethodId) {
+        throw new BadRequest_1.BadRequest("newPlanId and paymentMethodId are required");
+    }
+    // Get current active subscription
+    const activeSubscription = await db_1.db
+        .select({
+        id: schema_1.subscriptions.id,
+        planId: schema_1.subscriptions.planId,
+        startDate: schema_1.subscriptions.startDate,
+        endDate: schema_1.subscriptions.endDate,
+    })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true), (0, drizzle_orm_1.eq)(schema_1.payment.status, "completed"), (0, drizzle_orm_1.gte)(schema_1.subscriptions.endDate, new Date())))
+        .limit(1);
+    if (!activeSubscription || activeSubscription.length === 0) {
+        throw new NotFound_1.NotFound("No active subscription to upgrade");
+    }
+    const currentSub = activeSubscription[0];
+    if (currentSub.planId === newPlanId) {
+        throw new BadRequest_1.BadRequest("You are already on this plan");
+    }
+    // Check for existing pending request
+    const existingPending = await db_1.db
+        .select({ id: schema_1.subscriptions.id })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.payment.status, "pending")))
+        .limit(1);
+    if (existingPending && existingPending.length > 0) {
+        throw new BadRequest_1.BadRequest("You already have a pending request. Please wait for approval.");
+    }
+    // Get old and new plan details
+    const oldPlanResult = await db_1.db
+        .select()
+        .from(schema_1.plans)
+        .where((0, drizzle_orm_1.eq)(schema_1.plans.id, currentSub.planId))
+        .limit(1);
+    const newPlanResult = await db_1.db
+        .select()
+        .from(schema_1.plans)
+        .where((0, drizzle_orm_1.eq)(schema_1.plans.id, newPlanId))
+        .limit(1);
+    if (!oldPlanResult.length || !newPlanResult.length) {
+        throw new NotFound_1.NotFound("Plan not found");
+    }
+    const oldPlan = oldPlanResult[0];
+    const newPlan = newPlanResult[0];
+    // Get payment method
+    const payMethodResult = await db_1.db
+        .select()
+        .from(schema_1.paymentMethod)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId), (0, drizzle_orm_1.eq)(schema_1.paymentMethod.isActive, true)))
+        .limit(1);
+    if (!payMethodResult || payMethodResult.length === 0) {
+        throw new NotFound_1.NotFound("Payment method not found or inactive");
+    }
+    const payMethod = payMethodResult[0];
+    // Calculate remaining days
+    const now = new Date();
+    const remainingDays = Math.ceil((new Date(currentSub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    // Calculate price difference (pro-rated)
+    const oldDailyRate = oldPlan.price_year / 365;
+    const newDailyRate = newPlan.price_year / 365;
+    const priceDifference = (newDailyRate - oldDailyRate) * remainingDays;
+    const fee = payMethod.feeStatus ? payMethod.feeAmount : 0;
+    const totalAmount = Math.max(0, priceDifference) + fee;
+    // New subscription uses remaining period
+    const startDate = now;
+    const endDate = new Date(currentSub.endDate);
+    // Save receipt image if provided
+    // Save receipt image if provided
+    let receiptImageUrl = null;
+    if (receiptImage) {
+        const savedImage = await (0, handleImages_1.saveBase64Image)(req, receiptImage, "payments/receipts");
+        receiptImageUrl = savedImage.url;
+    }
+    // Create payment
+    const paymentId = (0, uuid_1.v4)();
+    await db_1.db.execute((0, drizzle_orm_2.sql) `INSERT INTO payments (id, organization_id, plan_id, payment_method_id, amount, receipt_image, status)
+        VALUES (${paymentId}, ${organizationId}, ${newPlanId}, ${paymentMethodId}, ${totalAmount}, ${receiptImageUrl}, 'pending')`);
+    // Create upgrade subscription
+    const subscriptionId = (0, uuid_1.v4)();
+    await db_1.db.execute((0, drizzle_orm_2.sql) `INSERT INTO subscriptions (id, plan_id, organization_id, start_date, end_date, payment_id, is_active)
+        VALUES (${subscriptionId}, ${newPlanId}, ${organizationId}, ${startDate}, ${endDate}, ${paymentId}, false)`);
+    // Fetch created subscription
+    const upgradedSubscription = await db_1.db
+        .select({
+        id: schema_1.subscriptions.id,
+        startDate: schema_1.subscriptions.startDate,
+        endDate: schema_1.subscriptions.endDate,
+        isActive: schema_1.subscriptions.isActive,
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+        },
+        payment: {
+            id: schema_1.payment.id,
+            amount: schema_1.payment.amount,
+            status: schema_1.payment.status,
+            receiptImage: schema_1.payment.receiptImage,
+        },
+    })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_1.plans.id))
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.subscriptions.id, subscriptionId))
+        .limit(1);
+    (0, response_1.SuccessResponse)(res, {
+        message: "Upgrade request submitted. Waiting for admin approval.",
+        currentSubscription: {
+            id: currentSub.id,
+            planName: oldPlan.name,
+        },
+        upgradeSubscription: {
+            ...upgradedSubscription[0],
+            remainingDays,
+            priceDifference: Math.max(0, priceDifference),
+            paymentFee: fee,
+        },
+    }, 201);
+};
+exports.upgradeSubscription = upgradeSubscription;
+// ✅ Get Available Plans
+const getAvailablePlans = async (req, res) => {
+    const allPlans = await db_1.db.select().from(schema_1.plans);
+    (0, response_1.SuccessResponse)(res, { plans: allPlans }, 200);
+};
+exports.getAvailablePlans = getAvailablePlans;
+// ✅ Get Payment Methods
+const getPaymentMethods = async (req, res) => {
+    const activeMethods = await db_1.db
+        .select()
+        .from(schema_1.paymentMethod)
+        .where((0, drizzle_orm_1.eq)(schema_1.paymentMethod.isActive, true));
+    (0, response_1.SuccessResponse)(res, { paymentMethods: activeMethods }, 200);
+};
+exports.getPaymentMethods = getPaymentMethods;

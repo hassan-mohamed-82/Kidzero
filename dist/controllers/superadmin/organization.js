@@ -112,11 +112,10 @@ const getAllOrganizations = async (req, res) => {
                 buses: true, // specific columns not needed? 'true' returns all
                 // Item 7: Rides
                 rides: true,
-                // Item 6: Students (Uncomment when you add the relation)
-                /* students: {
+                // Item 6: Students
+                students: {
                     columns: { id: true, name: true }
                 }
-                */
             },
         });
         const formattedOrgs = orgs.map(org => ({
@@ -176,10 +175,12 @@ const createOrganization = async (req, res) => {
         roleId: null,
         type: "organizer",
     });
-    return (0, response_1.SuccessResponse)(res, { message: "Organization created successfully", adminCredentials: {
+    return (0, response_1.SuccessResponse)(res, {
+        message: "Organization created successfully", adminCredentials: {
             email: email,
             password: passwordAdmin
-        } }, 201);
+        }
+    }, 201);
 };
 exports.createOrganization = createOrganization;
 const updateOrganization = async (req, res) => {
