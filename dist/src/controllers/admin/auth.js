@@ -37,7 +37,7 @@ async function login(req, res) {
     let permissions = [];
     if (admin[0].type === "organizer") {
         // Organizer عنده كل الصلاحيات
-        permissions = []; // أو ممكن ترجع كل الصلاحيات
+        permissions = [];
     }
     else if (admin[0].roleId) {
         // Admin - جلب الـ Role
@@ -85,22 +85,33 @@ async function login(req, res) {
         },
     }, 200);
 }
-// دالة دمج الصلاحيات
+// دالة دمج الصلاحيات - معدلة
 function mergePermissions(rolePermissions, adminPermissions) {
+    // لو مفيش صلاحيات، رجع array فاضي
+    if (!rolePermissions && !adminPermissions)
+        return [];
+    if (!rolePermissions)
+        return adminPermissions || [];
+    if (!adminPermissions)
+        return rolePermissions || [];
     const merged = [...rolePermissions];
     for (const adminPerm of adminPermissions) {
+        // تأكد إن adminPerm موجود وعنده actions
+        if (!adminPerm || !adminPerm.actions || !Array.isArray(adminPerm.actions)) {
+            continue;
+        }
         const existingIndex = merged.findIndex((p) => p.module === adminPerm.module);
         if (existingIndex >= 0) {
-            // دمج الـ actions
-            const existingActions = merged[existingIndex].actions;
+            // تأكد إن الـ existing عنده actions
+            const existingActions = merged[existingIndex].actions || [];
             for (const action of adminPerm.actions) {
                 if (!existingActions.some((a) => a.action === action.action)) {
                     existingActions.push(action);
                 }
             }
+            merged[existingIndex].actions = existingActions;
         }
         else {
-            // إضافة module جديد
             merged.push(adminPerm);
         }
     }
