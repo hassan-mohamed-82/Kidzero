@@ -1,7 +1,7 @@
 "use strict";
 // src/controllers/admin/rideController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeStudentFromRide = exports.addStudentsToRide = exports.deleteRide = exports.updateRide = exports.getRideById = exports.getAllRides = exports.createRide = void 0;
+exports.searchStudentsForRide = exports.removeStudentFromRide = exports.addStudentsToRide = exports.deleteRide = exports.updateRide = exports.getRideById = exports.getAllRides = exports.createRide = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -420,3 +420,50 @@ const removeStudentFromRide = async (req, res) => {
     }, 200);
 };
 exports.removeStudentFromRide = removeStudentFromRide;
+// ✅ Search Students by Parent Phone (for adding to ride)
+const searchStudentsForRide = async (req, res) => {
+    const { phone, name, parentName } = req.query;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    if (!phone && !name && !parentName) {
+        throw new BadRequest_1.BadRequest("Please provide phone, student name, or parent name to search");
+    }
+    let conditions = [(0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)];
+    // البحث برقم تليفون ولي الأمر
+    if (phone) {
+        conditions.push((0, drizzle_orm_1.sql) `${schema_1.parents.phone} LIKE ${`%${phone}%`}`);
+    }
+    // البحث باسم الطالب
+    if (name) {
+        conditions.push((0, drizzle_orm_1.sql) `${schema_1.students.name} LIKE ${`%${name}%`}`);
+    }
+    // البحث باسم ولي الأمر
+    if (parentName) {
+        conditions.push((0, drizzle_orm_1.sql) `${schema_1.parents.name} LIKE ${`%${parentName}%`}`);
+    }
+    const searchResults = await db_1.db
+        .select({
+        id: schema_1.students.id,
+        name: schema_1.students.name,
+        avatar: schema_1.students.avatar,
+        grade: schema_1.students.grade,
+        classroom: schema_1.students.classroom,
+        parent: {
+            id: schema_1.parents.id,
+            name: schema_1.parents.name,
+            phone: schema_1.parents.phone,
+            avatar: schema_1.parents.avatar,
+        },
+    })
+        .from(schema_1.students)
+        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
+        .where((0, drizzle_orm_1.and)(...conditions))
+        .limit(20);
+    (0, response_1.SuccessResponse)(res, {
+        students: searchResults,
+        count: searchResults.length,
+    }, 200);
+};
+exports.searchStudentsForRide = searchStudentsForRide;

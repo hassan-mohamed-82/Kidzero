@@ -2,8 +2,8 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { rides, rideStudents, buses, drivers, codrivers, Rout, routePickupPoints, students, pickupPoints } from "../../models/schema";
-import { eq, and, inArray,count } from "drizzle-orm";
+import { rides, rideStudents, buses, drivers, codrivers, Rout, routePickupPoints, students, pickupPoints,parents } from "../../models/schema";
+import { eq, and, inArray,count,sql } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
@@ -498,6 +498,66 @@ export const removeStudentFromRide = async (req: Request, res: Response) => {
     {
       message: "Student removed from ride successfully",
       remainingStudents: currentCount.count,
+    },
+    200
+  );
+};
+
+
+// ✅ Search Students by Parent Phone (for adding to ride)
+export const searchStudentsForRide = async (req: Request, res: Response) => {
+  const { phone, name, parentName } = req.query;
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
+
+  if (!phone && !name && !parentName) {
+    throw new BadRequest("Please provide phone, student name, or parent name to search");
+  }
+
+  let conditions: any[] = [eq(students.organizationId, organizationId)];
+
+  // البحث برقم تليفون ولي الأمر
+  if (phone) {
+    conditions.push(sql`${parents.phone} LIKE ${`%${phone}%`}`);
+  }
+
+  // البحث باسم الطالب
+  if (name) {
+    conditions.push(sql`${students.name} LIKE ${`%${name}%`}`);
+  }
+
+  // البحث باسم ولي الأمر
+  if (parentName) {
+    conditions.push(sql`${parents.name} LIKE ${`%${parentName}%`}`);
+  }
+
+  const searchResults = await db
+    .select({
+      id: students.id,
+      name: students.name,
+      avatar: students.avatar,
+      grade: students.grade,
+      classroom: students.classroom,
+      parent: {
+        id: parents.id,
+        name: parents.name,
+        phone: parents.phone,
+        avatar: parents.avatar,
+      },
+    })
+    .from(students)
+    .leftJoin(parents, eq(students.parentId, parents.id))
+    .where(and(...conditions))
+    .limit(20);
+
+  SuccessResponse(
+    res,
+    {
+      students: searchResults,
+      count: searchResults.length,
     },
     200
   );

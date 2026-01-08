@@ -7,6 +7,7 @@ import {
     getRideById,
     updateRide,
     deleteRide,
+    searchStudentsForRide,
     addStudentsToRide,
     removeStudentFromRide
 } from "../../controllers/admin/ride";
@@ -16,13 +17,15 @@ import {
     updateRideSchema,
     rideIdSchema,
     addStudentsToRideSchema,
-    updateRideStudentSchema,
-    removeStudentFromRideSchema
+    removeStudentFromRideSchema,
+
 } from "../../validators/admin/ride";
 import { catchAsync } from "../../utils/catchAsync";
 
 const router = Router();
-
+ 
+// ✅ Ride Routes
+router.get("/students/search", catchAsync(searchStudentsForRide));
 router.post("/", validate(createRideSchema), catchAsync(createRide));
 router.get("/", getAllRides);
 router.get("/:id", validate(rideIdSchema), catchAsync(getRideById));
