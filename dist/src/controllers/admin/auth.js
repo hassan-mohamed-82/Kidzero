@@ -12,6 +12,22 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const auth_1 = require("../../utils/auth");
 const Errors_1 = require("../../Errors");
 const response_1 = require("../../utils/response");
+// Helper function لتحويل الـ permissions
+function parsePermissions(permissions) {
+    if (!permissions)
+        return [];
+    if (typeof permissions === "string") {
+        try {
+            return JSON.parse(permissions);
+        }
+        catch {
+            return [];
+        }
+    }
+    if (Array.isArray(permissions))
+        return permissions;
+    return [];
+}
 async function login(req, res) {
     const { email, password } = req.body;
     // 1) جلب الأدمن بالإيميل
@@ -36,11 +52,9 @@ async function login(req, res) {
     let role = null;
     let permissions = [];
     if (admin[0].type === "organizer") {
-        // Organizer عنده كل الصلاحيات
         permissions = [];
     }
     else if (admin[0].roleId) {
-        // Admin - جلب الـ Role
         const roleData = await db_1.db
             .select()
             .from(schema_1.roles)
@@ -51,11 +65,11 @@ async function login(req, res) {
                 id: roleData[0].id,
                 name: roleData[0].name,
             };
-            permissions = roleData[0].permissions || [];
+            permissions = parsePermissions(roleData[0].permissions);
         }
     }
-    // دمج صلاحيات الـ Admin الخاصة (override) مع صلاحيات الـ Role
-    const adminPermissions = admin[0].permissions || [];
+    // دمج صلاحيات الـ Admin
+    const adminPermissions = parsePermissions(admin[0].permissions);
     if (adminPermissions.length > 0) {
         permissions = mergePermissions(permissions, adminPermissions);
     }
@@ -85,31 +99,28 @@ async function login(req, res) {
         },
     }, 200);
 }
-// دالة دمج الصلاحيات - معدلة
+// دالة دمج الصلاحيات
 function mergePermissions(rolePermissions, adminPermissions) {
-    // لو مفيش صلاحيات، رجع array فاضي
-    if (!rolePermissions && !adminPermissions)
-        return [];
-    if (!rolePermissions)
-        return adminPermissions || [];
-    if (!adminPermissions)
-        return rolePermissions || [];
+    if (!Array.isArray(rolePermissions))
+        rolePermissions = [];
+    if (!Array.isArray(adminPermissions))
+        adminPermissions = [];
+    if (rolePermissions.length === 0)
+        return adminPermissions;
+    if (adminPermissions.length === 0)
+        return rolePermissions;
     const merged = [...rolePermissions];
     for (const adminPerm of adminPermissions) {
-        // تأكد إن adminPerm موجود وعنده actions
-        if (!adminPerm || !adminPerm.actions || !Array.isArray(adminPerm.actions)) {
+        if (!adminPerm?.module || !Array.isArray(adminPerm?.actions)) {
             continue;
         }
-        const existingIndex = merged.findIndex((p) => p.module === adminPerm.module);
-        if (existingIndex >= 0) {
-            // تأكد إن الـ existing عنده actions
-            const existingActions = merged[existingIndex].actions || [];
+        const existingIndex = merged.findIndex((p) => p?.module === adminPerm.module);
+        if (existingIndex >= 0 && Array.isArray(merged[existingIndex]?.actions)) {
             for (const action of adminPerm.actions) {
-                if (!existingActions.some((a) => a.action === action.action)) {
-                    existingActions.push(action);
+                if (!merged[existingIndex].actions.some((a) => a?.action === action?.action)) {
+                    merged[existingIndex].actions.push(action);
                 }
             }
-            merged[existingIndex].actions = existingActions;
         }
         else {
             merged.push(adminPerm);
