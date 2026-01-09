@@ -24,12 +24,18 @@ const addIdsToPermissions = (permissions) => {
         })),
     }));
 };
+// src/controllers/superadmin/superAdminRoleController.ts
 // ✅ Get All Roles
 const getAllRoles = async (req, res) => {
-    console.log("Getting all super admin roles...");
     const allRoles = await db_1.db.select().from(schema_1.superAdminRoles);
-    console.log("Roles found:", allRoles);
-    (0, response_1.SuccessResponse)(res, { roles: allRoles }, 200);
+    // Parse permissions من String لـ JSON
+    const rolesWithParsedPermissions = allRoles.map((role) => ({
+        ...role,
+        permissions: typeof role.permissions === "string"
+            ? JSON.parse(role.permissions)
+            : role.permissions,
+    }));
+    (0, response_1.SuccessResponse)(res, { roles: rolesWithParsedPermissions }, 200);
 };
 exports.getAllRoles = getAllRoles;
 // ✅ Get Role By ID
@@ -43,7 +49,14 @@ const getRoleById = async (req, res) => {
     if (!role[0]) {
         throw new NotFound_1.NotFound("Role not found");
     }
-    (0, response_1.SuccessResponse)(res, { role: role[0] }, 200);
+    // Parse permissions
+    const roleWithParsedPermissions = {
+        ...role[0],
+        permissions: typeof role[0].permissions === "string"
+            ? JSON.parse(role[0].permissions)
+            : role[0].permissions,
+    };
+    (0, response_1.SuccessResponse)(res, { role: roleWithParsedPermissions }, 200);
 };
 exports.getRoleById = getRoleById;
 // ✅ Create Role
