@@ -35,14 +35,11 @@ const addIdsToPermissions = (permissions: SuperAdminPermission[]): SuperAdminPer
 export const getAllRoles = async (req: Request, res: Response) => {
   console.log("Getting all super admin roles...");
   
-  try {
+ 
     const allRoles = await db.select().from(superAdminRoles);
     console.log("Roles found:", allRoles);
     SuccessResponse(res, { roles: allRoles }, 200);
-  } catch (error) {
-    console.error("Error:", error);
-    throw error;
-  }
+ 
 };
 // ✅ Get Role By ID
 export const getRoleById = async (req: Request, res: Response) => {

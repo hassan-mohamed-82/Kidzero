@@ -26,7 +26,9 @@ const addIdsToPermissions = (permissions) => {
 };
 // ✅ Get All Roles
 const getAllRoles = async (req, res) => {
+    console.log("Getting all super admin roles...");
     const allRoles = await db_1.db.select().from(schema_1.superAdminRoles);
+    console.log("Roles found:", allRoles);
     (0, response_1.SuccessResponse)(res, { roles: allRoles }, 200);
 };
 exports.getAllRoles = getAllRoles;
