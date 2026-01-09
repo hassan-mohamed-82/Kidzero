@@ -23,6 +23,7 @@ __exportStar(require("./superadmin/payment"), exports);
 __exportStar(require("./superadmin/Bustype"), exports);
 __exportStar(require("./superadmin/promocodes"), exports);
 __exportStar(require("./superadmin/paymentMethod"), exports);
+__exportStar(require("./superadmin/superAdminRole"), exports);
 // Admin Models
 // src/models/schema/index.ts
 __exportStar(require("./admin/admin"), exports);

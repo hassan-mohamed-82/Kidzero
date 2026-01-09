@@ -16,7 +16,7 @@ const paymentMethod_1 = __importDefault(require("./paymentMethod"));
 const subscription_1 = __importDefault(require("./subscription"));
 const route = (0, express_1.Router)();
 route.use("/auth", auth_1.default);
-route.use(authenticated_1.authenticated, (0, authorized_1.authorizeRoles)("superadmin"));
+route.use(authenticated_1.authenticated, (0, authorized_1.authorizeRoles)("superadmin", "subadmin"));
 route.use("/plans", plan_1.default);
 route.use("/promocodes", promocodes_1.default);
 route.use("/bustypes", busTypes_1.default);

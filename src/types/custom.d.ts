@@ -12,7 +12,7 @@ export interface Permission {
     actions: PermissionAction[];
 }
 
-export type SuperAdminType = "superadmin";
+export type SuperAdminType = "superadmin" | "subadmin";
 export type AdminType = "organizer" | "admin";
 export type MobileUserType = "driver" | "codriver";
 export type Role = SuperAdminType | AdminType | MobileUserType;
