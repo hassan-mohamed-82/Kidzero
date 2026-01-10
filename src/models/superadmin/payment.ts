@@ -13,14 +13,16 @@ export const payment = mysqlTable("payments", {
   planId: char("plan_id", { length: 36 }).notNull().references(() => plans.id),
   paymentMethodId: char("payment_method_id", { length: 36 }).notNull().references(() => paymentMethod.id),
   amount: double("amount").notNull(),
-  
+
   // ✅ صورة الإيصال
   receiptImage: varchar("receipt_image", { length: 500 }).notNull(),
-  
+
   promocodeId: char("promocode_id", { length: 36 }).references(() => promocode.id),
   status: mysqlEnum("status", ["pending", "completed", "rejected"]).notNull().default("pending"),
   rejectedReason: varchar("rejected_reason", { length: 255 }),
-  
+
+  RequestedSubscriptionType: mysqlEnum("requested_subscription_type", ["yearly", "semester"]).notNull(),
+
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });
