@@ -311,3 +311,18 @@ export const deleteRoute = async (req: Request, res: Response) => {
 
   SuccessResponse(res, { message: "Route deleted successfully" }, 200);
 };
+
+
+export const getAllPickupPoints = async (req: Request, res: Response) => {
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
+  const allPoints = await db
+    .select()
+    .from(pickupPoints)
+    .where(eq(pickupPoints.organizationId, organizationId));
+
+  SuccessResponse(res, { message: "All pickup points", pickupPoints: allPoints }, 200);
+};

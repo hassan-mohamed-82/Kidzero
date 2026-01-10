@@ -562,3 +562,83 @@ export const searchStudentsForRide = async (req: Request, res: Response) => {
     200
   );
 };
+
+
+export const selection =async(req: Request, res: Response) => {
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
+
+  const allroutswithpickuppoints = await db
+    .select()
+    .from(Rout)
+    .where(eq(Rout.organizationId, organizationId));
+  const routesWithPickupPoints = await Promise.all(
+    allroutswithpickuppoints.map(async (route) => {
+      const points = await db
+        .select({
+          id: routePickupPoints.id,
+          stopOrder: routePickupPoints.stopOrder,
+          pickupPoint: {
+            id: pickupPoints.id,
+            name: pickupPoints.name,
+            address: pickupPoints.address,
+            lat: pickupPoints.lat,
+            lng: pickupPoints.lng,
+          },
+        })
+        .from(routePickupPoints)
+        .leftJoin(pickupPoints, eq(routePickupPoints.pickupPointId, pickupPoints.id))
+        .where(eq(routePickupPoints.routeId, route.id));
+      return { ...route, pickupPoints: points };
+    })
+  );
+  
+  const allbuses = await db
+    .select()
+    .from(buses)
+    .where(eq(buses.organizationId, organizationId));
+  const alldrivers = await db
+    .select()
+    .from(drivers)
+    .where(eq(drivers.organizationId, organizationId));
+    
+   const allcodrivers = await db
+    .select()
+    .from(codrivers)
+    .where(eq(codrivers.organizationId, organizationId));
+
+    const allstudents = await db
+    .select({
+      id: students.id,
+      name: students.name,
+      avatar: students.avatar,
+      grade: students.grade,
+      classroom: students.classroom,
+      parent: {
+        id: parents.id,
+        name: parents.name,
+        phone: parents.phone,
+        avatar: parents.avatar,
+      },
+    })
+    .from(students)
+    .leftJoin(parents, eq(students.parentId, parents.id))
+    .where(eq(students.organizationId, organizationId));
+
+    const getallparent= await db
+    .select()
+    .from(parents)
+    .where(eq(parents.organizationId, organizationId));
+
+  SuccessResponse(res, {
+    routes: routesWithPickupPoints,
+    buses: allbuses,
+    drivers: alldrivers,
+    codrivers: allcodrivers,
+    students: allstudents,
+    parents:getallparent
+  }, 200);
+ }
