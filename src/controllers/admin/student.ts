@@ -207,3 +207,9 @@ export const deleteStudent = async (req: Request, res: Response) => {
 
     SuccessResponse(res, { message: "Student deleted successfully" }, 200);
 };
+
+export const selection= async(req: Request, res: Response) => {
+
+    const getAllParents = await db.select().from(parents);
+    SuccessResponse(res, { parents: getAllParents }, 200);
+}
