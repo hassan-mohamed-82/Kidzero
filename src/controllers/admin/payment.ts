@@ -7,7 +7,6 @@ import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
-import { v4 as uuidv4 } from "uuid";
 import { saveBase64Image } from "../../utils/handleImages";
 
 

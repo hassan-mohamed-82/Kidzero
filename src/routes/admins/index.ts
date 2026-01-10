@@ -15,6 +15,7 @@ import codriverRouter from "./codriver"
 import studentRouter from "./student";
 import subscribtionRouter from "./subscribtion";
 import rideRouter from "./ride";
+import paymentRouter from "./payment";
 import { Router } from "express";
 const route = Router();
 route.use("/auth",catchAsync(AuthRoute));
@@ -32,4 +33,5 @@ route.use("/students",catchAsync(studentRouter));
 route.use("/parents",catchAsync(parentRouter));
 route.use("/routes",catchAsync(RoutRouter));
 route.use("/profile",catchAsync(profileRouter));
+route.use("/payments",catchAsync(paymentRouter));
 export default route;
