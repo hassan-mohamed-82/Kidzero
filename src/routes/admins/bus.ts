@@ -6,7 +6,9 @@ import {
     getBusById,
     updateBus,
     updateBusStatus,
-    getBusesByStatus
+    getBusesByStatus,
+    getBusTypes
+    
 } from "../../controllers/admin/bus";
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
@@ -20,6 +22,7 @@ router.get("/status/:status", catchAsync(getBusesByStatus));
 // ✅ الـ CRUD العادي
 router.get("/", catchAsync(getAllBuses));
 router.post("/", validate(createBusSchema), catchAsync(createBus));
+router.get("/types", catchAsync(getBusTypes));
 
 // ✅ الـ Dynamic Routes في الآخر (اللي فيها :id)
 router.get("/:id", catchAsync(getBusById));

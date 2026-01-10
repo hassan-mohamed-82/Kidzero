@@ -554,3 +554,9 @@ export const getBusStatistics = async (req: Request, res: Response) => {
     200
   );
 };
+
+
+export const getBusTypes = async (req: Request, res: Response) => {
+  const allBusTypes = await db.select().from(busTypes);
+  SuccessResponse(res, { busTypes: allBusTypes }, 200);
+};

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyToken = exports.generateCoDriverToken = exports.generateDriverToken = exports.generateAdminToken = exports.generateOrganizerToken = exports.generateSuperAdminToken = void 0;
+exports.verifyToken = exports.generateParentToken = exports.generateCoDriverToken = exports.generateDriverToken = exports.generateAdminToken = exports.generateOrganizerToken = exports.generateSuperAdminToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const Errors_1 = require("../Errors");
 require("dotenv/config");
@@ -63,6 +63,17 @@ const generateCoDriverToken = (data) => {
     return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 exports.generateCoDriverToken = generateCoDriverToken;
+// للـ Parent (Mobile App)
+const generateParentToken = (data) => {
+    const payload = {
+        id: data.id,
+        name: data.name,
+        role: "parent",
+        organizationId: data.organizationId,
+    };
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+};
+exports.generateParentToken = generateParentToken;
 // Verify Token
 const verifyToken = (token) => {
     try {

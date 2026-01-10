@@ -1,7 +1,7 @@
 "use strict";
 // src/controllers/admin/studentController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteStudent = exports.updateStudent = exports.getStudentById = exports.getAllStudents = exports.createStudent = void 0;
+exports.selection = exports.deleteStudent = exports.updateStudent = exports.getStudentById = exports.getAllStudents = exports.createStudent = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -179,3 +179,8 @@ const deleteStudent = async (req, res) => {
     (0, response_1.SuccessResponse)(res, { message: "Student deleted successfully" }, 200);
 };
 exports.deleteStudent = deleteStudent;
+const selection = async (req, res) => {
+    const getAllParents = await db_1.db.select().from(schema_1.parents);
+    (0, response_1.SuccessResponse)(res, { parents: getAllParents }, 200);
+};
+exports.selection = selection;

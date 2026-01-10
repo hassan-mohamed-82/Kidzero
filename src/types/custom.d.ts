@@ -14,7 +14,7 @@ export interface Permission {
 
 export type SuperAdminType = "superadmin" | "subadmin";
 export type AdminType = "organizer" | "admin";
-export type MobileUserType = "driver" | "codriver";
+export type MobileUserType = "driver" | "codriver" | "parent";
 export type Role = SuperAdminType | AdminType | MobileUserType;
 
 export interface TokenPayload {

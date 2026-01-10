@@ -1,7 +1,9 @@
 import { Router } from "express";
 import {
-    parentLogin,driverAppLogin,
-}from "../../controllers/users/auth"
+    changePassword,
+    getMyProfile,
+    updateProfile
+}from "../../controllers/users/profile"
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
 import {
@@ -11,7 +13,7 @@ import {
 } from "../../validators/users/auth";
 const router = Router();
 
-// ✅ Mobile User Auth Routes
-router.post("/login", validate(mobileLoginSchema), catchAsync(driverAppLogin));
-router.post("/parent/login", validate(mobileLoginSchema), catchAsync(parentLogin));
+router.post("/change-password", validate(changePasswordSchema), catchAsync(changePassword));
+router.get("/me", catchAsync(getMyProfile));
+router.put("/me", validate(updateProfileSchema), catchAsync(updateProfile));
 export default router;
