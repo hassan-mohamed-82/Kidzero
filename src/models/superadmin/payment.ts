@@ -21,7 +21,7 @@ export const payment = mysqlTable("payments", {
   status: mysqlEnum("status", ["pending", "completed", "rejected"]).notNull().default("pending"),
   rejectedReason: varchar("rejected_reason", { length: 255 }),
 
-  RequestedSubscriptionType: mysqlEnum("requested_subscription_type", ["yearly", "semester"]).notNull(),
+  RequestedSubscriptionType: mysqlEnum("requested_subscription_type", ["yearly", "semester"]).notNull().default("semester"),
 
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),

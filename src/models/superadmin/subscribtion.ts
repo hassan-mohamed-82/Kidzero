@@ -13,7 +13,7 @@ export const subscriptions = mysqlTable("subscriptions", {
     paymentId: char("payment_id", { length: 36 }).notNull().references(() => payment.id),
     isActive: boolean("is_active").notNull().default(true),
 
-    subscriptionType: mysqlEnum("subscription_type", ["yearly", "semester"]).notNull(),
+    subscriptionType: mysqlEnum("subscription_type", ["yearly", "semester"]).notNull().default("semester"),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
