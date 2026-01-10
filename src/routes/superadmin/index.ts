@@ -11,6 +11,9 @@ import rolesRoute from "./superadminrole";
 import subadminRouter from "./subadmins";
 import paymentMethodRoute from "./paymentMethod";
 import subscriptionRoute from "./subscription";
+import invoiceRoute from "./Invoice";
+import paymentRoute from "./payment";
+
 const route = Router();
 route.use("/auth", superAdminAuthRoute);
 route.use(authenticated,authorizeRoles("superadmin","subadmin"));
@@ -23,4 +26,7 @@ route.use("/subadmins", subadminRouter);
 route.use("/roles", rolesRoute);
 route.use("/paymentmethods", paymentMethodRoute);
 route.use("/subscriptions", subscriptionRoute);
+route.use("/invoices", invoiceRoute);
+route.use("/payments", paymentRoute);
+
 export default route;                           

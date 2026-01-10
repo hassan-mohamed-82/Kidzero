@@ -11,6 +11,9 @@ export const plans = mysqlTable("plan", {
   maxDrivers: int("max_drivers").default(20),
   maxStudents: int("max_students").default(100),
 
+  minSubscriptionFeesPay: double("min_subscription_fees_pay").notNull().default(0),
+  subscriptionFees: double("subscription_fees").notNull().default(0),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });

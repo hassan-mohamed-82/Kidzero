@@ -7,6 +7,8 @@ import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
+import { startCronJobs } from "./jobs/cronJobs";
+
 dotenv.config();
 
 const app = express();
@@ -28,6 +30,9 @@ app.use((req, res, next) => {
   throw new NotFound("Route not found");
 });
 app.use(errorHandler);
+
+startCronJobs();
+
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000 ");
 });

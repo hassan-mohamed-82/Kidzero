@@ -50,26 +50,27 @@ export const deletePlanById = async (req: Request, res: Response) => {
 };
 
 export const createPlan = async (req: Request, res: Response) => {
-    const { name, price_semester, price_year, max_buses, max_drivers, max_students } = req.body;
+    const { name, price_semester, price_year, max_buses, max_drivers, max_students , min_subscriptionfeesPay , subscriptionFees } = req.body;
 
-    if (!name || !max_buses || !max_drivers || !max_students) {
-        throw new BadRequest("Please provide all required fields: name, max_buses, max_drivers, max_students");
+    if (!name || !max_buses || !max_drivers || !max_students || !subscriptionFees) {
+        throw new BadRequest("Please provide all required fields: name, max_buses, max_drivers, max_students, subscriptionFees");
     }
-
     const newPlan = await db.insert(plans).values({
         name,
         price_semester: price_semester || 0,
         price_year: price_year || 0,
         maxBuses: max_buses,
         maxDrivers: max_drivers,
-        maxStudents: max_students
+        maxStudents: max_students,
+        minSubscriptionFeesPay: min_subscriptionfeesPay || 0,
+        subscriptionFees: subscriptionFees,
     });
     return SuccessResponse(res, { message: "Plan Created Successfully"}, 201);
 };
 
 export const updatePlan = async (req: Request, res: Response) => {
     const { Id } = req.params;
-    const { name, price_semester, price_year, max_buses, max_drivers, max_students } = req.body;
+    const { name, price_semester, price_year, max_buses, max_drivers, max_students , min_subscriptionfeesPay , subscriptionFees } = req.body;
 
     if (!Id) {
         throw new BadRequest("Please Enter Plan Id");
@@ -91,6 +92,8 @@ export const updatePlan = async (req: Request, res: Response) => {
         maxBuses: max_buses !== undefined ? max_buses : plan.maxBuses,
         maxDrivers: max_drivers !== undefined ? max_drivers : plan.maxDrivers,
         maxStudents: max_students !== undefined ? max_students : plan.maxStudents,
+        minSubscriptionFeesPay: min_subscriptionfeesPay !== undefined ? min_subscriptionfeesPay : plan.minSubscriptionFeesPay,
+        subscriptionFees: subscriptionFees !== undefined ? subscriptionFees : plan.subscriptionFees,
     }).where(eq(plans.id, Id));
 
     return SuccessResponse(res, { message: "Plan Updated Successfully"}, 200);

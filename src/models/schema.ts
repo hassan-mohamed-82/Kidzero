@@ -9,6 +9,7 @@ export * from "./superadmin/Bustype";
 export * from "./superadmin/promocodes";
 export * from "./superadmin/paymentMethod";
 export * from "./superadmin/superAdminRole";
+export * from "./superadmin/Invoice";
 
 // Admin Models
 // src/models/schema/index.ts
