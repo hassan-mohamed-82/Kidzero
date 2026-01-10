@@ -8,6 +8,7 @@ const student_2 = require("../../validators/admin/student");
 const router = (0, express_1.Router)();
 router.get("/", (0, catchAsync_1.catchAsync)(student_1.getAllStudents));
 router.post("/", (0, validation_1.validate)(student_2.createStudentSchema), (0, catchAsync_1.catchAsync)(student_1.createStudent));
+router.get("/selection", (0, catchAsync_1.catchAsync)(student_1.selection));
 router.get("/:id", (0, catchAsync_1.catchAsync)(student_1.getStudentById));
 router.delete("/:id", (0, catchAsync_1.catchAsync)(student_1.deleteStudent));
 router.put("/:id", (0, validation_1.validate)(student_2.updateStudentSchema), (0, catchAsync_1.catchAsync)(student_1.updateStudent));

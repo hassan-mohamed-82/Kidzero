@@ -1,72 +1,32 @@
+// src/validators/mobileAuthValidator.ts
+
 import { z } from "zod";
 
-export const signupSchema = z.object({
-  body: z
-    .object({
-      name: z.string().min(2, "name must be at least 2 characters long"),
-      phoneNumber: z.string().optional(), // ← أصبح اختياري
-      role: z.enum(["member", "guest"]),
-      email: z.string().email("البريد الإلكتروني غير صالح"),
-      password: z.string().min(8, "كلمة المرور يجب أن تكون على الأقل 8 حروف"),
-      dateOfBirth: z.string().optional(), // ← أصبح اختياري
-      purpose: z.string().optional(),
-      cardId: z.string().optional(),
-      imageBase64: z.string().optional(),
-    })
-    .superRefine((data, ctx) => {
-      if (data.role === "guest") {
-        if (!data.purpose || data.purpose.trim() === "") {
-          ctx.addIssue({
-            path: ["purpose"],
-            code: z.ZodIssueCode.custom,
-            message: "Purpose is required for guest users",
-          });
-        }
-      }
-
-      if (data.role === "member") {
-        if (!data.imageBase64 || !data.imageBase64.startsWith("data:image/")) {
-          ctx.addIssue({
-            path: ["imageBase64"],
-            code: z.ZodIssueCode.custom,
-            message: "Valid base64 image is required for member users",
-          });
-        }
-      }
-    }),
-});
-
-export const loginSchema = z.object({
+// Login موحد
+export const mobileLoginSchema = z.object({
   body: z.object({
-    emailOrCardId: z.string(),
-    password: z.string().min(8),
+    phone: z
+      .string()
+      .min(10, "Phone number must be at least 10 digits")
+      .max(20, "Phone number must be at most 20 digits")
+      .regex(/^[0-9+]+$/, "Phone number must contain only digits"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
   }),
 });
 
-export const verifyEmailSchema = z.object({
+// Change Password
+export const changePasswordSchema = z.object({
   body: z.object({
-    userId: z.string(),
-    code: z.string().length(6, "الرمز المرسل يجب أن يكون 6 حروف"),
+    oldPassword: z.string().min(6, "Old password must be at least 6 characters"),
+    newPassword: z.string().min(6, "New password must be at least 6 characters"),
   }),
 });
 
-export const sendResetCodeSchema = z.object({
+// Update Profile
+export const updateProfileSchema = z.object({
   body: z.object({
-    email: z.string().email("البريد الإلكتروني غير صالح"),
-  }),
-});
-
-export const checkResetCodeSchema = z.object({
-  body: z.object({
-    email: z.string().email("البريد الإلكتروني غير صالح"),
-    code: z.string().length(6, "الرمز المرسل يجب أن يكون 6 حروف "),
-  }),
-});
-
-export const resetPasswordSchema = z.object({
-  body: z.object({
-    email: z.string().email("البريد الإلكتروني غير صالح"),
-    code: z.string().length(6, "الرمز المرسل يجب أن يكون 6 حروف"),
-    newPassword: z.string().min(8, "كلمة المرور يجب أن تكون على الأقل 8 حروف"),
+    name: z.string().min(1).max(255).optional(),
+    avatar: z.string().max(500).optional(),
+    address: z.string().max(500).optional(),
   }),
 });

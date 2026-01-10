@@ -1,294 +1,277 @@
 "use strict";
-// import { Request, Response } from "express";
-// import { saveBase64Image } from "../../utils/handleImages";
-// import { db } from "../../models/db";
-// import { emailVerifications, users } from "../../models/schema";
-// import { eq, and, or } from "drizzle-orm";
-// import { v4 as uuidv4 } from "uuid";
-// import bcrypt from "bcrypt";
-// import { SuccessResponse } from "../../utils/response";
-// import { randomInt } from "crypto";
-// import {
-//   ForbiddenError,
-//   NotFound,
-//   UnauthorizedError,
-//   UniqueConstrainError,
-// } from "../../Errors";
-// import { generateToken } from "../../utils/auth";
-// import { sendEmail } from "../../utils/sendEmails";
-// import { BadRequest } from "../../Errors/BadRequest";
+// src/controllers/mobile/authController.ts
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-// export const signup = async (req: Request, res: Response) => {
-//   const data = req.body;
-//   const email = (data.email || "").trim().toLowerCase();
-//   if (!email) {
-//     throw new BadRequest("البريد الإلكتروني مطلوب");
-//   }
-//   data.email = email;
-//   // بناء شرط البحث ديناميكياً
-//   const conditions = [eq(users.email, email)];
-//   if (data.phoneNumber) {
-//     conditions.push(eq(users.phoneNumber, data.phoneNumber));
-//   }
-//   const [existing] = await db
-//     .select()
-//     .from(users)
-//     .where(or(...conditions));
-//   // 👇 حالة إن اليوزر موجود
-//   if (existing) {
-//     const isVerified =
-//       existing.isVerified === true || existing.status === "approved";
-//     // لو مفعّل → ارمي error
-//     if (isVerified) {
-//       if (existing.email === email)
-//         throw new UniqueConstrainError(
-//           "Email",
-//           "البريد الإلكتروني مستخدم بالفعل"
-//         );
-//       if (data.phoneNumber && existing.phoneNumber === data.phoneNumber)
-//         throw new UniqueConstrainError(
-//           "Phone Number",
-//           "رقم الجوال مستخدم بالفعل"
-//         );
-//     }
-//     // ✅ لو مش مفعّل → حدّث بياناته بالبيانات الجديدة
-//     const hashedPassword = await bcrypt.hash(data.password, 10);
-//     let imagePath: string | null = existing.imagePath;
-//     if (data.role === "member" && data.imageBase64) {
-//       imagePath = await saveBase64Image(data.imageBase64, existing.id, req, "users");
-//     }
-//     await db
-//       .update(users)
-//       .set({
-//         name: data.name,
-//         phoneNumber: data.phoneNumber || null,
-//         role: data.role,
-//         cardId: data.cardId || null,
-//         hashedPassword,
-//         purpose: data.role === "guest" ? data.purpose : null,
-//         imagePath,
-//         dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-//         updatedAt: new Date(new Date().getTime() + 3 * 60 * 60 * 1000),
-//       })
-//       .where(eq(users.id, existing.id));
-//     // امسح أي كود قديم وابعت كود جديد
-//     const code = randomInt(100000, 999999).toString();
-//     await db
-//       .delete(emailVerifications)
-//       .where(eq(emailVerifications.userId, existing.id));
-//     await db.insert(emailVerifications).values({
-//       userId: existing.id,
-//       code,
-//     });
-//     console.log("Signup: sending OTP to EXISTING unverified user:", existing.email);
-//     await sendEmail(
-//       existing.email.trim().toLowerCase(),
-//       "Email Verification",
-//       `Your verification code is ${code}`
-//     );
-//     return SuccessResponse(
-//       res,
-//       {
-//         message:
-//           "هذا الحساب موجود لكنه غير مفعّل. تم تحديث بياناتك وإرسال كود تحقق جديد إلى بريدك الإلكتروني.",
-//         userId: existing.id,
-//       },
-//       200
-//     );
-//   }
-//   // 👇 لو مفيش يوزر قديم → إنشاء يوزر جديد
-//   const hashedPassword = await bcrypt.hash(data.password, 10);
-//   const userId = uuidv4();
-//   let imagePath: string | null = null;
-//   if (data.role === "member" && data.imageBase64) {
-//     imagePath = await saveBase64Image(data.imageBase64, userId, req, "users");
-//   }
-//   const code = randomInt(100000, 999999).toString();
-//   const newUser: any = {
-//     id: userId,
-//     name: data.name,
-//     phoneNumber: data.phoneNumber || null,
-//     role: data.role,
-//     cardId: data.cardId || null,
-//     email,
-//     hashedPassword,
-//     purpose: data.role === "guest" ? data.purpose : null,
-//     imagePath,
-//     dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : null,
-//     status: "pending",
-//     isVerified: false,
-//     createdAt: new Date(new Date().getTime() + 3 * 60 * 60 * 1000),
-//     updatedAt: new Date(new Date().getTime() + 3 * 60 * 60 * 1000),
-//   };
-//   // لو في admin عامل login → فعّل اليوزر تلقائي
-//   if (req.user) {
-//     newUser.status = "approved";
-//     newUser.isVerified = true;
-//   }
-//   await db.insert(users).values(newUser);
-//   // لو مفيش admin → ابعت كود التحقق
-//   if (!req.user) {
-//     await db.insert(emailVerifications).values({
-//       userId,
-//       code,
-//     });
-//     console.log("Signup: sending OTP to NEW user:", email);
-//     await sendEmail(
-//       email,
-//       "Email Verification",
-//       `Your verification code is ${code}`
-//     );
-//   }
-//   return SuccessResponse(
-//     res,
-//     {
-//       message: req.user
-//         ? "تم التسجيل والتفعيل بنجاح"
-//         : "تم التسجيل بنجاح من فضلك قم بتحقق من البريد الالكتروني",
-//       userId,
-//     },
-//     201
-//   );
-// };
-// export const verifyEmail = async (req: Request, res: Response) => {
-//   const { userId, code } = req.body;
-//   const user = await db.query.users.findFirst({
-//     where: (u, { eq }) => eq(u.id, userId),
-//   });
-//   if (!user) throw new NotFound("User not found");
-//   const record = await db.query.emailVerifications.findFirst({
-//     where: (ev, { eq }) => eq(ev.userId, user.id),
-//   });
-//   if (!record || record.code !== code)
-//     throw new BadRequest("Invalid verification code");
-//   await db.update(users).set({ isVerified: true }).where(eq(users.id, user.id));
-//   await db
-//     .delete(emailVerifications)
-//     .where(eq(emailVerifications.userId, user.id));
-//   res.json({ message: "تم التحقق من البريد الالكتروني" });
-// };
-// export const login = async (req: Request, res: Response) => {
-//   const data = req.body;
-//   const { emailOrCardId, password } = data;
-//   // البحث إما بالإيميل أو الـ cardId
-//   const user = await db.query.users.findFirst({
-//     where: or(eq(users.email, emailOrCardId), eq(users.cardId, emailOrCardId)),
-//   });
-//   if (!user) {
-//     throw new UnauthorizedError("الحساب غير موجود");
-//   }
-//   const isMatch = await bcrypt.compare(password, user.hashedPassword);
-//   if (!isMatch) {
-//     throw new UnauthorizedError("Invalid email/card ID or password");
-//   }
-//   if (user.status !== "approved") {
-//     throw new ForbiddenError(
-//       "الحساب غير موافق على التسجيل. يرجى الانتظار حتى يتم الموافقة عليه"
-//     );
-//   }
-//   if (!user.isVerified) {
-//     throw new ForbiddenError("قم بتحقق من البريد الالكتروني");
-//   }
-//   const token = generateToken({
-//     id: user.id,
-//     name: user.name,
-//     role:
-//       user.role === "member" ? "approved_member_user" : "approved_guest_user",
-//   });
-//   SuccessResponse(res, { message: "تم تسجيل الدخول بنجاح ", token }, 200);
-// };
-// export const getFcmToken = async (req: Request, res: Response) => {
-//   const { token } = req.body;
-//   const userId = req.user!.id;
-//   await db.update(users).set({ fcmtoken: token }).where(eq(users.id, userId));
-//   res.json({ success: true });
-// };
-// export const sendResetCode = async (req: Request, res: Response) => {
-//   const { email } = req.body;
-//   const [user] = await db.select().from(users).where(eq(users.email, email));
-//   if (!user) throw new NotFound("User not found");
-//   if (!user.isVerified || user.status !== "approved")
-//     throw new BadRequest("الحساب غير مفعل او لم يتم التحقق من البريد الالكتروني");
-//   const code = Math.floor(100000 + Math.random() * 900000).toString();
-//   await db
-//     .delete(emailVerifications)
-//     .where(eq(emailVerifications.userId, user.id));
-//   await db
-//     .insert(emailVerifications)
-//     .values({ code: code, createdAt: new Date(), userId: user.id });
-//   await sendEmail(
-//     email,
-//     "Password Reset Code",
-//     `Your reset code is: ${code}\nIt will expire in 2 hours.`
-//   );
-//   SuccessResponse(res, { message: "الكود المرسل للبريد الالكتروني" }, 200);
-// };
-// export const verifyCode = async (req: Request, res: Response) => {
-//   const { email, code } = req.body;
-//   const [user] = await db.select().from(users).where(eq(users.email, email));
-//   const [rowcode] = await db
-//     .select()
-//     .from(emailVerifications)
-//     .where(eq(emailVerifications.userId, user.id));
-//   if (!user || rowcode.code !== code) {
-//     throw new BadRequest("الكود غير صحيح");
-//   }
-//   SuccessResponse(res, { message: "تم التحقق من البريد الالكتروني" }, 200);
-// };
-// export const resetPassword = async (req: Request, res: Response) => {
-//   const { email, code, newPassword } = req.body;
-//   const [user] = await db.select().from(users).where(eq(users.email, email));
-//   if (!user) throw new NotFound("User not found");
-//   const [rowcode] = await db
-//     .select()
-//     .from(emailVerifications)
-//     .where(
-//       and(
-//         eq(emailVerifications.userId, user.id),
-//         eq(emailVerifications.code, code)
-//       )
-//     );
-//   if (!rowcode) throw new BadRequest("Invalid reset code");
-//   const hashed = await bcrypt.hash(newPassword, 10);
-//   await db
-//     .update(users)
-//     .set({ hashedPassword: hashed })
-//     .where(eq(users.id, user.id));
-//   await db
-//     .delete(emailVerifications)
-//     .where(eq(emailVerifications.userId, user.id));
-//   SuccessResponse(res, { message: "تم تغيير كلمة السر بنجاح" }, 200);
-// };
-// export const resendVerificationCode = async (req: Request, res: Response) => {
-//   const { email } = req.body;
-//   // 1) البحث عن المستخدم عبر الإيميل
-//   const user = await db.query.users.findFirst({
-//     where: (u, { eq }) => eq(u.email, email),
-//   });
-//   if (!user) {
-//     throw new NotFound("الحساب غير موجود");
-//   }
-//   // 2) التأكد إنه لسه مش Verified
-//   if (user.isVerified) {
-//     throw new BadRequest("تم التحقق من البريد الإلكتروني بالفعل");
-//   }
-//   // 3) احذف كود قديم لو موجود
-//   await db.delete(emailVerifications).where(
-//     eq(emailVerifications.userId, user.id)
-//   );
-//   // 4) إنشاء كود جديد
-//   const code = Math.floor(100000 + Math.random() * 900000).toString();
-//   // 5) حفظ الكود الجديد
-//   await db.insert(emailVerifications).values({
-//     userId: user.id,
-//     code,
-//     createdAt: new Date(),
-//   });
-//   // 6) إرسال الكود عبر البريد
-//   await sendEmail(
-//     user.email,
-//     "Email Verification",
-//     `Your new verification code is ${code}`
-//   );
-//   SuccessResponse(res, { message: "تم إرسال كود جديد للبريد الالكتروني" }, 200);
-// };
+exports.updateProfile = exports.changePassword = exports.getMyProfile = exports.driverAppLogin = exports.parentLogin = void 0;
+const db_1 = require("../../models/db");
+const schema_1 = require("../../models/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const response_1 = require("../../utils/response");
+const NotFound_1 = require("../../Errors/NotFound");
+const BadRequest_1 = require("../../Errors/BadRequest");
+const Errors_1 = require("../../Errors");
+const bcrypt_1 = __importDefault(require("bcrypt"));
+const auth_1 = require("../../utils/auth");
+// ✅ Parent Login (Parent App)
+const parentLogin = async (req, res) => {
+    const { phone, password } = req.body;
+    const parent = await db_1.db
+        .select()
+        .from(schema_1.parents)
+        .where((0, drizzle_orm_1.eq)(schema_1.parents.phone, phone))
+        .limit(1);
+    if (!parent[0]) {
+        throw new Errors_1.UnauthorizedError("Invalid phone number or password");
+    }
+    if (parent[0].status === "inactive") {
+        throw new Errors_1.UnauthorizedError("Your account is inactive. Please contact admin.");
+    }
+    const isValidPassword = await bcrypt_1.default.compare(password, parent[0].password);
+    if (!isValidPassword) {
+        throw new Errors_1.UnauthorizedError("Invalid phone number or password");
+    }
+    // جلب الأبناء
+    const children = await db_1.db
+        .select({
+        id: schema_1.students.id,
+        name: schema_1.students.name,
+        avatar: schema_1.students.avatar,
+        grade: schema_1.students.grade,
+        classroom: schema_1.students.classroom,
+    })
+        .from(schema_1.students)
+        .where((0, drizzle_orm_1.eq)(schema_1.students.parentId, parent[0].id));
+    const token = (0, auth_1.generateParentToken)({
+        id: parent[0].id,
+        name: parent[0].name,
+        organizationId: parent[0].organizationId,
+    });
+    (0, response_1.SuccessResponse)(res, {
+        message: "Login successful",
+        token,
+        user: {
+            id: parent[0].id,
+            name: parent[0].name,
+            phone: parent[0].phone,
+            avatar: parent[0].avatar,
+            address: parent[0].address,
+            role: "parent",
+            children,
+        },
+    }, 200);
+};
+exports.parentLogin = parentLogin;
+// ✅ Driver/CoDriver Login (Driver App)
+const driverAppLogin = async (req, res) => {
+    const { phone, password } = req.body;
+    // 1. البحث في جدول الـ Drivers
+    const driver = await db_1.db
+        .select()
+        .from(schema_1.drivers)
+        .where((0, drizzle_orm_1.eq)(schema_1.drivers.phone, phone))
+        .limit(1);
+    if (driver[0]) {
+        if (driver[0].status === "inactive") {
+            throw new Errors_1.UnauthorizedError("Your account is inactive. Please contact admin.");
+        }
+        const isValidPassword = await bcrypt_1.default.compare(password, driver[0].password);
+        if (!isValidPassword) {
+            throw new Errors_1.UnauthorizedError("Invalid phone number or password");
+        }
+        const token = (0, auth_1.generateDriverToken)({
+            id: driver[0].id,
+            name: driver[0].name,
+            organizationId: driver[0].organizationId,
+        });
+        return (0, response_1.SuccessResponse)(res, {
+            message: "Login successful",
+            token,
+            user: {
+                id: driver[0].id,
+                name: driver[0].name,
+                phone: driver[0].phone,
+                avatar: driver[0].avatar,
+                role: "driver",
+            },
+        }, 200);
+    }
+    // 2. البحث في جدول الـ CoDrivers
+    const codriver = await db_1.db
+        .select()
+        .from(schema_1.codrivers)
+        .where((0, drizzle_orm_1.eq)(schema_1.codrivers.phone, phone))
+        .limit(1);
+    if (codriver[0]) {
+        if (codriver[0].status === "inactive") {
+            throw new Errors_1.UnauthorizedError("Your account is inactive. Please contact admin.");
+        }
+        const isValidPassword = await bcrypt_1.default.compare(password, codriver[0].password);
+        if (!isValidPassword) {
+            throw new Errors_1.UnauthorizedError("Invalid phone number or password");
+        }
+        const token = (0, auth_1.generateCoDriverToken)({
+            id: codriver[0].id,
+            name: codriver[0].name,
+            organizationId: codriver[0].organizationId,
+        });
+        return (0, response_1.SuccessResponse)(res, {
+            message: "Login successful",
+            token,
+            user: {
+                id: codriver[0].id,
+                name: codriver[0].name,
+                phone: codriver[0].phone,
+                avatar: codriver[0].avatar,
+                role: "codriver",
+            },
+        }, 200);
+    }
+    throw new Errors_1.UnauthorizedError("Invalid phone number or password");
+};
+exports.driverAppLogin = driverAppLogin;
+// ✅ Get My Profile (لكل الأنواع)
+const getMyProfile = async (req, res) => {
+    const user = req.user;
+    if (!user) {
+        throw new Errors_1.UnauthorizedError("Not authenticated");
+    }
+    let profile = null;
+    if (user.role === "driver") {
+        const driver = await db_1.db
+            .select({
+            id: schema_1.drivers.id,
+            name: schema_1.drivers.name,
+            phone: schema_1.drivers.phone,
+            avatar: schema_1.drivers.avatar,
+            licenseExpiry: schema_1.drivers.licenseExpiry,
+            status: schema_1.drivers.status,
+        })
+            .from(schema_1.drivers)
+            .where((0, drizzle_orm_1.eq)(schema_1.drivers.id, user.id))
+            .limit(1);
+        profile = driver[0];
+    }
+    else if (user.role === "codriver") {
+        const codriver = await db_1.db
+            .select({
+            id: schema_1.codrivers.id,
+            name: schema_1.codrivers.name,
+            phone: schema_1.codrivers.phone,
+            avatar: schema_1.codrivers.avatar,
+            status: schema_1.codrivers.status,
+        })
+            .from(schema_1.codrivers)
+            .where((0, drizzle_orm_1.eq)(schema_1.codrivers.id, user.id))
+            .limit(1);
+        profile = codriver[0];
+    }
+    else if (user.role === "parent") {
+        const parent = await db_1.db
+            .select({
+            id: schema_1.parents.id,
+            name: schema_1.parents.name,
+            phone: schema_1.parents.phone,
+            avatar: schema_1.parents.avatar,
+            address: schema_1.parents.address,
+            status: schema_1.parents.status,
+        })
+            .from(schema_1.parents)
+            .where((0, drizzle_orm_1.eq)(schema_1.parents.id, user.id))
+            .limit(1);
+        const children = await db_1.db
+            .select({
+            id: schema_1.students.id,
+            name: schema_1.students.name,
+            avatar: schema_1.students.avatar,
+            grade: schema_1.students.grade,
+            classroom: schema_1.students.classroom,
+        })
+            .from(schema_1.students)
+            .where((0, drizzle_orm_1.eq)(schema_1.students.parentId, user.id));
+        profile = { ...parent[0], children };
+    }
+    if (!profile) {
+        throw new NotFound_1.NotFound("Profile not found");
+    }
+    (0, response_1.SuccessResponse)(res, { profile: { ...profile, role: user.role } }, 200);
+};
+exports.getMyProfile = getMyProfile;
+// ✅ Change Password
+const changePassword = async (req, res) => {
+    const { oldPassword, newPassword } = req.body;
+    const user = req.user;
+    if (!user) {
+        throw new Errors_1.UnauthorizedError("Not authenticated");
+    }
+    let currentPassword = null;
+    let table = null;
+    if (user.role === "driver") {
+        const driver = await db_1.db
+            .select({ password: schema_1.drivers.password })
+            .from(schema_1.drivers)
+            .where((0, drizzle_orm_1.eq)(schema_1.drivers.id, user.id))
+            .limit(1);
+        currentPassword = driver[0]?.password;
+        table = schema_1.drivers;
+    }
+    else if (user.role === "codriver") {
+        const codriver = await db_1.db
+            .select({ password: schema_1.codrivers.password })
+            .from(schema_1.codrivers)
+            .where((0, drizzle_orm_1.eq)(schema_1.codrivers.id, user.id))
+            .limit(1);
+        currentPassword = codriver[0]?.password;
+        table = schema_1.codrivers;
+    }
+    else if (user.role === "parent") {
+        const parent = await db_1.db
+            .select({ password: schema_1.parents.password })
+            .from(schema_1.parents)
+            .where((0, drizzle_orm_1.eq)(schema_1.parents.id, user.id))
+            .limit(1);
+        currentPassword = parent[0]?.password;
+        table = schema_1.parents;
+    }
+    if (!currentPassword) {
+        throw new NotFound_1.NotFound("User not found");
+    }
+    const isValidPassword = await bcrypt_1.default.compare(oldPassword, currentPassword);
+    if (!isValidPassword) {
+        throw new BadRequest_1.BadRequest("Old password is incorrect");
+    }
+    const hashedPassword = await bcrypt_1.default.hash(newPassword, 10);
+    await db_1.db
+        .update(table)
+        .set({ password: hashedPassword })
+        .where((0, drizzle_orm_1.eq)(table.id, user.id));
+    (0, response_1.SuccessResponse)(res, { message: "Password changed successfully" }, 200);
+};
+exports.changePassword = changePassword;
+// ✅ Update Profile
+const updateProfile = async (req, res) => {
+    const { name, avatar, address } = req.body;
+    const user = req.user;
+    if (!user) {
+        throw new Errors_1.UnauthorizedError("Not authenticated");
+    }
+    const updateData = {};
+    if (name)
+        updateData.name = name;
+    if (avatar !== undefined)
+        updateData.avatar = avatar;
+    if (user.role === "driver") {
+        await db_1.db.update(schema_1.drivers).set(updateData).where((0, drizzle_orm_1.eq)(schema_1.drivers.id, user.id));
+    }
+    else if (user.role === "codriver") {
+        await db_1.db.update(schema_1.codrivers).set(updateData).where((0, drizzle_orm_1.eq)(schema_1.codrivers.id, user.id));
+    }
+    else if (user.role === "parent") {
+        if (address !== undefined)
+            updateData.address = address;
+        await db_1.db.update(schema_1.parents).set(updateData).where((0, drizzle_orm_1.eq)(schema_1.parents.id, user.id));
+    }
+    (0, response_1.SuccessResponse)(res, { message: "Profile updated successfully" }, 200);
+};
+exports.updateProfile = updateProfile;

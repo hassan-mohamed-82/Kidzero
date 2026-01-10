@@ -80,6 +80,22 @@ export const generateCoDriverToken = (data: {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
+
+// للـ Parent (Mobile App)
+export const generateParentToken = (data: {
+  id: string;
+  name: string;
+  organizationId: string;
+}): string => {
+  const payload: TokenPayload = {
+    id: data.id,
+    name: data.name,
+    role: "parent",
+    organizationId: data.organizationId,
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+};
+
 // Verify Token
 export const verifyToken = (token: string): TokenPayload => {
   try {
