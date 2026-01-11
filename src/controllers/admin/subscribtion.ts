@@ -716,3 +716,7 @@ export const getPaymentMethods = async (req: Request, res: Response) => {
     .where(eq(paymentMethod.isActive, true));
   SuccessResponse(res, { paymentMethods: activeMethods }, 200);
 };
+
+
+
+

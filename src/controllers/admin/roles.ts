@@ -27,10 +27,43 @@ const addIdsToPermissions = (permissions: Permission[]): Permission[] => {
     }));
 };
 
+// Helper function to parse permissions
+const parsePermissions = (permissions: any): Permission[] => {
+    if (!permissions) return [];
+    
+    try {
+        if (Array.isArray(permissions)) {
+            return permissions;
+        }
+        
+        if (typeof permissions === 'string') {
+            const parsed = JSON.parse(permissions);
+            return Array.isArray(parsed) ? parsed : [];
+        }
+        
+        return [];
+    } catch (error) {
+        console.error('Error parsing permissions:', error);
+        return [];
+    }
+};
+
+// Format role response
+const formatRole = (role: any) => ({
+    id: role.id,
+    name: role.name,
+    permissions: parsePermissions(role.permissions),
+    status: role.status,
+    createdAt: role.createdAt,
+    updatedAt: role.updatedAt,
+});
+
 // ✅ Get All Roles
 export const getAllRoles = async (req: Request, res: Response) => {
     const allRoles = await db.select().from(roles);
-    SuccessResponse(res, { roles: allRoles }, 200);
+    const formattedRoles = allRoles.map(formatRole);
+    
+    SuccessResponse(res, { roles: formattedRoles }, 200);
 };
 
 // ✅ Get Role By ID
@@ -47,7 +80,7 @@ export const getRoleById = async (req: Request, res: Response) => {
         throw new NotFound("Role not found");
     }
 
-    SuccessResponse(res, { role: role[0] }, 200);
+    SuccessResponse(res, { role: formatRole(role[0]) }, 200);
 };
 
 // ✅ Create Role
@@ -58,7 +91,6 @@ export const createRole = async (req: Request, res: Response) => {
         throw new BadRequest("Role name is required");
     }
 
-    // تحقق من عدم وجود role بنفس الاسم
     const existingRole = await db
         .select()
         .from(roles)
@@ -69,15 +101,25 @@ export const createRole = async (req: Request, res: Response) => {
         throw new BadRequest("Role with this name already exists");
     }
 
-    // إضافة IDs للـ Actions
     const permissionsWithIds = addIdsToPermissions(permissions || []);
 
+    // ✅ ابعت array على طول - Drizzle هيتعامل معاه
     await db.insert(roles).values({
         name,
         permissions: permissionsWithIds,
     });
 
-    SuccessResponse(res, { message: "Role created successfully" }, 201);
+    // جيب الـ role اللي اتعمل
+    const createdRole = await db
+        .select()
+        .from(roles)
+        .where(eq(roles.name, name))
+        .limit(1);
+
+    SuccessResponse(res, { 
+        message: "Role created successfully",
+        role: formatRole(createdRole[0])
+    }, 201);
 };
 
 // ✅ Update Role
@@ -95,7 +137,6 @@ export const updateRole = async (req: Request, res: Response) => {
         throw new NotFound("Role not found");
     }
 
-    // لو بيغير الاسم، نتحقق إنه مش موجود
     if (name && name !== existingRole[0].name) {
         const duplicateName = await db
             .select()
@@ -108,11 +149,12 @@ export const updateRole = async (req: Request, res: Response) => {
         }
     }
 
-    // إضافة IDs للـ Actions الجديدة
+    const currentPermissions = parsePermissions(existingRole[0].permissions);
     const updatedPermissions = permissions 
         ? addIdsToPermissions(permissions) 
-        : existingRole[0].permissions;
+        : currentPermissions;
 
+    // ✅ ابعت array على طول
     await db
         .update(roles)
         .set({
@@ -122,7 +164,16 @@ export const updateRole = async (req: Request, res: Response) => {
         })
         .where(eq(roles.id, id));
 
-    SuccessResponse(res, { message: "Role updated successfully" }, 200);
+    const updatedRole = await db
+        .select()
+        .from(roles)
+        .where(eq(roles.id, id))
+        .limit(1);
+
+    SuccessResponse(res, { 
+        message: "Role updated successfully",
+        role: formatRole(updatedRole[0])
+    }, 200);
 };
 
 // ✅ Delete Role
@@ -162,10 +213,19 @@ export const toggleRoleStatus = async (req: Request, res: Response) => {
 
     await db.update(roles).set({ status: newStatus }).where(eq(roles.id, id));
 
-    SuccessResponse(res, { message: `Role ${newStatus}` }, 200);
+    const updatedRole = await db
+        .select()
+        .from(roles)
+        .where(eq(roles.id, id))
+        .limit(1);
+
+    SuccessResponse(res, { 
+        message: `Role ${newStatus}`,
+        role: formatRole(updatedRole[0])
+    }, 200);
 };
 
-// ✅ Get Available Permissions (للـ Frontend)
+// ✅ Get Available Permissions
 export const getAvailablePermissions = async (req: Request, res: Response) => {
     const permissions = MODULES.map((module) => ({
         module,
