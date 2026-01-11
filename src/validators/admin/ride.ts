@@ -84,6 +84,11 @@ export const updateRideStudentSchema = z.object({
         excuseReason: z.string().nullable().optional(),
     }),
 });
+export const getRidesByDateSchema = z.object({
+  body: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+  }),
+});
 
 export const removeStudentFromRideSchema = z.object({
     params: z.object({
