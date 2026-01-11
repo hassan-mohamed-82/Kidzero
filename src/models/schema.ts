@@ -10,13 +10,14 @@ export * from "./superadmin/promocodes";
 export * from "./superadmin/paymentMethod";
 export * from "./superadmin/superAdminRole";
 export * from "./superadmin/Invoice";
+export * from "./superadmin/feeInstallments";
 
 // Admin Models
 // src/models/schema/index.ts
 
 export * from "./admin/admin";
 export * from "./admin/roles";
-export * from "./admin/Bus";    
+export * from "./admin/Bus";
 export * from "./admin/driver";
 export * from "./admin/codriver";
 export * from "./admin/Rout";
