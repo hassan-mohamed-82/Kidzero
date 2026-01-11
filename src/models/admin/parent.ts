@@ -4,6 +4,7 @@ import {
   timestamp,
   mysqlEnum,
   char,
+  json,
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
@@ -15,6 +16,7 @@ export const parents = mysqlTable("parents", {
   phone: varchar("phone", { length: 20 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
   avatar: varchar("avatar", { length: 500 }),
+  fcm_tokens: json("fcm_tokens").$type<string[]>().default([]),
 
   address: varchar("address", { length: 500 }),
   nationalId: varchar("national_id", { length: 20 }),

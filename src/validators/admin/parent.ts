@@ -6,6 +6,8 @@ const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
 
 export const createParentSchema = z.object({
     body: z.object({
+                fcm_tokens: z.string().optional(),
+
         name: z
             .string({ required_error: "Parent name is required" })
             .min(1, "Parent name cannot be empty")
@@ -37,6 +39,8 @@ export const updateParentSchema = z.object({
         id: z.string().uuid("Invalid Parent ID"),
     }),
     body: z.object({
+     fcm_tokens: z.string().optional(),
+
         name: z
             .string()
             .min(1, "Parent name cannot be empty")

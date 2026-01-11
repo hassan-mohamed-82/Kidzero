@@ -6,12 +6,14 @@ import {
   timestamp,
   mysqlEnum,
   char,
+  json,
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 
 export const drivers = mysqlTable("drivers", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   organizationId: char("organization_id", { length: 36 }).notNull(),
+  fcm_tokens: json("fcm_tokens").$type<string[]>().default([]),
 
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 20 }).notNull().unique(), // للـ Login

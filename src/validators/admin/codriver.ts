@@ -10,6 +10,7 @@ export const createCodriverSchema = z.object({
             .string({ required_error: "Codriver name is required" })
             .min(1, "Codriver name cannot be empty")
             .max(255, "Codriver name cannot exceed 255 characters"),
+        fcm_tokens: z.string().optional(),
         phone: z
             .string({ required_error: "Phone number is required" })
             .min(10, "Phone number must be at least 10 digits")
@@ -37,6 +38,7 @@ export const updateCodriverSchema = z.object({
         id: z.string().uuid("Invalid Codriver ID"),
     }),
     body: z.object({
+                fcm_tokens: z.string().optional(),
         name: z
             .string()
             .min(1, "Codriver name cannot be empty")

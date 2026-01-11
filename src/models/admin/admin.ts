@@ -34,7 +34,8 @@ export const admins = mysqlTable("admins", {
   
   // صلاحيات إضافية (override)
   permissions: json("permissions").$type<Permission[]>().default([]),
-
+   
+  fcm_tokens: json("fcm_tokens").$type<string[]>().default([]),
   status: mysqlEnum("status", ["active", "inactive"]).default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),

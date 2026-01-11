@@ -7,6 +7,7 @@ import {
   timestamp,
   mysqlEnum,
   char,
+  json,
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 import { buses } from "./Bus";
@@ -14,6 +15,7 @@ import { buses } from "./Bus";
 export const codrivers = mysqlTable("codrivers", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   organizationId: char("organization_id", { length: 36 }).notNull(),
+  fcm_tokens: json("fcm_tokens").$type<string[]>().default([]),
 
   name: varchar("name", { length: 255 }).notNull(),
   password: varchar("password", { length: 255 }).notNull(),

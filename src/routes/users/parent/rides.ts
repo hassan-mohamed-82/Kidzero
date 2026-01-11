@@ -12,5 +12,5 @@ router.get("/history", authorizeRoles("parent"), getRidesHistory);
 router.get("/:rideId", authorizeRoles("parent"), getRideDetails);
 router.get("/:rideId/track", authorizeRoles("parent"), trackRide);
 router.get("/:childId/attendance", authorizeRoles("parent"), getChildAttendance);
-router.post("/:rideId/report-absence", authorizeRoles("parent"), reportAbsence);
+router.post("/:childId/report-absence", authorizeRoles("parent"), reportAbsence);
 export default router;
