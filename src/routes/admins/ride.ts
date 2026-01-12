@@ -10,7 +10,8 @@ import {
     searchStudentsForRide,
     addStudentsToRide,
     removeStudentFromRide,
-    selection
+    selection,
+    getRidesByDate
 } from "../../controllers/admin/ride";
 import { validate } from "../../middlewares/validation";
 import {
@@ -19,7 +20,7 @@ import {
     rideIdSchema,
     addStudentsToRideSchema,
     removeStudentFromRideSchema,
-    
+    getRidesByDateSchema
 
 } from "../../validators/admin/ride";
 import { catchAsync } from "../../utils/catchAsync";
@@ -30,6 +31,7 @@ const router = Router();
 router.get("/students/search", catchAsync(searchStudentsForRide));
 router.post("/", validate(createRideSchema), catchAsync(createRide));
 router.get("/", getAllRides);
+router.post("/by-date", validate(getRidesByDateSchema), catchAsync(getRidesByDate));
 router.get("/selection", catchAsync(selection));
 router.get("/:id", validate(rideIdSchema), catchAsync(getRideById));
 router.put("/:id", validate(updateRideSchema), catchAsync(updateRide));
