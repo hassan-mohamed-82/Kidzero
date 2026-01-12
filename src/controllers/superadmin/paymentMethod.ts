@@ -26,18 +26,18 @@ export const getPaymentMethodById = async (req: Request, res: Response) => {
 };
 
 export const createPaymentMethod = async (req: Request, res: Response) => {
-    const { name, description , logo , is_active , fee_status , fee_amount } = req.body;
+    const { name, description, logo, is_active, fee_status, fee_amount } = req.body;
     if (!name || !logo || is_active === undefined || fee_status === undefined) {
         throw new BadRequest("Missing required fields");
     }
     let feeAmountNumber: number;
-    if (fee_status == true){
-        if (isNaN(fee_amount) || fee_amount < 0){
+    if (fee_status == true) {
+        if (isNaN(fee_amount) || fee_amount < 0) {
             throw new BadRequest("Invalid fee amount");
-        }else{
+        } else {
             feeAmountNumber = Number(fee_amount);
         }
-    }else{
+    } else {
         feeAmountNumber = 0;
     }
     const newPaymentMethod = await db.insert(paymentMethod).values({
@@ -48,7 +48,7 @@ export const createPaymentMethod = async (req: Request, res: Response) => {
         feeStatus: fee_status,
         feeAmount: feeAmountNumber,
     });
-    return SuccessResponse(res, {message: "Payment method created successfully"}, 201);
+    return SuccessResponse(res, { message: "Payment method created successfully" }, 201);
 };
 
 export const updatePaymentMethod = async (req: Request, res: Response) => {
@@ -56,7 +56,7 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
     if (!id) {
         throw new BadRequest("Payment Method ID is required");
     }
-    const { name, description , logo , is_active , fee_status , fee_amount } = req.body;
+    const { name, description, logo, is_active, fee_status, fee_amount } = req.body;
 
     const existingPaymentMethod = await db.query.paymentMethod.findFirst({
         where: eq(paymentMethod.id, id),
@@ -66,24 +66,24 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
         throw new BadRequest("Payment Method not found");
     }
     let feeAmountNumber: number;
-    if (fee_status){
-        if (isNaN(fee_amount) || fee_amount < 0){
+    if (fee_status) {
+        if (isNaN(fee_amount) || fee_amount < 0) {
             throw new BadRequest("Invalid fee amount");
-        }else{
+        } else {
             feeAmountNumber = Number(fee_amount);
         }
-    }else{
+    } else {
         feeAmountNumber = existingPaymentMethod.feeAmount;
     }
     await db.update(paymentMethod).set({
         name: name || existingPaymentMethod.name,
         description: description || existingPaymentMethod.description,
         logo: logo || existingPaymentMethod.logo,
-        isActive: is_active || existingPaymentMethod.isActive,
-        feeStatus: fee_status || existingPaymentMethod.feeStatus,
-        feeAmount: fee_status || existingPaymentMethod.feeAmount,
+        isActive: is_active ?? existingPaymentMethod.isActive,
+        feeStatus: fee_status ?? existingPaymentMethod.feeStatus,
+        feeAmount: fee_amount ?? existingPaymentMethod.feeAmount,
     }).where(eq(paymentMethod.id, id));
-    return SuccessResponse(res, {message: "Payment method updated successfully"}, 200);
+    return SuccessResponse(res, { message: "Payment method updated successfully" }, 200);
 };
 
 export const deletePaymentMethod = async (req: Request, res: Response) => {
@@ -98,5 +98,5 @@ export const deletePaymentMethod = async (req: Request, res: Response) => {
         throw new BadRequest("Payment Method not found");
     }
     await db.delete(paymentMethod).where(eq(paymentMethod.id, id));
-    return SuccessResponse(res, {message: "Payment method deleted successfully"}, 200);
+    return SuccessResponse(res, { message: "Payment method deleted successfully" }, 200);
 };
