@@ -8,7 +8,9 @@
     "build": "tsc",
     "generate-db": "npx drizzle-kit generate",
     "dbcreate": "tsx src/models/setup.ts",
-    "migrate-db": "npx drizzle-kit push"
+    "migrate-db": "npx drizzle-kit push",
+    "seed": "tsx src/seeds/index.ts",
+    "seed:fresh": "tsx src/seeds/index.ts --fresh"
   },
   "keywords": [],
   "author": "",
