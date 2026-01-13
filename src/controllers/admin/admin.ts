@@ -227,3 +227,17 @@ export const deleteAdmin = async (req: Request, res: Response) => {
 };
 
 
+
+
+// ✅ Get Role Names Only
+export const getRoleNames = async (req: Request, res: Response) => {
+  const allRoles = await db
+    .select({
+      id: roles.id,
+      name: roles.name,
+    })
+    .from(roles)
+    .where(eq(roles.status, "active")); // الـ Active بس
+
+  return SuccessResponse(res, { roles: allRoles }, 200);
+};

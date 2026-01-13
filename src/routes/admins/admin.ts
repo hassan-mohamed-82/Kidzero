@@ -4,14 +4,15 @@ import {
     getAdminById,
     createAdmin,
     updateAdmin,
-    deleteAdmin
+    deleteAdmin,
+    getRoleNames
 
 } from "../../controllers/admin/admin";
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
 import { createAdminSchema,updateAdminSchema } from "../../validators/admin/admin";
 const router = Router();
-
+router.get("/roles", catchAsync(getRoleNames));
 router.get("/", catchAsync(getAllAdmins));
 router.get("/:id", catchAsync(getAdminById));
 router.post("/", validate(createAdminSchema), catchAsync(createAdmin));
