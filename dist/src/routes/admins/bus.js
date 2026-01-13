@@ -11,6 +11,7 @@ router.get("/status/:status", (0, catchAsync_1.catchAsync)(bus_1.getBusesByStatu
 // ✅ الـ CRUD العادي
 router.get("/", (0, catchAsync_1.catchAsync)(bus_1.getAllBuses));
 router.post("/", (0, validation_1.validate)(bus_2.createBusSchema), (0, catchAsync_1.catchAsync)(bus_1.createBus));
+router.get("/types", (0, catchAsync_1.catchAsync)(bus_1.getBusTypes));
 // ✅ الـ Dynamic Routes في الآخر (اللي فيها :id)
 router.get("/:id", (0, catchAsync_1.catchAsync)(bus_1.getBusById));
 router.put("/:id", (0, validation_1.validate)(bus_2.updateBusSchema), (0, catchAsync_1.catchAsync)(bus_1.updateBus));

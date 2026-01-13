@@ -1,7 +1,7 @@
 "use strict";
 // src/controllers/admin/busController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBusStatistics = exports.getBusesByStatus = exports.updateBusStatus = exports.deleteBus = exports.updateBus = exports.createBus = exports.getBusById = exports.getAllBuses = void 0;
+exports.getBusTypes = exports.getBusStatistics = exports.getBusesByStatus = exports.updateBusStatus = exports.deleteBus = exports.updateBus = exports.createBus = exports.getBusById = exports.getAllBuses = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -435,3 +435,8 @@ const getBusStatistics = async (req, res) => {
     }, 200);
 };
 exports.getBusStatistics = getBusStatistics;
+const getBusTypes = async (req, res) => {
+    const allBusTypes = await db_1.db.select().from(schema_1.busTypes);
+    (0, response_1.SuccessResponse)(res, { busTypes: allBusTypes }, 200);
+};
+exports.getBusTypes = getBusTypes;

@@ -24,6 +24,8 @@ __exportStar(require("./superadmin/Bustype"), exports);
 __exportStar(require("./superadmin/promocodes"), exports);
 __exportStar(require("./superadmin/paymentMethod"), exports);
 __exportStar(require("./superadmin/superAdminRole"), exports);
+__exportStar(require("./superadmin/Invoice"), exports);
+__exportStar(require("./superadmin/feeInstallments"), exports);
 // Admin Models
 // src/models/schema/index.ts
 __exportStar(require("./admin/admin"), exports);
@@ -39,5 +41,7 @@ __exportStar(require("./admin/department"), exports);
 __exportStar(require("./admin/student"), exports);
 __exportStar(require("./admin/parent"), exports);
 __exportStar(require("./admin/studentride"), exports);
+__exportStar(require("./admin/city"), exports);
+__exportStar(require("./admin/zone"), exports);
 // Relations
 __exportStar(require("./relations/OrganizationRelations"), exports);

@@ -11,6 +11,8 @@ exports.plans = (0, mysql_core_1.mysqlTable)("plan", {
     maxBuses: (0, mysql_core_1.int)("max_buses").default(10),
     maxDrivers: (0, mysql_core_1.int)("max_drivers").default(20),
     maxStudents: (0, mysql_core_1.int)("max_students").default(100),
+    minSubscriptionFeesPay: (0, mysql_core_1.double)("min_subscription_fees_pay").notNull().default(0),
+    subscriptionFees: (0, mysql_core_1.double)("subscription_fees").notNull().default(0),
     createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
     updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });

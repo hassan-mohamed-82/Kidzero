@@ -10,6 +10,7 @@ exports.parents = (0, mysql_core_1.mysqlTable)("parents", {
     phone: (0, mysql_core_1.varchar)("phone", { length: 20 }).notNull().unique(),
     password: (0, mysql_core_1.varchar)("password", { length: 255 }).notNull(),
     avatar: (0, mysql_core_1.varchar)("avatar", { length: 500 }),
+    fcm_tokens: (0, mysql_core_1.json)("fcm_tokens").$type().default([]),
     address: (0, mysql_core_1.varchar)("address", { length: 500 }),
     nationalId: (0, mysql_core_1.varchar)("national_id", { length: 20 }),
     status: (0, mysql_core_1.mysqlEnum)("status", ["active", "inactive"]).default("active"),

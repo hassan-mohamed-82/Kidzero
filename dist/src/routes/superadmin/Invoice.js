@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const Invoices_1 = require("../../controllers/superadmin/Invoices");
+const catchAsync_1 = require("../../utils/catchAsync");
+const router = (0, express_1.Router)();
+router.get('/', (0, catchAsync_1.catchAsync)(Invoices_1.getAllInvoices));
+router.get('/:Id', (0, catchAsync_1.catchAsync)(Invoices_1.getInvoiceById));
+router.delete('/:Id', (0, catchAsync_1.catchAsync)(Invoices_1.deleteInvoice));
+exports.default = router;

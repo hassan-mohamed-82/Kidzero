@@ -10,6 +10,7 @@ exports.createCodriverSchema = zod_1.z.object({
             .string({ required_error: "Codriver name is required" })
             .min(1, "Codriver name cannot be empty")
             .max(255, "Codriver name cannot exceed 255 characters"),
+        fcm_tokens: zod_1.z.string().optional(),
         phone: zod_1.z
             .string({ required_error: "Phone number is required" })
             .min(10, "Phone number must be at least 10 digits")
@@ -36,6 +37,7 @@ exports.updateCodriverSchema = zod_1.z.object({
         id: zod_1.z.string().uuid("Invalid Codriver ID"),
     }),
     body: zod_1.z.object({
+        fcm_tokens: zod_1.z.string().optional(),
         name: zod_1.z
             .string()
             .min(1, "Codriver name cannot be empty")

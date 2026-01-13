@@ -6,6 +6,7 @@ const zod_1 = require("zod");
 const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
 exports.createDriverSchema = zod_1.z.object({
     body: zod_1.z.object({
+        fcm_tokens: zod_1.z.string().optional(),
         name: zod_1.z
             .string({ required_error: "Driver name is required" })
             .min(1, "Driver name cannot be empty")
@@ -44,6 +45,7 @@ exports.updateDriverSchema = zod_1.z.object({
         id: zod_1.z.string().uuid("Invalid Driver ID"),
     }),
     body: zod_1.z.object({
+        fcm_tokens: zod_1.z.string().optional(),
         name: zod_1.z
             .string()
             .min(1, "Driver name cannot be empty")

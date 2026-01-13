@@ -7,6 +7,7 @@ const drizzle_orm_1 = require("drizzle-orm");
 exports.codrivers = (0, mysql_core_1.mysqlTable)("codrivers", {
     id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
     organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull(),
+    fcm_tokens: (0, mysql_core_1.json)("fcm_tokens").$type().default([]),
     name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
     password: (0, mysql_core_1.varchar)("password", { length: 255 }).notNull(),
     phone: (0, mysql_core_1.varchar)("phone", { length: 20 }),

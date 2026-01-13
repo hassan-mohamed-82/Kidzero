@@ -11,6 +11,8 @@ const router = (0, express_1.Router)();
 router.get("/students/search", (0, catchAsync_1.catchAsync)(ride_1.searchStudentsForRide));
 router.post("/", (0, validation_1.validate)(ride_2.createRideSchema), (0, catchAsync_1.catchAsync)(ride_1.createRide));
 router.get("/", ride_1.getAllRides);
+router.post("/by-date", (0, validation_1.validate)(ride_2.getRidesByDateSchema), (0, catchAsync_1.catchAsync)(ride_1.getRidesByDate));
+router.get("/selection", (0, catchAsync_1.catchAsync)(ride_1.selection));
 router.get("/:id", (0, validation_1.validate)(ride_2.rideIdSchema), (0, catchAsync_1.catchAsync)(ride_1.getRideById));
 router.put("/:id", (0, validation_1.validate)(ride_2.updateRideSchema), (0, catchAsync_1.catchAsync)(ride_1.updateRide));
 router.delete("/:id", (0, validation_1.validate)(ride_2.rideIdSchema), (0, catchAsync_1.catchAsync)(ride_1.deleteRide));

@@ -28,6 +28,7 @@ export * from "./admin/department";
 export * from "./admin/student";
 export * from "./admin/parent";
 export * from "./admin/studentride";
-
+export * from "./admin/city";
+export * from "./admin/zone";
 // Relations
 export * from "./relations/OrganizationRelations";

@@ -12,6 +12,7 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const cors_1 = __importDefault(require("cors"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const helmet_1 = __importDefault(require("helmet"));
+const cronJobs_1 = require("./jobs/cronJobs");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 app.use((0, helmet_1.default)({
@@ -30,6 +31,7 @@ app.use((req, res, next) => {
     throw new Errors_1.NotFound("Route not found");
 });
 app.use(errorHandler_1.errorHandler);
+(0, cronJobs_1.startCronJobs)();
 app.listen(3000, () => {
     console.log("Server is running on http://localhost:3000 ");
 });

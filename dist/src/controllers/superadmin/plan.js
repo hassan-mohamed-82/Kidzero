@@ -44,9 +44,9 @@ const deletePlanById = async (req, res) => {
 };
 exports.deletePlanById = deletePlanById;
 const createPlan = async (req, res) => {
-    const { name, price_semester, price_year, max_buses, max_drivers, max_students } = req.body;
-    if (!name || !max_buses || !max_drivers || !max_students) {
-        throw new BadRequest_1.BadRequest("Please provide all required fields: name, max_buses, max_drivers, max_students");
+    const { name, price_semester, price_year, max_buses, max_drivers, max_students, min_subscriptionfeesPay, subscriptionFees } = req.body;
+    if (!name || !max_buses || !max_drivers || !max_students || !subscriptionFees) {
+        throw new BadRequest_1.BadRequest("Please provide all required fields: name, max_buses, max_drivers, max_students, subscriptionFees");
     }
     const newPlan = await db_1.db.insert(schema_1.plans).values({
         name,
@@ -54,14 +54,16 @@ const createPlan = async (req, res) => {
         price_year: price_year || 0,
         maxBuses: max_buses,
         maxDrivers: max_drivers,
-        maxStudents: max_students
+        maxStudents: max_students,
+        minSubscriptionFeesPay: min_subscriptionfeesPay || 0,
+        subscriptionFees: subscriptionFees,
     });
     return (0, response_1.SuccessResponse)(res, { message: "Plan Created Successfully" }, 201);
 };
 exports.createPlan = createPlan;
 const updatePlan = async (req, res) => {
     const { Id } = req.params;
-    const { name, price_semester, price_year, max_buses, max_drivers, max_students } = req.body;
+    const { name, price_semester, price_year, max_buses, max_drivers, max_students, min_subscriptionfeesPay, subscriptionFees } = req.body;
     if (!Id) {
         throw new BadRequest_1.BadRequest("Please Enter Plan Id");
     }
@@ -79,6 +81,8 @@ const updatePlan = async (req, res) => {
         maxBuses: max_buses !== undefined ? max_buses : plan.maxBuses,
         maxDrivers: max_drivers !== undefined ? max_drivers : plan.maxDrivers,
         maxStudents: max_students !== undefined ? max_students : plan.maxStudents,
+        minSubscriptionFeesPay: min_subscriptionfeesPay !== undefined ? min_subscriptionfeesPay : plan.minSubscriptionFeesPay,
+        subscriptionFees: subscriptionFees !== undefined ? subscriptionFees : plan.subscriptionFees,
     }).where((0, drizzle_orm_1.eq)(schema_1.plans.id, Id));
     return (0, response_1.SuccessResponse)(res, { message: "Plan Updated Successfully" }, 200);
 };

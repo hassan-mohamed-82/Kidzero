@@ -1,7 +1,7 @@
 "use strict";
 // src/controllers/admin/routeController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteRoute = exports.updateRoute = exports.getRouteById = exports.getAllRoutes = exports.createRoute = void 0;
+exports.getAllPickupPoints = exports.deleteRoute = exports.updateRoute = exports.getRouteById = exports.getAllRoutes = exports.createRoute = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -253,3 +253,15 @@ const deleteRoute = async (req, res) => {
     (0, response_1.SuccessResponse)(res, { message: "Route deleted successfully" }, 200);
 };
 exports.deleteRoute = deleteRoute;
+const getAllPickupPoints = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const allPoints = await db_1.db
+        .select()
+        .from(schema_1.pickupPoints)
+        .where((0, drizzle_orm_1.eq)(schema_1.pickupPoints.organizationId, organizationId));
+    (0, response_1.SuccessResponse)(res, { message: "All pickup points", pickupPoints: allPoints }, 200);
+};
+exports.getAllPickupPoints = getAllPickupPoints;

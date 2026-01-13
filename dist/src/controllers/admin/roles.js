@@ -24,10 +24,39 @@ const addIdsToPermissions = (permissions) => {
         })),
     }));
 };
+// Helper function to parse permissions
+const parsePermissions = (permissions) => {
+    if (!permissions)
+        return [];
+    try {
+        if (Array.isArray(permissions)) {
+            return permissions;
+        }
+        if (typeof permissions === 'string') {
+            const parsed = JSON.parse(permissions);
+            return Array.isArray(parsed) ? parsed : [];
+        }
+        return [];
+    }
+    catch (error) {
+        console.error('Error parsing permissions:', error);
+        return [];
+    }
+};
+// Format role response
+const formatRole = (role) => ({
+    id: role.id,
+    name: role.name,
+    permissions: parsePermissions(role.permissions),
+    status: role.status,
+    createdAt: role.createdAt,
+    updatedAt: role.updatedAt,
+});
 // ✅ Get All Roles
 const getAllRoles = async (req, res) => {
     const allRoles = await db_1.db.select().from(schema_1.roles);
-    (0, response_1.SuccessResponse)(res, { roles: allRoles }, 200);
+    const formattedRoles = allRoles.map(formatRole);
+    (0, response_1.SuccessResponse)(res, { roles: formattedRoles }, 200);
 };
 exports.getAllRoles = getAllRoles;
 // ✅ Get Role By ID
@@ -41,7 +70,7 @@ const getRoleById = async (req, res) => {
     if (!role[0]) {
         throw new NotFound_1.NotFound("Role not found");
     }
-    (0, response_1.SuccessResponse)(res, { role: role[0] }, 200);
+    (0, response_1.SuccessResponse)(res, { role: formatRole(role[0]) }, 200);
 };
 exports.getRoleById = getRoleById;
 // ✅ Create Role
@@ -50,7 +79,6 @@ const createRole = async (req, res) => {
     if (!name) {
         throw new BadRequest_1.BadRequest("Role name is required");
     }
-    // تحقق من عدم وجود role بنفس الاسم
     const existingRole = await db_1.db
         .select()
         .from(schema_1.roles)
@@ -59,13 +87,22 @@ const createRole = async (req, res) => {
     if (existingRole[0]) {
         throw new BadRequest_1.BadRequest("Role with this name already exists");
     }
-    // إضافة IDs للـ Actions
     const permissionsWithIds = addIdsToPermissions(permissions || []);
+    // ✅ ابعت array على طول - Drizzle هيتعامل معاه
     await db_1.db.insert(schema_1.roles).values({
         name,
         permissions: permissionsWithIds,
     });
-    (0, response_1.SuccessResponse)(res, { message: "Role created successfully" }, 201);
+    // جيب الـ role اللي اتعمل
+    const createdRole = await db_1.db
+        .select()
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.name, name))
+        .limit(1);
+    (0, response_1.SuccessResponse)(res, {
+        message: "Role created successfully",
+        role: formatRole(createdRole[0])
+    }, 201);
 };
 exports.createRole = createRole;
 // ✅ Update Role
@@ -80,7 +117,6 @@ const updateRole = async (req, res) => {
     if (!existingRole[0]) {
         throw new NotFound_1.NotFound("Role not found");
     }
-    // لو بيغير الاسم، نتحقق إنه مش موجود
     if (name && name !== existingRole[0].name) {
         const duplicateName = await db_1.db
             .select()
@@ -91,10 +127,11 @@ const updateRole = async (req, res) => {
             throw new BadRequest_1.BadRequest("Role with this name already exists");
         }
     }
-    // إضافة IDs للـ Actions الجديدة
+    const currentPermissions = parsePermissions(existingRole[0].permissions);
     const updatedPermissions = permissions
         ? addIdsToPermissions(permissions)
-        : existingRole[0].permissions;
+        : currentPermissions;
+    // ✅ ابعت array على طول
     await db_1.db
         .update(schema_1.roles)
         .set({
@@ -103,7 +140,15 @@ const updateRole = async (req, res) => {
         status: status ?? existingRole[0].status,
     })
         .where((0, drizzle_orm_1.eq)(schema_1.roles.id, id));
-    (0, response_1.SuccessResponse)(res, { message: "Role updated successfully" }, 200);
+    const updatedRole = await db_1.db
+        .select()
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.id, id))
+        .limit(1);
+    (0, response_1.SuccessResponse)(res, {
+        message: "Role updated successfully",
+        role: formatRole(updatedRole[0])
+    }, 200);
 };
 exports.updateRole = updateRole;
 // ✅ Delete Role
@@ -134,10 +179,18 @@ const toggleRoleStatus = async (req, res) => {
     }
     const newStatus = existingRole[0].status === "active" ? "inactive" : "active";
     await db_1.db.update(schema_1.roles).set({ status: newStatus }).where((0, drizzle_orm_1.eq)(schema_1.roles.id, id));
-    (0, response_1.SuccessResponse)(res, { message: `Role ${newStatus}` }, 200);
+    const updatedRole = await db_1.db
+        .select()
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.id, id))
+        .limit(1);
+    (0, response_1.SuccessResponse)(res, {
+        message: `Role ${newStatus}`,
+        role: formatRole(updatedRole[0])
+    }, 200);
 };
 exports.toggleRoleStatus = toggleRoleStatus;
-// ✅ Get Available Permissions (للـ Frontend)
+// ✅ Get Available Permissions
 const getAvailablePermissions = async (req, res) => {
     const permissions = constant_1.MODULES.map((module) => ({
         module,

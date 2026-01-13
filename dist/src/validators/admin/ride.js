@@ -1,7 +1,7 @@
 "use strict";
 // src/validations/rideValidation.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.removeStudentFromRideSchema = exports.updateRideStudentSchema = exports.addStudentsToRideSchema = exports.rideIdSchema = exports.updateRideSchema = exports.createRideSchema = void 0;
+exports.removeStudentFromRideSchema = exports.getRidesByDateSchema = exports.updateRideStudentSchema = exports.addStudentsToRideSchema = exports.rideIdSchema = exports.updateRideSchema = exports.createRideSchema = void 0;
 const zod_1 = require("zod");
 exports.createRideSchema = zod_1.z.object({
     body: zod_1.z.object({
@@ -79,6 +79,11 @@ exports.updateRideStudentSchema = zod_1.z.object({
         pickupTime: zod_1.z.string().nullable().optional(),
         status: zod_1.z.enum(["pending", "picked_up", "dropped_off", "absent", "excused"]).optional(),
         excuseReason: zod_1.z.string().nullable().optional(),
+    }),
+});
+exports.getRidesByDateSchema = zod_1.z.object({
+    body: zod_1.z.object({
+        date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
     }),
 });
 exports.removeStudentFromRideSchema = zod_1.z.object({

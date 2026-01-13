@@ -6,6 +6,7 @@ const zod_1 = require("zod");
 const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
 exports.createParentSchema = zod_1.z.object({
     body: zod_1.z.object({
+        fcm_tokens: zod_1.z.string().optional(),
         name: zod_1.z
             .string({ required_error: "Parent name is required" })
             .min(1, "Parent name cannot be empty")
@@ -36,6 +37,7 @@ exports.updateParentSchema = zod_1.z.object({
         id: zod_1.z.string().uuid("Invalid Parent ID"),
     }),
     body: zod_1.z.object({
+        fcm_tokens: zod_1.z.string().optional(),
         name: zod_1.z
             .string()
             .min(1, "Parent name cannot be empty")

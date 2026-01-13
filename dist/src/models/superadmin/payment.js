@@ -19,6 +19,7 @@ exports.payment = (0, mysql_core_1.mysqlTable)("payments", {
     promocodeId: (0, mysql_core_1.char)("promocode_id", { length: 36 }).references(() => promocodes_1.promocode.id),
     status: (0, mysql_core_1.mysqlEnum)("status", ["pending", "completed", "rejected"]).notNull().default("pending"),
     rejectedReason: (0, mysql_core_1.varchar)("rejected_reason", { length: 255 }),
+    RequestedSubscriptionType: (0, mysql_core_1.mysqlEnum)("requested_subscription_type", ["yearly", "semester"]).notNull().default("semester"),
     createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
     updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });

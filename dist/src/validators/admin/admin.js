@@ -8,6 +8,7 @@ exports.createAdminSchema = zod_1.z.object({
             .string({ required_error: "Name is required" })
             .min(1, "Name cannot be empty")
             .max(255, "Name cannot exceed 255 characters"),
+        fcm_tokens: zod_1.z.string().optional(),
         email: zod_1.z
             .string({ required_error: "Email is required" })
             .email("Invalid email format"),
@@ -41,6 +42,7 @@ exports.updateAdminSchema = zod_1.z.object({
             .min(1, "Name cannot be empty")
             .max(255, "Name cannot exceed 255 characters")
             .optional(),
+        fcm_tokens: zod_1.z.string().optional(),
         email: zod_1.z
             .string()
             .email("Invalid email format")

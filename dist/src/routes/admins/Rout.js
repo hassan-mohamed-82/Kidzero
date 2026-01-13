@@ -7,6 +7,7 @@ const validation_1 = require("../../middlewares/validation");
 const rout_1 = require("../../validators/admin/rout");
 const router = (0, express_1.Router)();
 router.get("/", (0, catchAsync_1.catchAsync)(Rout_1.getAllRoutes));
+router.get("/pickup-points", (0, catchAsync_1.catchAsync)(Rout_1.getAllPickupPoints));
 router.post("/", (0, validation_1.validate)(rout_1.createRouteSchema), (0, catchAsync_1.catchAsync)(Rout_1.createRoute));
 router.get("/:id", (0, catchAsync_1.catchAsync)(Rout_1.getRouteById));
 router.delete("/:id", (0, catchAsync_1.catchAsync)(Rout_1.deleteRoute));
