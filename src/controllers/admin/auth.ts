@@ -10,17 +10,30 @@ import { UnauthorizedError } from "../../Errors";
 import { SuccessResponse } from "../../utils/response";
 import { Permission } from "../../types/custom";
 
-// Helper function لتحويل الـ permissions
+// ✅ Helper function لتحويل الـ permissions (معالجة Double Escape)
 function parsePermissions(permissions: any): Permission[] {
   if (!permissions) return [];
+  
+  // لو Array جاهز
+  if (Array.isArray(permissions)) return permissions;
+  
+  // لو String
   if (typeof permissions === "string") {
     try {
-      return JSON.parse(permissions);
-    } catch {
+      let parsed = JSON.parse(permissions);
+      
+      // ✅ لو لسه String بعد الـ parse (Double Escaped)
+      while (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
+      
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.error("Error parsing permissions:", error);
       return [];
     }
   }
-  if (Array.isArray(permissions)) return permissions;
+  
   return [];
 }
 
@@ -54,6 +67,7 @@ export async function login(req: Request, res: Response) {
   let permissions: Permission[] = [];
 
   if (admin[0].type === "organizer") {
+    // الـ Organizer له كل الصلاحيات
     permissions = [];
   } else if (admin[0].roleId) {
     const roleData = await db
@@ -71,7 +85,7 @@ export async function login(req: Request, res: Response) {
     }
   }
 
-  // دمج صلاحيات الـ Admin
+  // دمج صلاحيات الـ Admin الإضافية
   const adminPermissions = parsePermissions(admin[0].permissions);
   if (adminPermissions.length > 0) {
     permissions = mergePermissions(permissions, adminPermissions);
@@ -90,7 +104,7 @@ export async function login(req: Request, res: Response) {
       : generateAdminToken(tokenPayload);
 
   // 6) الرد
-  SuccessResponse(
+  return SuccessResponse(
     res,
     {
       message: "Login successful",
@@ -111,7 +125,7 @@ export async function login(req: Request, res: Response) {
   );
 }
 
-// دالة دمج الصلاحيات
+// ✅ دالة دمج الصلاحيات
 function mergePermissions(
   rolePermissions: Permission[],
   adminPermissions: Permission[]
