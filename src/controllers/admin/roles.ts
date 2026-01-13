@@ -57,6 +57,43 @@ const formatRole = (role: any) => ({
     createdAt: role.createdAt,
     updatedAt: role.updatedAt,
 });
+function formatLabel(str: string): string {
+  return str
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+// Get Admin Modules with Actions
+export const getAdminPermissions = async (req: Request, res: Response) => {
+  try {
+    const permissions = MODULES.map((module) => ({
+      module,
+      label: formatLabel(module),
+      actions: ACTION_NAMES.map((action) => ({
+        key: action.toLowerCase(),
+        label: action,
+        permission: `${module}.${action.toLowerCase()}`,
+      })),
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        modules: [...MODULES],
+        actions: [...ACTION_NAMES],
+        permissions,
+      },
+    });
+  } catch (error: any) {
+    console.error("Get admin permissions error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to get permissions",
+      error: error.message,
+    });
+  }
+};
 
 // ✅ Get All Roles
 export const getAllRoles = async (req: Request, res: Response) => {
@@ -241,3 +278,6 @@ export const getAvailablePermissions = async (req: Request, res: Response) => {
         permissions,
     }, 200);
 };
+
+
+

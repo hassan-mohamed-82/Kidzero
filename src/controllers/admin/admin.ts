@@ -241,3 +241,5 @@ export const getRoleNames = async (req: Request, res: Response) => {
 
   return SuccessResponse(res, { roles: allRoles }, 200);
 };
+
+
