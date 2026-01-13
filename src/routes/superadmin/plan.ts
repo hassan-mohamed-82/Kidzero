@@ -9,8 +9,8 @@ const router = Router();
 
 router.get("/", catchAsync(getAllPlans));
 router.post("/", validate(createPlanSchema), catchAsync(createPlan));
-router.get("/:Id", catchAsync(getPlanbyId));
-router.put("/:Id", validate(updatePlanSchema), catchAsync(updatePlan));
-router.delete("/:Id", catchAsync(deletePlanById));
+router.get("/:id", catchAsync(getPlanbyId));
+router.put("/:id", validate(updatePlanSchema), catchAsync(updatePlan));
+router.delete("/:id", catchAsync(deletePlanById));
 
 export default router;
