@@ -7,8 +7,10 @@ export const plans = mysqlTable("plan", {
   // price_semester: double("price_semester").notNull().default(0),
   // price_year: double("price_year").notNull().default(0),
   price: double("price").notNull().default(0),
-  startDate: date("start_date").notNull(), //15/7
-  endDate: date("end_date").notNull(),//14/7
+  // startDate: date("start_date").notNull(), //15/7
+  // endDate: date("end_date").notNull(),//14/7
+  
+  // هتبقي yearly plan بس مش semesterly <--
 
   maxBuses: int("max_buses").default(10),
   maxDrivers: int("max_drivers").default(20),

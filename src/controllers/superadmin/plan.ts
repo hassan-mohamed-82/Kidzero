@@ -50,35 +50,28 @@ export const deletePlanById = async (req: Request, res: Response) => {
 };
 
 export const createPlan = async (req: Request, res: Response) => {
-    const { name, price, startDate, endDate, max_buses, max_drivers, max_students , min_subscriptionfeesPay , subscriptionFees } = req.body;
+    const { name, price, max_buses, max_drivers, max_students, min_subscriptionfeesPay, subscriptionFees } = req.body;
 
     if (!name || !max_buses || !max_drivers || !max_students || !subscriptionFees || !min_subscriptionfeesPay) {
         throw new BadRequest("Please provide all required fields: name, max_buses, max_drivers, max_students, subscriptionFees , min_subscriptionfeesPay");
     }
-    if (!startDate || !endDate) {
-        throw new BadRequest("Please provide startDate and endDate");
-    }
-    if (new Date(startDate) >= new Date(endDate)) {
-        throw new BadRequest("startDate must be earlier than endDate");
-    }
-    
+
+
     const newPlan = await db.insert(plans).values({
         name,
         price: price || 0,
-        startDate,
-        endDate,
         maxBuses: max_buses,
         maxDrivers: max_drivers,
         maxStudents: max_students,
         minSubscriptionFeesPay: min_subscriptionfeesPay || 0,
         subscriptionFees: subscriptionFees,
     });
-    return SuccessResponse(res, { message: "Plan Created Successfully"}, 201);
+    return SuccessResponse(res, { message: "Plan Created Successfully" }, 201);
 };
 
 export const updatePlan = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, price, startDate, endDate, max_buses, max_drivers, max_students , min_subscriptionfeesPay , subscriptionFees } = req.body;
+    const { name, price, max_buses, max_drivers, max_students, min_subscriptionfeesPay, subscriptionFees } = req.body;
 
     if (!id) {
         throw new BadRequest("Please Enter Plan Id");
@@ -92,12 +85,9 @@ export const updatePlan = async (req: Request, res: Response) => {
     if (!plan) {
         throw new NotFound("Plan not found");
     }
-
-    const updatedPlan = await db.update(plans).set({
+    await db.update(plans).set({
         name: name || plan.name,
         price: price !== undefined ? price : plan.price,
-        startDate: startDate !== undefined ? startDate : plan.startDate,
-        endDate: endDate !== undefined ? endDate : plan.endDate,
         maxBuses: max_buses !== undefined ? max_buses : plan.maxBuses,
         maxDrivers: max_drivers !== undefined ? max_drivers : plan.maxDrivers,
         maxStudents: max_students !== undefined ? max_students : plan.maxStudents,
@@ -105,5 +95,5 @@ export const updatePlan = async (req: Request, res: Response) => {
         subscriptionFees: subscriptionFees !== undefined ? subscriptionFees : plan.subscriptionFees,
     }).where(eq(plans.id, id));
 
-    return SuccessResponse(res, { message: "Plan Updated Successfully"}, 200);
+    return SuccessResponse(res, { message: "Plan Updated Successfully" }, 200);
 };

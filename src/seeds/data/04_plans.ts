@@ -3,25 +3,12 @@ import { plans } from "../../models/schema";
 import { Seed } from "../runner";
 import { sql } from "drizzle-orm";
 
-// Helper to get dates for plans
-function getPlanDates() {
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), 6, 15); // July 15
-    const endDate = new Date(now.getFullYear() + 1, 6, 14); // July 14 next year
-
-    return {
-        startDate,
-        endDate,
-    };
-}
 
 const seed: Seed = {
     name: "04_plans",
 
     async run() {
         console.log("   📝 Inserting subscription plans...");
-
-        const { startDate, endDate } = getPlanDates();
 
         const defaultPlans = [
             {
@@ -66,8 +53,6 @@ const seed: Seed = {
             await db.insert(plans).values({
                 name: plan.name,
                 price: plan.price,
-                startDate,
-                endDate,
                 maxBuses: plan.maxBuses,
                 maxDrivers: plan.maxDrivers,
                 maxStudents: plan.maxStudents,
