@@ -7,7 +7,7 @@ import { plans } from "../models/schema";
 import { buses } from "../models/schema";
 import { drivers } from "../models/schema"; // لو عايز تستخدمه لاحقاً
 import { students } from "../models/schema"; // لو عايز تستخدمه لاحقاً
-import { eq, and, count,gte } from "drizzle-orm";
+import { eq, and, count, gte } from "drizzle-orm";
 interface SubscriptionWithPlan {
   subscription: typeof subscriptions.$inferSelect;
   plan: typeof plans.$inferSelect;
@@ -17,25 +17,30 @@ interface SubscriptionWithPlan {
 export const getActiveSubscription = async (
   organizationId: string
 ): Promise<SubscriptionWithPlan | null> => {
-  const now = new Date();
+  try {
+    const now = new Date();
 
-  const result = await db
-    .select({
-      subscription: subscriptions,
-      plan: plans,
-    })
-    .from(subscriptions)
-    .innerJoin(plans, eq(subscriptions.planId, plans.id))
-    .where(
-      and(
-        eq(subscriptions.organizationId, organizationId),
-        eq(subscriptions.isActive, true),
-        gte(subscriptions.endDate, now)
+    const result = await db
+      .select({
+        subscription: subscriptions,
+        plan: plans,
+      })
+      .from(subscriptions)
+      .innerJoin(plans, eq(subscriptions.planId, plans.id))
+      .where(
+        and(
+          eq(subscriptions.organizationId, organizationId),
+          eq(subscriptions.isActive, true),
+          gte(subscriptions.endDate, now)
+        )
       )
-    )
-    .limit(1);
+      .limit(1);
 
-  return result[0] || null;
+    return result[0] || null;
+  } catch (error) {
+    console.error("Error fetching active subscription:", error);
+    return null;
+  }
 };
 
 // ✅ التحقق من حد الباصات
