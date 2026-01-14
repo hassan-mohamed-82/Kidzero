@@ -13,6 +13,9 @@ export const createStudentSchema = z.object({
             .string({ required_error: "Student name is required" })
             .min(1, "Student name cannot be empty")
             .max(255, "Student name cannot exceed 255 characters"),
+        zoneId: z
+           .string({ required_error: "Zone ID is required" })
+           .uuid("Invalid Zone ID"),        
         avatar: z
             .string()
             .regex(BASE64_IMAGE_REGEX, "Invalid avatar format")
@@ -37,6 +40,10 @@ export const updateStudentSchema = z.object({
             .string()
             .uuid("Invalid Parent ID")
             .optional(),
+        zoneId: z
+            .string()
+            .uuid("Invalid Zone ID")
+            .optional(),    
         name: z
             .string()
             .min(1, "Student name cannot be empty")

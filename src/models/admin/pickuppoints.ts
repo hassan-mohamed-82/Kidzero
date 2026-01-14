@@ -11,13 +11,15 @@ import {
   char,
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
-
+import { organizations,zones } from "../schema";
 export const pickupPoints = mysqlTable("pickup_points", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
-  organizationId: char("organization_id", { length: 36 }).notNull(),
+  organizationId: char("organization_id", { length: 36 }).notNull().references(() => organizations.id),
 
   name: varchar("name", { length: 255 }).notNull(),
   address: text("address"),
+
+  zoneId: char("zone_id", { length: 36 }).notNull().references(() => zones.id),
 
   lat: decimal("lat", { precision: 10, scale: 8 }).notNull(),
   lng: decimal("lng", { precision: 11, scale: 8 }).notNull(),
