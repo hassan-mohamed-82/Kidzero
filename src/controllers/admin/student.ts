@@ -2,27 +2,29 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { students, parents } from "../../models/schema";
+import { students, parents, zones } from "../../models/schema";
 import { eq, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
-import { checkStudentLimit } from "../../utils/helperfunction";
 import { saveBase64Image } from "../../utils/handleImages";
 import { deletePhotoFromServer } from "../../utils/deleteImage";
 import { v4 as uuidv4 } from "uuid";
 
 // ✅ Create Student
 export const createStudent = async (req: Request, res: Response) => {
-    const { parentId, name, avatar, grade, classroom } = req.body;
+    const { parentId, name, avatar, grade, classroom, zoneId } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
         throw new BadRequest("Organization ID is required");
     }
 
-   // await checkStudentLimit(organizationId);
+    if (!zoneId) {
+        throw new BadRequest("Zone ID is required");
+    }
 
+    // تحقق من الـ Parent
     const parent = await db
         .select()
         .from(parents)
@@ -31,6 +33,17 @@ export const createStudent = async (req: Request, res: Response) => {
 
     if (!parent[0]) {
         throw new NotFound("Parent not found");
+    }
+
+    // ✅ تحقق من الـ Zone (بدون organizationId)
+    const zone = await db
+        .select()
+        .from(zones)
+        .where(eq(zones.id, zoneId))
+        .limit(1);
+
+    if (!zone[0]) {
+        throw new NotFound("Zone not found");
     }
 
     const studentId = uuidv4();
@@ -45,6 +58,7 @@ export const createStudent = async (req: Request, res: Response) => {
         id: studentId,
         organizationId,
         parentId,
+        zoneId,
         name,
         avatar: avatarUrl,
         grade: grade || null,
@@ -77,9 +91,14 @@ export const getAllStudents = async (req: Request, res: Response) => {
                 name: parents.name,
                 phone: parents.phone,
             },
+            zone: {
+                id: zones.id,
+                name: zones.name,
+            },
         })
         .from(students)
         .leftJoin(parents, eq(students.parentId, parents.id))
+        .leftJoin(zones, eq(students.zoneId, zones.id))
         .where(eq(students.organizationId, organizationId));
 
     SuccessResponse(res, { students: allStudents }, 200);
@@ -110,9 +129,14 @@ export const getStudentById = async (req: Request, res: Response) => {
                 phone: parents.phone,
                 address: parents.address,
             },
+            zone: {
+                id: zones.id,
+                name: zones.name,
+            },
         })
         .from(students)
         .leftJoin(parents, eq(students.parentId, parents.id))
+        .leftJoin(zones, eq(students.zoneId, zones.id))
         .where(and(eq(students.id, id), eq(students.organizationId, organizationId)))
         .limit(1);
 
@@ -126,7 +150,7 @@ export const getStudentById = async (req: Request, res: Response) => {
 // ✅ Update Student
 export const updateStudent = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { parentId, name, avatar, grade, classroom, status } = req.body;
+    const { parentId, name, avatar, grade, classroom, status, zoneId } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -143,6 +167,7 @@ export const updateStudent = async (req: Request, res: Response) => {
         throw new NotFound("Student not found");
     }
 
+    // تحقق من الـ Parent الجديد
     if (parentId && parentId !== existingStudent[0].parentId) {
         const parent = await db
             .select()
@@ -155,6 +180,20 @@ export const updateStudent = async (req: Request, res: Response) => {
         }
     }
 
+    // ✅ تحقق من الـ Zone الجديد (بدون organizationId)
+    if (zoneId && zoneId !== existingStudent[0].zoneId) {
+        const zone = await db
+            .select()
+            .from(zones)
+            .where(eq(zones.id, zoneId))
+            .limit(1);
+
+        if (!zone[0]) {
+            throw new NotFound("Zone not found");
+        }
+    }
+
+    // معالجة الصورة
     let avatarUrl = existingStudent[0].avatar;
     if (avatar !== undefined) {
         if (existingStudent[0].avatar) {
@@ -168,8 +207,10 @@ export const updateStudent = async (req: Request, res: Response) => {
         }
     }
 
+    // تحديث الطالب
     await db.update(students).set({
         parentId: parentId ?? existingStudent[0].parentId,
+        zoneId: zoneId ?? existingStudent[0].zoneId,
         name: name ?? existingStudent[0].name,
         avatar: avatarUrl,
         grade: grade !== undefined ? grade : existingStudent[0].grade,
@@ -208,8 +249,34 @@ export const deleteStudent = async (req: Request, res: Response) => {
     SuccessResponse(res, { message: "Student deleted successfully" }, 200);
 };
 
-export const selection= async(req: Request, res: Response) => {
+// ✅ Selection (للـ Dropdowns)
+export const selection = async (req: Request, res: Response) => {
+    const organizationId = req.user?.organizationId;
 
-    const getAllParents = await db.select().from(parents);
-    SuccessResponse(res, { parents: getAllParents }, 200);
-}
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+
+    const allParents = await db
+        .select({
+            id: parents.id,
+            name: parents.name,
+            phone: parents.phone,
+        })
+        .from(parents)
+        .where(eq(parents.organizationId, organizationId));
+
+    // ✅ كل الـ zones (مشتركة)
+    const allZones = await db
+        .select({
+            id: zones.id,
+            name: zones.name,
+            cost: zones.cost,
+        })
+        .from(zones);
+
+    SuccessResponse(res, { 
+        parents: allParents,
+        zones: allZones,
+    }, 200);
+};
