@@ -57,67 +57,83 @@ export const getProfile = async (req: Request, res: Response) => {
 
 // ✅ Update Profile
 export const updateProfile = async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
-  const currentUserId = req.user?.id;
-  const { name, phone, avatar, password } = req.body;
+  try {
+    const organizationId = req.user?.organizationId;
+    const currentUserId = req.user?.id;
+    const { name, phone, avatar, password } = req.body;
 
-  if (!organizationId) {
-    throw new BadRequest("Organization ID is required");
-  }
-
-  if (!currentUserId) {
-    throw new UnauthorizedError("Not authenticated");
-  }
-
-  const admin = await db
-    .select()
-    .from(admins)
-    .where(
-      and(
-        eq(admins.id, currentUserId),
-        eq(admins.organizationId, organizationId)
-      )
-    )
-    .limit(1);
-
-  if (!admin[0]) {
-    throw new NotFound("Admin not found");
-  }
-
-  // Handle avatar upload
-  let avatarUrl = admin[0].avatar;
-  if (avatar && avatar.startsWith("data:image")) {
-    // حذف الصورة القديمة لو موجودة
-    if (admin[0].avatar) {
-      await deletePhotoFromServer(admin[0].avatar);
+    if (!organizationId) {
+      throw new BadRequest("Organization ID is required");
     }
-    // ✅ حفظ الصورة الجديدة - أضف req
-    const savedImage = await saveBase64Image(req, avatar, "avatars");
-    avatarUrl = savedImage.url;
-  }
 
-  const updatedData: any = {
-    name: name ?? admin[0].name,
-    phone: phone ?? admin[0].phone,
-    avatar: avatarUrl,
-  };
+    if (!currentUserId) {
+      throw new UnauthorizedError("Not authenticated");
+    }
 
-  if (password) {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    updatedData.password = hashedPassword;
-  }
-
-  await db
-    .update(admins)
-    .set(updatedData)
-    .where(
-      and(
-        eq(admins.id, currentUserId),
-        eq(admins.organizationId, organizationId)
+    const admin = await db
+      .select()
+      .from(admins)
+      .where(
+        and(
+          eq(admins.id, currentUserId),
+          eq(admins.organizationId, organizationId)
+        )
       )
-    );
+      .limit(1);
 
-  return SuccessResponse(res, { message: "Profile updated successfully" }, 200);
+    if (!admin[0]) {
+      throw new NotFound("Admin not found");
+    }
+
+    // Process avatar and password in parallel for better performance
+    const [avatarUrl, hashedPassword] = await Promise.all([
+      // Handle avatar
+      (async () => {
+        if (avatar === undefined) {
+          return admin[0].avatar;
+        }
+        if (avatar === null || avatar === "") {
+          if (admin[0].avatar) {
+            await deletePhotoFromServer(admin[0].avatar);
+          }
+          return null;
+        }
+        if (avatar.startsWith("data:image")) {
+          if (admin[0].avatar) {
+            await deletePhotoFromServer(admin[0].avatar);
+          }
+          const savedImage = await saveBase64Image(req, avatar, "avatars");
+          return savedImage.url;
+        }
+        return admin[0].avatar; // Keep existing if URL string
+      })(),
+      // Handle password
+      password ? bcrypt.hash(password, 10) : Promise.resolve(null),
+    ]);
+
+    await db
+      .update(admins)
+      .set({
+        name: name ?? admin[0].name,
+        phone: phone ?? admin[0].phone,
+        avatar: avatarUrl,
+        ...(hashedPassword && { password: hashedPassword }),
+      })
+      .where(
+        and(
+          eq(admins.id, currentUserId),
+          eq(admins.organizationId, organizationId)
+        )
+      );
+
+    return SuccessResponse(res, { message: "Profile updated successfully" }, 200);
+  } catch (error) {
+    if (error instanceof BadRequest || error instanceof UnauthorizedError || error instanceof NotFound) {
+      throw error;
+    }
+    console.error("Update profile error:", error);
+    throw new BadRequest("Failed to update profile");
+  }
 };
 
 // ✅ Delete Profile
