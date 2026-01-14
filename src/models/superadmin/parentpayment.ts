@@ -3,7 +3,6 @@ import { sql } from "drizzle-orm";
 import { parents } from "../admin/parent";
 import { parentPlans } from "./parentPlan";
 import { paymentMethod } from "./paymentMethod";
-import { promocode } from "./promocodes";
 
 export const parentPayment = mysqlTable("parent_payments", {
     id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),

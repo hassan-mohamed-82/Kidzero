@@ -56,6 +56,9 @@ export const createParentPayment = async (req: Request, res: Response) => {
         const savedImage = await saveBase64Image(req, receiptImage, "payments/receipts");
         receiptImageUrl = savedImage.url;
     }
+    if (!receiptImageUrl) {
+        throw new BadRequest("Failed to process receipt image");
+    }
 
     await db.insert(parentPayment).values({
         parentId: user,
@@ -64,6 +67,7 @@ export const createParentPayment = async (req: Request, res: Response) => {
         amount,
         receiptImage: receiptImageUrl || "",
         status: "pending",
+        rejectedReason: null,
     });
 
     return SuccessResponse(res, { message: "Payment created successfully" }, 201);

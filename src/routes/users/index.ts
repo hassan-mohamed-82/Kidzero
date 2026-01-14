@@ -8,6 +8,8 @@ import rideRouter from "./parent/rides";
 import parentPaymentRouter from "./parent/parentPayment";
 import rideRouterDriver from "./driver/rides";
 import parentPlanRouter from "./parent/parentPlans";
+import parentSubscriptionRouter from "./parent/parentSubscription";
+import paymentMethodRouter from "./parent/parentPaymentMethods";
 const router = Router();
 
 router.use("/auth", authRouter);
@@ -18,5 +20,7 @@ router.use("/rides", rideRouter);
 router.use("/parentpayments", parentPaymentRouter);
 router.use("/driver/rides", rideRouterDriver);
 router.use("/parentplans", parentPlanRouter);
+router.use("/parentsubscriptions", parentSubscriptionRouter);
+router.use("/paymentmethods", paymentMethodRouter);
 
 export default router;

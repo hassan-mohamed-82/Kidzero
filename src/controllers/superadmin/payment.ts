@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { payment, plans, subscriptions, organizations, feeInstallments } from "../../models/schema";
+import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions } from "../../models/schema";
 import { db } from "../../models/db";
 import { eq, desc, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
@@ -162,6 +162,7 @@ export const ReplyToPayment = async (req: Request, res: Response) => {
             isActive: true,
         });
     }
+    return SuccessResponse(res, { message: `Payment ${status} successfully` },200);
 };
 
 // =====================================================
@@ -343,16 +344,68 @@ export const rejectInstallment = async (req: Request, res: Response) => {
 
 
 // // Parents
+export const getAllParentPayments = async (req: Request, res: Response) => {
+    const payments = await db.query.parentPayment.findMany();
+    return SuccessResponse(res, { message: "Parent Payments retrieved successfully", payments });
+};
 
-// export const ReplyToPaymentParent = async (req: Request, res: Response) => {
-//     const { id } = req.params;
-//     if (!id) {
-//         throw new BadRequest("Payment ID is required");
-//     }
-//     const { status, rejectedReason } = req.body;
-//     if (!status || !["completed", "rejected"].includes(status)) {
-//         throw new BadRequest("Valid status is required");
-//     }
-//     if (status === "rejected" && !rejectedReason) {
-//         throw new BadRequest("Rejection reason is required for rejected payments");
-//     }
+export const getParentPaymentById = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) {
+        throw new BadRequest("Payment ID is required");
+    }
+    const paymentRecord = await db.query.parentPayment.findFirst({
+        where: eq(parentPayment.id, id),
+    });
+    if (!paymentRecord) {
+        throw new BadRequest("Payment not found");
+    }
+    return SuccessResponse(res, { message: "Payment retrieved successfully", payment: paymentRecord });
+};
+
+export const ReplyToPaymentParent = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    if (!id) {
+        throw new BadRequest("Payment ID is required");
+    }
+    const { status, rejectedReason } = req.body;
+    if (!status || !["completed", "rejected"].includes(status)) {
+        throw new BadRequest("Valid status is required");
+    }
+    if (status === "rejected" && !rejectedReason) {
+        throw new BadRequest("Rejection reason is required for rejected payments");
+    }
+    const paymentRecord = await db.query.parentPayment.findFirst({
+        where: eq(parentPayment.id, id),
+    });
+    if (!paymentRecord) {
+        throw new BadRequest("Payment not found");
+    }
+    // Prevent double-processing
+    if (paymentRecord.status !== "pending") {
+        throw new BadRequest("Payment has already been processed");
+    }
+    // Update payment status first
+    await db.update(parentPayment)
+        .set({
+            status,
+            rejectedReason: status === "rejected" ? rejectedReason : null,
+        })
+        .where(eq(parentPayment.id, id));
+    // Create Subscription for the Parent if accepted
+    if (status === "completed") {
+        // Assuming parents also get subscriptions similar to organizations
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setFullYear(endDate.getFullYear() + 1);
+        await db.insert(parentSubscriptions).values({
+            parentId: paymentRecord.parentId,
+            parentPlanId: paymentRecord.planId,
+            parentPaymentId: paymentRecord.id,
+            startDate: startDate,
+            endDate: endDate,
+            isActive: true,
+        });
+    }
+    return SuccessResponse(res, { message: `Payment ${status} successfully` },200);
+};

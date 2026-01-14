@@ -10,8 +10,7 @@ export const parentPlans = mysqlTable("parent_plan", {
   name: varchar("name", { length: 255 }).notNull(),
 
   price: double("price").notNull().default(0),
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date").notNull(),
+
 
   minSubscriptionFeesPay: double("min_subscription_fees_pay").notNull().default(0),
   subscriptionFees: double("subscription_fees").notNull().default(0),

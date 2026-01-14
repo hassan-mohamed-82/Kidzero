@@ -54,8 +54,6 @@ export const createParentPlan = async (req: Request, res: Response) => {
     await db.insert(parentPlans).values({
         name,
         price,
-        startDate,
-        endDate,
         minSubscriptionFeesPay: minSubscriptionfeesPay || 0,
         subscriptionFees
     });
@@ -78,8 +76,6 @@ export const updateParentPlan = async (req: Request, res: Response) => {
     await db.update(parentPlans).set({
         name: name !== undefined ? name : parentPlan.name,
         price: price !== undefined ? price : parentPlan.price,
-        startDate: startDate !== undefined ? startDate : parentPlan.startDate,
-        endDate: endDate !== undefined ? endDate : parentPlan.endDate,
         minSubscriptionFeesPay: minSubscriptionfeesPay !== undefined ? minSubscriptionfeesPay : parentPlan.minSubscriptionFeesPay,
         subscriptionFees: subscriptionFees !== undefined ? subscriptionFees : parentPlan.subscriptionFees,
     }).where(eq(parentPlans.id, id));
