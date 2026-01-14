@@ -13,6 +13,7 @@ import paymentMethodRoute from "./paymentMethod";
 import subscriptionRoute from "./subscription";
 import invoiceRoute from "./Invoice";
 import paymentRoute from "./payment";
+import parentPlanRoute from "./parentPlan";
 
 const route = Router();
 route.use("/auth", superAdminAuthRoute);
@@ -28,5 +29,6 @@ route.use("/paymentmethods", paymentMethodRoute);
 route.use("/subscriptions", subscriptionRoute);
 route.use("/invoices", invoiceRoute);
 route.use("/payments", paymentRoute);
+route.use("/parentplans", parentPlanRoute);
 
 export default route;                           
