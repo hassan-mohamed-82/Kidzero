@@ -13,7 +13,7 @@ import departmentRouter from "./department";
 import parentRouter from "./parent";
 import codriverRouter from "./codriver"
 import studentRouter from "./student";
-import subscribtionRouter from "./subscribtion";
+// import subscribtionRouter from "./subscribtion";
 import rideRouter from "./ride";
 import paymentRouter from "./payment";
 import feeInstallmentRouter from "./feeInstallment";
@@ -31,7 +31,7 @@ route.use("/admins", catchAsync(adminRouter));
 route.use("/codrivers", catchAsync(codriverRouter));
 route.use("/drivers", catchAsync(diverRouter));
 route.use("/rides", catchAsync(rideRouter));
-route.use("/subscribtions", catchAsync(subscribtionRouter));
+// route.use("/subscribtions", catchAsync(subscribtionRouter));
 route.use("/buses", catchAsync(busRouter));
 route.use("/students", catchAsync(studentRouter));
 route.use("/cities", catchAsync(CityRouter));

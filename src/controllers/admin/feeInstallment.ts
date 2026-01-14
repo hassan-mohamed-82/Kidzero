@@ -64,7 +64,6 @@ export const getInstallmentStatus = async (req: Request, res: Response) => {
                 id: activeSubscription.id,
                 planId: activeSubscription.planId,
                 planName: plan.name,
-                subscriptionType: activeSubscription.subscriptionType,
                 startDate: activeSubscription.startDate,
                 endDate: activeSubscription.endDate,
             },
