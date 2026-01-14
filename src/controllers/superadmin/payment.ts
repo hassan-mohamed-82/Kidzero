@@ -161,6 +161,11 @@ export const ReplyToPayment = async (req: Request, res: Response) => {
             paymentId: paymentRecord.id,
             isActive: true,
         });
+        await db.update(organizations)
+            .set({
+                status: "subscribed",
+            })
+            .where(eq(organizations.id, paymentRecord.organizationId));
     }
     return SuccessResponse(res, { message: `Payment ${status} successfully` },200);
 };
