@@ -1,4 +1,4 @@
-import { char, mysqlTable, varchar, text , timestamp, int, mysqlEnum} from "drizzle-orm/mysql-core";
+import { char, mysqlTable, varchar, text , timestamp, int, mysqlEnum , boolean} from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm"
 export const promocode = mysqlTable("promocodes", {
     id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
@@ -9,4 +9,5 @@ export const promocode = mysqlTable("promocodes", {
     description: text("description").notNull(),
     startDate: timestamp("start_date").notNull(),
     endDate: timestamp("end_date").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
 });

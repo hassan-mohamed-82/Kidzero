@@ -60,7 +60,12 @@ export const getOrganizationTypeById = async (req: Request, res: Response) => {
 export const createOrganizationType = async (req: Request, res: Response) => {
     const { name } = req.body;
     if (!name) throw new BadRequest("Organization type name is required");
-
+    const existingType = await db.query.organizationTypes.findFirst({
+        where: eq(organizationTypes.name, name),
+    });
+    if (existingType) {
+        throw new BadRequest("Organization type with this name already exists");
+    }
     await db.insert(organizationTypes).values({ name });
     return SuccessResponse(res, { message: "Organization type created successfully" }, 201);
 };
@@ -71,6 +76,16 @@ export const updateOrganizationType = async (req: Request, res: Response) => {
 
     requireId(id, "Organization type");
     const orgType = await findOrganizationType(id);
+    if (name) {
+        const existingType = await db.query.organizationTypes.findFirst({
+            where: eq(organizationTypes.name, name),
+        });
+        if(existingType && existingType.id !== id) {
+            throw new BadRequest("Organization type with this name already exists");
+        }else if (existingType && existingType.id === id) {
+            return SuccessResponse(res, { message: "No changes detected" }, 200);
+        }
+    }
 
     await db.update(organizationTypes)
         .set({ name: name || orgType.name })

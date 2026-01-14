@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { payment, plans, paymentMethod, organizations } from "../../models/schema";
+import { payment, plans, paymentMethod, organizations, promocode } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -24,14 +24,12 @@ export const getAllPayments = async (req: Request, res: Response) => {
             status: payment.status,
             receiptImage: payment.receiptImage,
             rejectedReason: payment.rejectedReason,
-            RequestedSubscriptionType: payment.RequestedSubscriptionType,
             createdAt: payment.createdAt,
             updatedAt: payment.updatedAt,
             plan: {
                 id: plans.id,
                 name: plans.name,
-                priceSemester: plans.price_semester,
-                priceYear: plans.price_year,
+                price: plans.price
             },
             paymentMethod: {
                 id: paymentMethod.id,
@@ -75,14 +73,12 @@ export const getPaymentById = async (req: Request, res: Response) => {
             receiptImage: payment.receiptImage,
             rejectedReason: payment.rejectedReason,
             promocodeId: payment.promocodeId,
-            RequestedSubscriptionType: payment.RequestedSubscriptionType,
             createdAt: payment.createdAt,
             updatedAt: payment.updatedAt,
             plan: {
                 id: plans.id,
                 name: plans.name,
-                priceSemester: plans.price_semester,
-                priceYear: plans.price_year,
+                price: plans.price,
                 maxBuses: plans.maxBuses,
                 maxDrivers: plans.maxDrivers,
                 maxStudents: plans.maxStudents,
@@ -108,7 +104,7 @@ export const getPaymentById = async (req: Request, res: Response) => {
 };
 
 export const createPayment = async (req: Request, res: Response) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocodeId, RequestedSubscriptionType } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocodeId } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -152,18 +148,43 @@ export const createPayment = async (req: Request, res: Response) => {
 
     // Generate new payment ID
     const newPaymentId = crypto.randomUUID();
-
+    // Calculate total amount with fee if applicable
+    let totalAmount = amount;
+    if (payMethodResult[0].feeStatus === true) {
+        if (payMethodResult[0].feeAmount > 0) {
+            totalAmount = amount + payMethodResult[0].feeAmount;
+        } else {
+            throw new BadRequest("Invalid fee amount in payment method");
+        }
+    }
+    // Apply promocode if provided
+    if (promocodeId) {
+        const promoResult = await db
+            .select()
+            .from(promocode)
+            .where(and(eq(promocode.id, promocodeId)))
+            .limit(1);
+        if (!promoResult[0]) {
+            throw new NotFound("Promocode not found");
+        }
+        if (promoResult[0].isActive === false) {
+            throw new BadRequest("Promocode is not active");
+        }
+        totalAmount = totalAmount - promoResult[0].amount;
+        if (totalAmount < 0) {
+            totalAmount = 0;
+        }
+    }
     // Insert payment
     await db.insert(payment).values({
         id: newPaymentId,
         organizationId,
         planId,
         paymentMethodId,
-        amount,
+        amount: totalAmount,
         receiptImage: receiptImageUrl || "",
         promocodeId: promocodeId || null,
         status: "pending",
-        RequestedSubscriptionType,
     });
 
     // Fetch created payment with details
@@ -173,7 +194,6 @@ export const createPayment = async (req: Request, res: Response) => {
             amount: payment.amount,
             status: payment.status,
             receiptImage: payment.receiptImage,
-            RequestedSubscriptionType: payment.RequestedSubscriptionType,
             createdAt: payment.createdAt,
             plan: {
                 id: plans.id,
@@ -183,10 +203,15 @@ export const createPayment = async (req: Request, res: Response) => {
                 id: paymentMethod.id,
                 name: paymentMethod.name,
             },
+            promocode: {
+                id: promocode.id,
+                code: promocode.code,
+            },
         })
         .from(payment)
         .leftJoin(plans, eq(payment.planId, plans.id))
         .leftJoin(paymentMethod, eq(payment.paymentMethodId, paymentMethod.id))
+        .leftJoin(promocode, eq(payment.promocodeId, promocode.id))
         .where(eq(payment.id, newPaymentId))
         .limit(1);
 

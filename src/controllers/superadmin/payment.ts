@@ -120,10 +120,10 @@ export const getPaymentById = async (req: Request, res: Response) => {
 
 export const ReplyToPayment = async (req: Request, res: Response) => {
     const { id } = req.params;
+    const { status, rejectedReason } = req.body;
     if (!id) {
         throw new BadRequest("Payment ID is required");
     }
-    const { status, rejectedReason } = req.body;
     if (!status || !["completed", "rejected"].includes(status)) {
         throw new BadRequest("Valid status is required");
     }
@@ -153,7 +153,15 @@ export const ReplyToPayment = async (req: Request, res: Response) => {
         const startDate = new Date();
         const endDate = new Date();
         endDate.setFullYear(endDate.getFullYear() + 1); // Assuming yearly subscription for simplicity
-    }      
+        await db.insert(subscriptions).values({
+            organizationId: paymentRecord.organizationId,
+            planId: paymentRecord.planId,
+            startDate,
+            endDate,
+            paymentId: paymentRecord.id,
+            isActive: true,
+        });
+    }
 };
 
 // =====================================================
@@ -334,17 +342,17 @@ export const rejectInstallment = async (req: Request, res: Response) => {
 };
 
 
-// Parents
+// // Parents
 
-export const ReplyToPaymentParent = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    if (!id) {
-        throw new BadRequest("Payment ID is required");
-    }
-    const { status, rejectedReason } = req.body;
-    if (!status || !["completed", "rejected"].includes(status)) {
-        throw new BadRequest("Valid status is required");
-    }
-    if (status === "rejected" && !rejectedReason) {
-        throw new BadRequest("Rejection reason is required for rejected payments");
-    }
+// export const ReplyToPaymentParent = async (req: Request, res: Response) => {
+//     const { id } = req.params;
+//     if (!id) {
+//         throw new BadRequest("Payment ID is required");
+//     }
+//     const { status, rejectedReason } = req.body;
+//     if (!status || !["completed", "rejected"].includes(status)) {
+//         throw new BadRequest("Valid status is required");
+//     }
+//     if (status === "rejected" && !rejectedReason) {
+//         throw new BadRequest("Rejection reason is required for rejected payments");
+//     }

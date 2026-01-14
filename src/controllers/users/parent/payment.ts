@@ -1,0 +1,71 @@
+import { parentPayment, parentPlans, paymentMethod } from "../../../models/schema";
+import { db } from "../../../models/db";
+import { eq } from "drizzle-orm";
+import { Request, Response } from "express";
+import { SuccessResponse } from "../../../utils/response";
+import { BadRequest } from "../../../Errors/BadRequest";
+import { saveBase64Image } from "../../../utils/handleImages";
+
+// get parent payments for logged in parent
+export const getParentPayments = async (req: Request, res: Response) => {
+    const user = req.user?.id;
+    if (!user) {
+        throw new BadRequest("User not Logged In");
+    }
+    const payments = await db.query.parentPayment.findMany({ where: eq(parentPayment.parentId, user), });
+
+    return SuccessResponse(res, { message: "Payments retrieved successfully", payments });
+};
+
+
+export const getParentPaymentbyId = async (req: Request, res: Response) => {
+    const user = req.user?.id;
+    if (!user) {
+        throw new BadRequest("User not Logged In");
+    }
+    const { id } = req.params;
+    const payment = await db.query.parentPayment.findFirst({
+        where: eq(parentPayment.id, id),
+    });
+    if (payment?.parentId !== user) {
+        throw new BadRequest("Unauthorized Access to Payment");
+    }
+    return SuccessResponse(res, { message: "Payment retrieved successfully", payment });
+};
+
+export const createParentPayment = async (req: Request, res: Response) => {
+    const user = req.user?.id;
+    if (!user) {
+        throw new BadRequest("User not Logged In");
+    }
+    const { planId, paymentMethodId, amount, receiptImage } = req.body;
+    if (!planId || !paymentMethodId || !amount || !receiptImage) {
+        throw new BadRequest("All fields are required");
+    }
+    const plan = await db.query.parentPlans.findFirst({ where: eq(parentPlans.id, planId), });
+    if (!plan) {
+        throw new BadRequest("Plan Not Found");
+    }
+    const payMethod = await db.query.paymentMethod.findFirst({ where: eq(paymentMethod.id, paymentMethodId), });
+    if (!payMethod) {
+        throw new BadRequest("Payment Method Not Found");
+    }
+    // Save receipt image
+    let receiptImageUrl: string | null = null;
+    if (receiptImage) {
+        const savedImage = await saveBase64Image(req, receiptImage, "payments/receipts");
+        receiptImageUrl = savedImage.url;
+    }
+
+    await db.insert(parentPayment).values({
+        parentId: user,
+        planId,
+        paymentMethodId,
+        amount,
+        receiptImage: receiptImageUrl || "",
+        status: "pending",
+    });
+
+    return SuccessResponse(res, { message: "Payment created successfully" }, 201);
+};
+

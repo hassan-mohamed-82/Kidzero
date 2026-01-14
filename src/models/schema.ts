@@ -12,6 +12,7 @@ export * from "./superadmin/superAdminRole";
 export * from "./superadmin/Invoice";
 export * from "./superadmin/feeInstallments";
 export * from "./superadmin/parentPlan";
+export * from "./superadmin/parentpayment";
 // Admin Models
 // src/models/schema/index.ts
 
