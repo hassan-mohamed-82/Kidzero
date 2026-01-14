@@ -30,5 +30,11 @@ export * from "./admin/parent";
 export * from "./admin/studentride";
 export * from "./admin/city";
 export * from "./admin/zone";
+export * from "./admin/notifications";
+export * from "./admin/rideOccurrenceStudent";
+export * from "./admin/rideOccurrence";
+
+
+
 // Relations
 export * from "./relations/OrganizationRelations";
