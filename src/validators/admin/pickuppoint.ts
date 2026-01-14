@@ -5,7 +5,6 @@ import { z } from "zod";
 // Schema للـ Create
 export const createPickupPointSchema = z.object({
     body: z.object({
-       
         name: z
             .string({ required_error: "Name is required" })
             .min(1, "Name cannot be empty")
@@ -17,6 +16,10 @@ export const createPickupPointSchema = z.object({
             .optional()
             .nullable(),
         
+        zoneId: z
+            .string({ required_error: "Zone ID is required" })
+            .uuid("Invalid Zone ID format"),
+        
         lat: z
             .string({ required_error: "Latitude is required" })
             .regex(/^-?([1-8]?[0-9]\.{1}\d+|90\.{1}0+)$/, "Invalid latitude format")
@@ -26,6 +29,13 @@ export const createPickupPointSchema = z.object({
             .string({ required_error: "Longitude is required" })
             .regex(/^-?((1[0-7][0-9]|[1-9]?[0-9])\.{1}\d+|180\.{1}0+)$/, "Invalid longitude format")
             .or(z.number().min(-180).max(180).transform(String)),
+        
+        status: z
+            .enum(["active", "inactive"], {
+                errorMap: () => ({ message: "Status must be 'active' or 'inactive'" })
+            })
+            .optional()
+            .default("active"),
     }),
 });
 
@@ -46,6 +56,11 @@ export const updatePickupPointSchema = z.object({
             .max(1000, "Address cannot exceed 1000 characters")
             .optional()
             .nullable(),
+        
+        zoneId: z
+            .string()
+            .uuid("Invalid Zone ID format")
+            .optional(),
         
         lat: z
             .string()

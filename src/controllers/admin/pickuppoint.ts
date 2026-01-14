@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { pickupPoints } from "../../models/schema";
+import { pickupPoints, zones } from "../../models/schema";
 import { eq } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -33,7 +33,7 @@ export const getPickupPointById = async (req: Request, res: Response) => {
 
 // ✅ Create Pickup Point
 export const createPickupPoint = async (req: Request, res: Response) => {
-    const { name, address, lat, lng } = req.body;
+    const { name, address, zoneId, lat, lng, status } = req.body;
 
     const organizationId = req.user?.organizationId;
 
@@ -42,26 +42,39 @@ export const createPickupPoint = async (req: Request, res: Response) => {
         throw new BadRequest("Organization ID is required");
     }
 
-    if (!name || !lat || !lng) {
-        throw new BadRequest("name, lat, and lng are required");
+    // ✅ تحقق من الحقول المطلوبة
+    if (!name || !zoneId || !lat || !lng) {
+        throw new BadRequest("name, zoneId, lat, and lng are required");
+    }
+
+    // ✅ تحقق من وجود الـ Zone
+    const existingZone = await db
+        .select()
+        .from(zones)
+        .where(eq(zones.id, zoneId))
+        .limit(1);
+
+    if (!existingZone[0]) {
+        throw new NotFound("Zone not found");
     }
 
     await db.insert(pickupPoints).values({
-        organizationId,  
+        organizationId,
         name,
         address: address || null,
+        zoneId,
         lat,
         lng,
+        status: status || "active",
     });
 
     SuccessResponse(res, { message: "Pickup Point created successfully" }, 201);
 };
 
-
 // ✅ Update Pickup Point
 export const updatePickupPoint = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, address, lat, lng, status } = req.body;
+    const { name, address, zoneId, lat, lng, status } = req.body;
 
     const existingPoint = await db
         .select()
@@ -73,14 +86,28 @@ export const updatePickupPoint = async (req: Request, res: Response) => {
         throw new NotFound("Pickup Point not found");
     }
 
+    // ✅ تحقق من وجود الـ Zone الجديد إذا تم تحديثه
+    if (zoneId) {
+        const existingZone = await db
+            .select()
+            .from(zones)
+            .where(eq(zones.id, zoneId))
+            .limit(1);
+
+        if (!existingZone[0]) {
+            throw new NotFound("Zone not found");
+        }
+    }
+
     await db
         .update(pickupPoints)
         .set({
-            name: name || existingPoint[0].name,
+            name: name ?? existingPoint[0].name,
             address: address !== undefined ? address : existingPoint[0].address,
-            lat: lat || existingPoint[0].lat,
-            lng: lng || existingPoint[0].lng,
-            status: status || existingPoint[0].status,
+            zoneId: zoneId ?? existingPoint[0].zoneId,
+            lat: lat ?? existingPoint[0].lat,
+            lng: lng ?? existingPoint[0].lng,
+            status: status ?? existingPoint[0].status,
         })
         .where(eq(pickupPoints.id, id));
 

@@ -1,16 +1,27 @@
+// src/routes/users/parent/rides.ts
 import { Router } from "express";
-
-import{
-    getTodayRides,getChildAttendance,getRideDetails,getRidesHistory,reportAbsence,trackRide} from "../../../controllers/users/parent/rides"
 import { authorizeRoles } from "../../../middlewares/authorized";
+import { catchAsync } from "../../../utils/catchAsync";
+import {
+  getMyChildrenRides,
+  getLiveTracking,
+  submitExcuse,
+  getChildRides,
+} from "../../../controllers/users/parent/rides";
 
 const router = Router();
 
-// Routes for Parent to manage rides
-router.get("/today", authorizeRoles("parent"), getTodayRides);
-router.get("/history", authorizeRoles("parent"), getRidesHistory);
-router.get("/:rideId", authorizeRoles("parent"), getRideDetails);
-router.get("/:rideId/track", authorizeRoles("parent"), trackRide);
-router.get("/:childId/attendance", authorizeRoles("parent"), getChildAttendance);
-router.post("/:childId/report-absence", authorizeRoles("parent"), reportAbsence);
+// ✅ رحلات أولادي
+router.get("/children", authorizeRoles("parent"), catchAsync(getMyChildrenRides));
+
+// ✅ رحلات الطفل
+router.get("/child/:childId", authorizeRoles("parent"), catchAsync(getChildRides));
+
+// ✅ تتبع الرحلة لحظياً
+router.get("/tracking/:occurrenceId", authorizeRoles("parent"), catchAsync(getLiveTracking));
+
+// ✅ تقديم عذر غياب
+router.post("/excuse/:occurrenceId/:studentId", authorizeRoles("parent"), catchAsync(submitExcuse));
+
+
 export default router;
