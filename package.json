@@ -10,7 +10,8 @@
     "dbcreate": "tsx src/models/setup.ts",
     "migrate-db": "npx drizzle-kit push",
     "seed": "tsx src/seeds/index.ts",
-    "seed:fresh": "tsx src/seeds/index.ts --fresh"
+    "seed:fresh": "tsx src/seeds/index.ts --fresh",
+    "migrate-log": "node migrate.js"
   },
   "keywords": [],
   "author": "",
