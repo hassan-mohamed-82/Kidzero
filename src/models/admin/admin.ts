@@ -8,6 +8,7 @@ import {
   json,
   char,
   primaryKey,
+  text,
 } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 import { roles } from "./roles";
@@ -35,7 +36,7 @@ export const admins = mysqlTable("admins", {
   // صلاحيات إضافية (override)
   permissions: json("permissions").$type<Permission[]>().default([]),
    
-  fcm_tokens: json("fcm_tokens").$type<string[]>().default([]),
+fcmTokens: text("fcm_tokens"), // JSON array of FCM tokens
   status: mysqlEnum("status", ["active", "inactive"]).default("active"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
