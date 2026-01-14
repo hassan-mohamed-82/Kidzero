@@ -1,201 +1,201 @@
-// src/controllers/admin/paymentController.ts
+// // src/controllers/admin/paymentController.ts
 
-import { Request, Response } from "express";
-import { db } from "../../models/db";
-import { payment, plans, paymentMethod, organizations } from "../../models/schema";
-import { eq, and, desc } from "drizzle-orm";
-import { SuccessResponse } from "../../utils/response";
-import { NotFound } from "../../Errors/NotFound";
-import { BadRequest } from "../../Errors/BadRequest";
-import { saveBase64Image } from "../../utils/handleImages";
-
-
-export const getAllPayments = async (req: Request, res: Response) => {
-    const organizationId = req.user?.organizationId;
-
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
-
-    const allPayments = await db
-        .select({
-            id: payment.id,
-            amount: payment.amount,
-            status: payment.status,
-            receiptImage: payment.receiptImage,
-            rejectedReason: payment.rejectedReason,
-            RequestedSubscriptionType: payment.RequestedSubscriptionType,
-            createdAt: payment.createdAt,
-            updatedAt: payment.updatedAt,
-            plan: {
-                id: plans.id,
-                name: plans.name,
-                priceSemester: plans.price_semester,
-                priceYear: plans.price_year,
-            },
-            paymentMethod: {
-                id: paymentMethod.id,
-                name: paymentMethod.name,
-            },
-        })
-        .from(payment)
-        .leftJoin(plans, eq(payment.planId, plans.id))
-        .leftJoin(paymentMethod, eq(payment.paymentMethodId, paymentMethod.id))
-        .where(eq(payment.organizationId, organizationId))
-        .orderBy(desc(payment.createdAt));
-
-    // Group payments by status for summary
-    const summary = {
-        total: allPayments.length,
-        pending: allPayments.filter((p) => p.status === "pending").length,
-        completed: allPayments.filter((p) => p.status === "completed").length,
-        rejected: allPayments.filter((p) => p.status === "rejected").length,
-    };
-
-    return SuccessResponse(res, { message: "Payments fetched successfully", payments: allPayments, summary }, 200);
-};
+// import { Request, Response } from "express";
+// import { db } from "../../models/db";
+// import { payment, plans, paymentMethod, organizations } from "../../models/schema";
+// import { eq, and, desc } from "drizzle-orm";
+// import { SuccessResponse } from "../../utils/response";
+// import { NotFound } from "../../Errors/NotFound";
+// import { BadRequest } from "../../Errors/BadRequest";
+// import { saveBase64Image } from "../../utils/handleImages";
 
 
-export const getPaymentById = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const organizationId = req.user?.organizationId;
+// export const getAllPayments = async (req: Request, res: Response) => {
+//     const organizationId = req.user?.organizationId;
 
-    if (!id) {
-        throw new BadRequest("Payment ID is required");
-    }
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
+//     if (!organizationId) {
+//         throw new BadRequest("Organization ID is required");
+//     }
 
-    const paymentResult = await db
-        .select({
-            id: payment.id,
-            amount: payment.amount,
-            status: payment.status,
-            receiptImage: payment.receiptImage,
-            rejectedReason: payment.rejectedReason,
-            promocodeId: payment.promocodeId,
-            RequestedSubscriptionType: payment.RequestedSubscriptionType,
-            createdAt: payment.createdAt,
-            updatedAt: payment.updatedAt,
-            plan: {
-                id: plans.id,
-                name: plans.name,
-                priceSemester: plans.price_semester,
-                priceYear: plans.price_year,
-                maxBuses: plans.maxBuses,
-                maxDrivers: plans.maxDrivers,
-                maxStudents: plans.maxStudents,
-            },
-            paymentMethod: {
-                id: paymentMethod.id,
-                name: paymentMethod.name,
-                feeStatus: paymentMethod.feeStatus,
-                feeAmount: paymentMethod.feeAmount,
-            },
-        })
-        .from(payment)
-        .leftJoin(plans, eq(payment.planId, plans.id))
-        .leftJoin(paymentMethod, eq(payment.paymentMethodId, paymentMethod.id))
-        .where(and(eq(payment.id, id), eq(payment.organizationId, organizationId)))
-        .limit(1);
+//     const allPayments = await db
+//         .select({
+//             id: payment.id,
+//             amount: payment.amount,
+//             status: payment.status,
+//             receiptImage: payment.receiptImage,
+//             rejectedReason: payment.rejectedReason,
+//             RequestedSubscriptionType: payment.RequestedSubscriptionType,
+//             createdAt: payment.createdAt,
+//             updatedAt: payment.updatedAt,
+//             plan: {
+//                 id: plans.id,
+//                 name: plans.name,
+//                 priceSemester: plans.price_semester,
+//                 priceYear: plans.price_year,
+//             },
+//             paymentMethod: {
+//                 id: paymentMethod.id,
+//                 name: paymentMethod.name,
+//             },
+//         })
+//         .from(payment)
+//         .leftJoin(plans, eq(payment.planId, plans.id))
+//         .leftJoin(paymentMethod, eq(payment.paymentMethodId, paymentMethod.id))
+//         .where(eq(payment.organizationId, organizationId))
+//         .orderBy(desc(payment.createdAt));
 
-    if (!paymentResult[0]) {
-        throw new NotFound("Payment not found");
-    }
+//     // Group payments by status for summary
+//     const summary = {
+//         total: allPayments.length,
+//         pending: allPayments.filter((p) => p.status === "pending").length,
+//         completed: allPayments.filter((p) => p.status === "completed").length,
+//         rejected: allPayments.filter((p) => p.status === "rejected").length,
+//     };
 
-    SuccessResponse(res, { message: "Payment fetched successfully", payment: paymentResult[0] }, 200);
-};
+//     return SuccessResponse(res, { message: "Payments fetched successfully", payments: allPayments, summary }, 200);
+// };
 
-export const createPayment = async (req: Request, res: Response) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocodeId, RequestedSubscriptionType } = req.body;
-    const organizationId = req.user?.organizationId;
 
-    if (!organizationId) {
-        throw new BadRequest("Organization ID is required");
-    }
+// export const getPaymentById = async (req: Request, res: Response) => {
+//     const { id } = req.params;
+//     const organizationId = req.user?.organizationId;
 
-    if (!planId || !paymentMethodId || !amount) {
-        throw new BadRequest("planId, paymentMethodId, and amount are required");
-    }
+//     if (!id) {
+//         throw new BadRequest("Payment ID is required");
+//     }
+//     if (!organizationId) {
+//         throw new BadRequest("Organization ID is required");
+//     }
 
-    // Validate plan exists
-    const planResult = await db
-        .select()
-        .from(plans)
-        .where(eq(plans.id, planId))
-        .limit(1);
+//     const paymentResult = await db
+//         .select({
+//             id: payment.id,
+//             amount: payment.amount,
+//             status: payment.status,
+//             receiptImage: payment.receiptImage,
+//             rejectedReason: payment.rejectedReason,
+//             promocodeId: payment.promocodeId,
+//             RequestedSubscriptionType: payment.RequestedSubscriptionType,
+//             createdAt: payment.createdAt,
+//             updatedAt: payment.updatedAt,
+//             plan: {
+//                 id: plans.id,
+//                 name: plans.name,
+//                 priceSemester: plans.price_semester,
+//                 priceYear: plans.price_year,
+//                 maxBuses: plans.maxBuses,
+//                 maxDrivers: plans.maxDrivers,
+//                 maxStudents: plans.maxStudents,
+//             },
+//             paymentMethod: {
+//                 id: paymentMethod.id,
+//                 name: paymentMethod.name,
+//                 feeStatus: paymentMethod.feeStatus,
+//                 feeAmount: paymentMethod.feeAmount,
+//             },
+//         })
+//         .from(payment)
+//         .leftJoin(plans, eq(payment.planId, plans.id))
+//         .leftJoin(paymentMethod, eq(payment.paymentMethodId, paymentMethod.id))
+//         .where(and(eq(payment.id, id), eq(payment.organizationId, organizationId)))
+//         .limit(1);
 
-    if (!planResult[0]) {
-        throw new NotFound("Plan not found");
-    }
+//     if (!paymentResult[0]) {
+//         throw new NotFound("Payment not found");
+//     }
 
-    // Validate payment method exists and is active
-    const payMethodResult = await db
-        .select()
-        .from(paymentMethod)
-        .where(
-            and(eq(paymentMethod.id, paymentMethodId), eq(paymentMethod.isActive, true))
-        )
-        .limit(1);
+//     SuccessResponse(res, { message: "Payment fetched successfully", payment: paymentResult[0] }, 200);
+// };
 
-    if (!payMethodResult[0]) {
-        throw new NotFound("Payment method not found or inactive");
-    }
+// export const createPayment = async (req: Request, res: Response) => {
+//     const { planId, paymentMethodId, amount, receiptImage, promocodeId, RequestedSubscriptionType } = req.body;
+//     const organizationId = req.user?.organizationId;
 
-    // Save receipt image if provided
-    let receiptImageUrl: string | null = null;
-    if (receiptImage) {
-        const savedImage = await saveBase64Image(req, receiptImage, "payments/receipts");
-        receiptImageUrl = savedImage.url;
-    }
+//     if (!organizationId) {
+//         throw new BadRequest("Organization ID is required");
+//     }
 
-    // Generate new payment ID
-    const newPaymentId = crypto.randomUUID();
+//     if (!planId || !paymentMethodId || !amount) {
+//         throw new BadRequest("planId, paymentMethodId, and amount are required");
+//     }
 
-    // Insert payment
-    await db.insert(payment).values({
-        id: newPaymentId,
-        organizationId,
-        planId,
-        paymentMethodId,
-        amount,
-        receiptImage: receiptImageUrl || "",
-        promocodeId: promocodeId || null,
-        status: "pending",
-        RequestedSubscriptionType,
-    });
+//     // Validate plan exists
+//     const planResult = await db
+//         .select()
+//         .from(plans)
+//         .where(eq(plans.id, planId))
+//         .limit(1);
 
-    // Fetch created payment with details
-    const createdPayment = await db
-        .select({
-            id: payment.id,
-            amount: payment.amount,
-            status: payment.status,
-            receiptImage: payment.receiptImage,
-            RequestedSubscriptionType: payment.RequestedSubscriptionType,
-            createdAt: payment.createdAt,
-            plan: {
-                id: plans.id,
-                name: plans.name,
-            },
-            paymentMethod: {
-                id: paymentMethod.id,
-                name: paymentMethod.name,
-            },
-        })
-        .from(payment)
-        .leftJoin(plans, eq(payment.planId, plans.id))
-        .leftJoin(paymentMethod, eq(payment.paymentMethodId, paymentMethod.id))
-        .where(eq(payment.id, newPaymentId))
-        .limit(1);
+//     if (!planResult[0]) {
+//         throw new NotFound("Plan not found");
+//     }
 
-    SuccessResponse(
-        res,
-        {
-            message: "Payment created successfully",
-            payment: createdPayment[0],
-        },
-        201
-    );
-};
+//     // Validate payment method exists and is active
+//     const payMethodResult = await db
+//         .select()
+//         .from(paymentMethod)
+//         .where(
+//             and(eq(paymentMethod.id, paymentMethodId), eq(paymentMethod.isActive, true))
+//         )
+//         .limit(1);
+
+//     if (!payMethodResult[0]) {
+//         throw new NotFound("Payment method not found or inactive");
+//     }
+
+//     // Save receipt image if provided
+//     let receiptImageUrl: string | null = null;
+//     if (receiptImage) {
+//         const savedImage = await saveBase64Image(req, receiptImage, "payments/receipts");
+//         receiptImageUrl = savedImage.url;
+//     }
+
+//     // Generate new payment ID
+//     const newPaymentId = crypto.randomUUID();
+
+//     // Insert payment
+//     await db.insert(payment).values({
+//         id: newPaymentId,
+//         organizationId,
+//         planId,
+//         paymentMethodId,
+//         amount,
+//         receiptImage: receiptImageUrl || "",
+//         promocodeId: promocodeId || null,
+//         status: "pending",
+//         RequestedSubscriptionType,
+//     });
+
+//     // Fetch created payment with details
+//     const createdPayment = await db
+//         .select({
+//             id: payment.id,
+//             amount: payment.amount,
+//             status: payment.status,
+//             receiptImage: payment.receiptImage,
+//             RequestedSubscriptionType: payment.RequestedSubscriptionType,
+//             createdAt: payment.createdAt,
+//             plan: {
+//                 id: plans.id,
+//                 name: plans.name,
+//             },
+//             paymentMethod: {
+//                 id: paymentMethod.id,
+//                 name: paymentMethod.name,
+//             },
+//         })
+//         .from(payment)
+//         .leftJoin(plans, eq(payment.planId, plans.id))
+//         .leftJoin(paymentMethod, eq(payment.paymentMethodId, paymentMethod.id))
+//         .where(eq(payment.id, newPaymentId))
+//         .limit(1);
+
+//     SuccessResponse(
+//         res,
+//         {
+//             message: "Payment created successfully",
+//             payment: createdPayment[0],
+//         },
+//         201
+//     );
+// };
