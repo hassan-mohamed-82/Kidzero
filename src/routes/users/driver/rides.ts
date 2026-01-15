@@ -1,22 +1,31 @@
 // src/routes/users/driver/ride.ts
+
 import { Router } from "express";
 import { authorizeRoles } from "../../../middlewares/authorized";
 import { catchAsync } from "../../../utils/catchAsync";
-import { 
+import {
   getMyTodayRides,
-  getOccurrenceForDriver, 
-  startRide, 
-  updateLocation, 
+  getUpcomingRides,
+  getRideHistory,
+  getOccurrenceForDriver,
+  startRide,
+  updateLocation,
   completeRide,
-  pickUpStudent, 
-  dropOffStudent, 
-  markStudentAbsent 
+  pickUpStudent,
+  dropOffStudent,
+  markStudentAbsent,
 } from "../../../controllers/users/driver/ride";
 
 const router = Router();
 
 // ✅ رحلات اليوم
 router.get("/today", authorizeRoles("driver", "codriver"), catchAsync(getMyTodayRides));
+
+// ✅ الرحلات القادمة
+router.get("/upcoming", authorizeRoles("driver", "codriver"), catchAsync(getUpcomingRides));
+
+// ✅ سجل الرحلات
+router.get("/history", authorizeRoles("driver", "codriver"), catchAsync(getRideHistory));
 
 // ✅ تفاصيل الـ Occurrence
 router.get("/occurrence/:occurrenceId", authorizeRoles("driver", "codriver"), catchAsync(getOccurrenceForDriver));
