@@ -3,7 +3,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { feeInstallments, plans, subscriptions } from "../../models/schema";
+import { feeInstallments, plans, subscriptions, paymentMethod } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -119,7 +119,7 @@ export const getInstallmentHistory = async (req: Request, res: Response) => {
  * Organization pays either full remaining amount or partial (with next due date)
  */
 export const createInstallmentPayment = async (req: Request, res: Response) => {
-    const { amount, receiptImage, nextDueDate } = req.body;
+    const { amount, receiptImage, nextDueDate, paymentMethodId } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -128,6 +128,23 @@ export const createInstallmentPayment = async (req: Request, res: Response) => {
 
     if (!amount || amount <= 0) {
         throw new BadRequest("Valid payment amount is required");
+    }
+
+    if (!paymentMethodId) {
+        throw new BadRequest("Payment method ID is required");
+    }
+
+    // Validate payment method exists and is active
+    const payMethodResult = await db
+        .select()
+        .from(paymentMethod)
+        .where(
+            and(eq(paymentMethod.id, paymentMethodId), eq(paymentMethod.isActive, true))
+        )
+        .limit(1);
+
+    if (!payMethodResult[0]) {
+        throw new NotFound("Payment method not found or inactive");
     }
 
     // Get active subscription
@@ -219,6 +236,7 @@ export const createInstallmentPayment = async (req: Request, res: Response) => {
         id: newInstallmentId,
         subscriptionId: activeSubscription.id,
         organizationId,
+        paymentMethodId,
         totalFeeAmount: plan.subscriptionFees,
         paidAmount: totalPaid,
         remainingAmount: remainingAmount - amount, // Will be this after approval

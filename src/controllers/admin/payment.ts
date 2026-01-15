@@ -254,6 +254,7 @@ export const createPayment = async (req: Request, res: Response) => {
             id: newInstallmentId,
             subscriptionId,
             organizationId,
+            paymentMethodId,
             totalFeeAmount: subscriptionFees,
             paidAmount: 0, // Will be updated when approved
             remainingAmount: subscriptionFees - totalAmount, // Will be this after approval
