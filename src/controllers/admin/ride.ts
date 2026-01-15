@@ -81,6 +81,7 @@ const generateOccurrences = async (
     if (repeatType === "limited" && endDate) {
       generateUntil = new Date(endDate);
     } else {
+      // ✅ unlimited: توليد 30 يوم من اليوم أو startDate (الأكبر)
       generateUntil = new Date(Math.max(today.getTime(), start.getTime()));
       generateUntil.setDate(generateUntil.getDate() + 30);
     }
@@ -143,15 +144,24 @@ export const createRide = async (req: Request, res: Response) => {
     throw new BadRequest("Missing required fields");
   }
 
+  // ✅ التحقق المُحسّن
   if (frequency === "repeat") {
     if (!repeatType) {
       throw new BadRequest("Repeat type is required for repeating rides");
     }
-    if (repeatType === "limited" && !endDate) {
-      throw new BadRequest("End date is required for limited repeat rides");
+    
+    if (repeatType === "limited") {
+      if (!endDate) {
+        throw new BadRequest("End date is required for limited repeat rides");
+      }
+      if (new Date(endDate) <= new Date(startDate)) {
+        throw new BadRequest("End date must be after start date");
+      }
     }
-    if (endDate && new Date(endDate) <= new Date(startDate)) {
-      throw new BadRequest("End date must be after start date");
+    
+    // ✅ unlimited لا يحتاج endDate
+    if (repeatType === "unlimited" && endDate) {
+      console.log("Warning: endDate ignored for unlimited rides");
     }
   }
 
@@ -220,6 +230,7 @@ export const createRide = async (req: Request, res: Response) => {
 
   const rideId = uuidv4();
 
+  // ✅ الإدراج المُصحّح - endDate فقط لو limited
   await db.insert(rides).values({
     id: rideId,
     organizationId,
@@ -232,7 +243,7 @@ export const createRide = async (req: Request, res: Response) => {
     frequency,
     repeatType: frequency === "repeat" ? repeatType : null,
     startDate,
-    endDate: repeatType === "limited" ? endDate : null,
+    endDate: (frequency === "repeat" && repeatType === "limited") ? endDate : null,
   });
 
   if (rideStudentsData.length > 0) {
@@ -246,10 +257,11 @@ export const createRide = async (req: Request, res: Response) => {
     await db.insert(rideStudents).values(rideStudentsInsert);
   }
 
+  // ✅ تمرير null لـ endDate في حالة unlimited
   const occurrencesCount = await generateOccurrences(
     rideId,
     startDate,
-    endDate,
+    (frequency === "repeat" && repeatType === "limited") ? endDate : null,
     frequency,
     repeatType,
     rideStudentsData
@@ -428,7 +440,8 @@ export const getAllRides = async (req: Request, res: Response) => {
       frequency: ride.frequency,
       repeatType: ride.repeatType,
       startDate: ride.startDate,
-      endDate: ride.endDate,
+      // ✅ إصلاح endDate
+      endDate: ride.endDate || null,
       isActive: ride.isActive,
       createdAt: ride.createdAt,
       classification,
@@ -595,7 +608,8 @@ export const getRideById = async (req: Request, res: Response) => {
       frequency: rideData.frequency,
       repeatType: rideData.repeatType,
       startDate: rideData.startDate,
-      endDate: rideData.endDate,
+      // ✅ إصلاح endDate
+      endDate: rideData.endDate || null,
       isActive: rideData.isActive,
       createdAt: rideData.createdAt,
     },
@@ -859,9 +873,9 @@ export const getUpcomingRides = async (req: Request, res: Response) => {
   SuccessResponse(res, { upcoming: result, count: result.length }, 200);
 };
 
-// ✅ Get Occurrence Details - by rideId + date
+// ✅ Get Occurrence Details
 export const getOccurrenceDetails = async (req: Request, res: Response) => {
-  const { occurrenceId } = req.params;  // ✅ من الـ URL parameter
+  const { occurrenceId } = req.params;
   const organizationId = req.user?.organizationId;
 
   if (!organizationId) {
@@ -872,7 +886,6 @@ export const getOccurrenceDetails = async (req: Request, res: Response) => {
     throw new BadRequest("Occurrence ID is required");
   }
 
-  // ✅ البحث بالـ occurrenceId مباشرة
   const occurrence = await db
     .select({
       occurrenceId: rideOccurrences.id,
@@ -909,7 +922,7 @@ export const getOccurrenceDetails = async (req: Request, res: Response) => {
     .leftJoin(Rout, eq(rides.routeId, Rout.id))
     .where(
       and(
-        eq(rideOccurrences.id, occurrenceId),  // ✅ البحث بالـ ID
+        eq(rideOccurrences.id, occurrenceId),
         eq(rides.organizationId, organizationId)
       )
     )
@@ -922,7 +935,6 @@ export const getOccurrenceDetails = async (req: Request, res: Response) => {
   const occ = occurrence[0];
   const occId = occ.occurrenceId;
 
-  // Get students for this occurrence
   const occStudents = await db
     .select({
       id: rideOccurrenceStudents.id,
@@ -960,7 +972,6 @@ export const getOccurrenceDetails = async (req: Request, res: Response) => {
     .where(eq(rideOccurrenceStudents.occurrenceId, occId))
     .orderBy(routePickupPoints.stopOrder);
 
-  // Format student data
   const formatStudent = (s: any) => ({
     id: s.id,
     status: s.status,
@@ -997,7 +1008,6 @@ export const getOccurrenceDetails = async (req: Request, res: Response) => {
   const absent = allStudents.filter((s) => s.status === "absent");
   const excused = allStudents.filter((s) => s.status === "excused");
 
-  // Calculate duration if completed
   let duration = null;
   if (occ.startedAt && occ.completedAt) {
     const diffMs = new Date(occ.completedAt).getTime() - new Date(occ.startedAt).getTime();
@@ -1008,7 +1018,6 @@ export const getOccurrenceDetails = async (req: Request, res: Response) => {
     };
   }
 
-  // Get route stops
   let routeStops: any[] = [];
   if (occ.routeId) {
     routeStops = await db
@@ -1091,7 +1100,7 @@ export const getOccurrenceDetails = async (req: Request, res: Response) => {
   });
 };
 
-
+// ✅ Update Ride
 export const updateRide = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { 
@@ -1102,7 +1111,7 @@ export const updateRide = async (req: Request, res: Response) => {
     name, 
     rideType, 
     isActive,
-    students: studentsData // ✅ مصفوفة الطلاب
+    students: studentsData
   } = req.body;
   const organizationId = req.user?.organizationId;
 
@@ -1110,7 +1119,6 @@ export const updateRide = async (req: Request, res: Response) => {
     throw new BadRequest("Organization ID is required");
   }
 
-  // ✅ تحقق من وجود الرحلة
   const existingRide = await db
     .select()
     .from(rides)
@@ -1119,35 +1127,30 @@ export const updateRide = async (req: Request, res: Response) => {
 
   if (!existingRide[0]) throw new NotFound("Ride not found");
 
-  // ✅ تحقق من الباص
   if (busId) {
     const bus = await db.select().from(buses)
       .where(and(eq(buses.id, busId), eq(buses.organizationId, organizationId))).limit(1);
     if (!bus[0]) throw new NotFound("Bus not found");
   }
 
-  // ✅ تحقق من السائق
   if (driverId) {
     const driver = await db.select().from(drivers)
       .where(and(eq(drivers.id, driverId), eq(drivers.organizationId, organizationId))).limit(1);
     if (!driver[0]) throw new NotFound("Driver not found");
   }
 
-  // ✅ تحقق من المساعد
   if (codriverId) {
     const codriver = await db.select().from(codrivers)
       .where(and(eq(codrivers.id, codriverId), eq(codrivers.organizationId, organizationId))).limit(1);
     if (!codriver[0]) throw new NotFound("Codriver not found");
   }
 
-  // ✅ تحقق من المسار
   if (routeId) {
     const route = await db.select().from(Rout)
       .where(and(eq(Rout.id, routeId), eq(Rout.organizationId, organizationId))).limit(1);
     if (!route[0]) throw new NotFound("Route not found");
   }
 
-  // ✅ تحديث بيانات الرحلة الأساسية
   await db.update(rides).set({
     busId: busId ?? existingRide[0].busId,
     driverId: driverId ?? existingRide[0].driverId,
@@ -1158,7 +1161,6 @@ export const updateRide = async (req: Request, res: Response) => {
     isActive: isActive ?? existingRide[0].isActive,
   }).where(eq(rides.id, id));
 
-  // ✅ تحديث الطلاب (إذا تم إرسالهم)
   let studentsUpdated = false;
   if (studentsData && Array.isArray(studentsData)) {
     await updateRideStudents(id, studentsData, organizationId);
@@ -1177,7 +1179,6 @@ async function updateRideStudents(
   studentsData: Array<{ studentId: string; pickupPointId: string; pickupTime?: string }>,
   organizationId: string
 ) {
-  // 1. احصل على الطلاب الحاليين
   const currentStudents = await db
     .select()
     .from(rideStudents)
@@ -1186,12 +1187,10 @@ async function updateRideStudents(
   const currentStudentIds = currentStudents.map(s => s.studentId);
   const newStudentIds = studentsData.map(s => s.studentId);
 
-  // 2. حدد الطلاب المضافين والمحذوفين والمعدلين
   const toAdd = studentsData.filter(s => !currentStudentIds.includes(s.studentId));
   const toRemove = currentStudents.filter(s => !newStudentIds.includes(s.studentId));
   const toUpdate = studentsData.filter(s => currentStudentIds.includes(s.studentId));
 
-  // 3. احصل على الـ occurrences المستقبلية
   const futureOccurrences = await db
     .select({ id: rideOccurrences.id })
     .from(rideOccurrences)
@@ -1205,18 +1204,15 @@ async function updateRideStudents(
 
   const futureOccIds = futureOccurrences.map(o => o.id);
 
-  // ✅ 4. حذف الطلاب المحذوفين
   if (toRemove.length > 0) {
     const removeIds = toRemove.map(s => s.studentId);
     
-    // من الرحلة الأساسية
     await db.delete(rideStudents)
       .where(and(
         eq(rideStudents.rideId, rideId),
         inArray(rideStudents.studentId, removeIds)
       ));
 
-    // من الـ occurrences المستقبلية
     if (futureOccIds.length > 0) {
       await db.delete(rideOccurrenceStudents)
         .where(and(
@@ -1226,9 +1222,7 @@ async function updateRideStudents(
     }
   }
 
-  // ✅ 5. إضافة الطلاب الجدد
   if (toAdd.length > 0) {
-    // للرحلة الأساسية
     const rideStudentsToAdd = toAdd.map(s => ({
       rideId,
       studentId: s.studentId,
@@ -1237,7 +1231,6 @@ async function updateRideStudents(
     }));
     await db.insert(rideStudents).values(rideStudentsToAdd);
 
-    // للـ occurrences المستقبلية
     if (futureOccIds.length > 0) {
       const occStudentsToAdd: any[] = [];
       for (const occId of futureOccIds) {
@@ -1255,9 +1248,7 @@ async function updateRideStudents(
     }
   }
 
-  // ✅ 6. تحديث الطلاب الموجودين
   for (const student of toUpdate) {
-    // في الرحلة الأساسية
     await db.update(rideStudents).set({
       pickupPointId: student.pickupPointId,
       pickupTime: student.pickupTime || null,
@@ -1266,7 +1257,6 @@ async function updateRideStudents(
       eq(rideStudents.studentId, student.studentId)
     ));
 
-    // في الـ occurrences المستقبلية
     if (futureOccIds.length > 0) {
       await db.update(rideOccurrenceStudents).set({
         pickupPointId: student.pickupPointId,
@@ -1278,7 +1268,6 @@ async function updateRideStudents(
     }
   }
 }
-
 
 // ✅ Delete Ride
 export const deleteRide = async (req: Request, res: Response) => {
@@ -1303,11 +1292,11 @@ export const deleteRide = async (req: Request, res: Response) => {
   SuccessResponse(res, { message: "Ride deleted successfully" }, 200);
 };
 
-// ✅ Update Occurrence Status - by rideId + date
+// ✅ Update Occurrence Status
 export const updateOccurrenceStatus = async (req: Request, res: Response) => {
-  const { occurrenceId } = req.params;  // ✅ تغيير من id, occurrenceDate
+  const { occurrenceId } = req.params;
   const { status } = req.body;
-  const organizationId = req.user?.organizationId;  // ✅ تغيير من req.user
+  const organizationId = req.user?.organizationId;
 
   if (!organizationId) {
     throw new BadRequest("Organization ID is required");
@@ -1321,7 +1310,6 @@ export const updateOccurrenceStatus = async (req: Request, res: Response) => {
     throw new BadRequest("Invalid status. Use 'scheduled' or 'cancelled'");
   }
 
-  // ✅ البحث بالـ occurrenceId مباشرة
   const occurrence = await db
     .select({
       occId: rideOccurrences.id,
@@ -1331,7 +1319,7 @@ export const updateOccurrenceStatus = async (req: Request, res: Response) => {
     .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
     .where(
       and(
-        eq(rideOccurrences.id, occurrenceId),  // ✅ البحث بالـ ID
+        eq(rideOccurrences.id, occurrenceId),
         eq(rides.organizationId, organizationId)
       )
     )
@@ -1355,8 +1343,6 @@ export const updateOccurrenceStatus = async (req: Request, res: Response) => {
     message: "Occurrence status updated successfully",
   });
 };
-
-
 
 // ✅ Selection Data
 export const selection = async (req: Request, res: Response) => {
