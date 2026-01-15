@@ -13,7 +13,7 @@ import {
   parents,
   notifications,
 } from "../../../models/schema";
-import { eq, and, sql, inArray, asc } from "drizzle-orm";
+import { eq, and, sql, inArray, asc,or,count,desc } from "drizzle-orm";
 import { SuccessResponse } from "../../../utils/response";
 import { NotFound } from "../../../Errors/NotFound";
 import { BadRequest } from "../../../Errors/BadRequest";
@@ -730,3 +730,221 @@ export const completeRide = async (req: Request, res: Response) => {
     completedAt: new Date().toISOString(),
   }, 200);
 };
+
+export const getUpcomingRides = async (req: Request, res: Response) => {
+  const driverId = req.user?.id;
+  const organizationId = req.user?.organizationId;
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 20;
+  const offset = (page - 1) * limit;
+
+  if (!driverId || !organizationId) {
+    throw new BadRequest("Driver authentication required");
+  }
+
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+
+  // جلب الرحلات القادمة (بعد اليوم)
+  const upcomingOccurrences = await db
+    .select({
+      occurrenceId: rideOccurrences.id,
+      occurDate: rideOccurrences.occurDate,
+      occurrenceStatus: rideOccurrences.status,
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      busId: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      routeId: Rout.id,
+      routeName: Rout.name,
+    })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .leftJoin(buses, eq(rides.busId, buses.id))
+    .leftJoin(Rout, eq(rides.routeId, Rout.id))
+    .where(
+      and(
+        eq(rides.driverId, driverId),
+        eq(rides.organizationId, organizationId),
+        sql`DATE(${rideOccurrences.occurDate}) > ${todayStr}`,
+        or(
+          eq(rideOccurrences.status, "scheduled"),
+          eq(rideOccurrences.status, "in_progress")
+        )
+      )
+    )
+    .orderBy(asc(rideOccurrences.occurDate))
+    .limit(limit)
+    .offset(offset);
+
+  // عد الإجمالي
+  const [totalResult] = await db
+    .select({ count: count() })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .where(
+      and(
+        eq(rides.driverId, driverId),
+        eq(rides.organizationId, organizationId),
+        sql`DATE(${rideOccurrences.occurDate}) > ${todayStr}`,
+        or(
+          eq(rideOccurrences.status, "scheduled"),
+          eq(rideOccurrences.status, "in_progress")
+        )
+      )
+    );
+
+  // عد الطلاب لكل occurrence
+  const ridesWithCounts = await Promise.all(
+    upcomingOccurrences.map(async (occ) => {
+      const [studentCount] = await db
+        .select({ count: count() })
+        .from(rideOccurrenceStudents)
+        .where(eq(rideOccurrenceStudents.occurrenceId, occ.occurrenceId));
+
+      return {
+        ...occ,
+        studentCount: studentCount?.count || 0,
+      };
+    })
+  );
+
+  // تجميع حسب التاريخ
+  const groupedByDate = ridesWithCounts.reduce((acc, ride) => {
+    const dateKey = ride.occurDate instanceof Date 
+      ? ride.occurDate.toISOString().split("T")[0]
+      : String(ride.occurDate);
+    
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(ride);
+    return acc;
+  }, {} as Record<string, typeof ridesWithCounts>);
+
+  return SuccessResponse(res, {
+    rides: groupedByDate, message:"Upcoming rides fetched successfully"})
+   
+};
+
+// ===================== GET RIDE HISTORY =====================
+export const getRideHistory = async (req: Request, res: Response) => {
+  const driverId = req.user?.id;
+  const organizationId = req.user?.organizationId;
+  const page = parseInt(req.query.page as string) || 1;
+  const limit = parseInt(req.query.limit as string) || 20;
+  const offset = (page - 1) * limit;
+  const from = req.query.from as string;
+  const to = req.query.to as string;
+
+  if (!driverId || !organizationId) {
+    throw new BadRequest("Driver authentication required");
+  }
+
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+
+  // بناء شروط التصفية
+  const conditions = [
+    eq(rides.driverId, driverId),
+    eq(rides.organizationId, organizationId),
+    or(
+      sql`DATE(${rideOccurrences.occurDate}) < ${todayStr}`,
+      eq(rideOccurrences.status, "completed"),
+      eq(rideOccurrences.status, "cancelled")
+    ),
+  ];
+
+  // إضافة فلتر التاريخ إذا موجود
+  if (from) {
+    conditions.push(sql`DATE(${rideOccurrences.occurDate}) >= ${from}`);
+  }
+  if (to) {
+    conditions.push(sql`DATE(${rideOccurrences.occurDate}) <= ${to}`);
+  }
+
+  // جلب السجل
+  const historyOccurrences = await db
+    .select({
+      occurrenceId: rideOccurrences.id,
+      occurDate: rideOccurrences.occurDate,
+      occurrenceStatus: rideOccurrences.status,
+      startedAt: rideOccurrences.startedAt,
+      completedAt: rideOccurrences.completedAt,
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      busId: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      routeId: Rout.id,
+      routeName: Rout.name,
+    })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .leftJoin(buses, eq(rides.busId, buses.id))
+    .leftJoin(Rout, eq(rides.routeId, Rout.id))
+    .where(and(...conditions))
+    .orderBy(desc(rideOccurrences.occurDate))
+    .limit(limit)
+    .offset(offset);
+
+  // عد الإجمالي
+  const [totalResult] = await db
+    .select({ count: count() })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .where(and(...conditions));
+
+  // عد الطلاب وإحصائياتهم لكل occurrence
+  const ridesWithStats = await Promise.all(
+    historyOccurrences.map(async (occ) => {
+      const studentStats = await db
+        .select({
+          status: rideOccurrenceStudents.status,
+          count: count(),
+        })
+        .from(rideOccurrenceStudents)
+        .where(eq(rideOccurrenceStudents.occurrenceId, occ.occurrenceId))
+        .groupBy(rideOccurrenceStudents.status);
+
+      const stats = {
+        total: 0,
+        pickedUp: 0,
+        droppedOff: 0,
+        absent: 0,
+        excused: 0,
+      };
+
+      studentStats.forEach((s) => {
+        stats.total += Number(s.count);
+        if (s.status === "picked_up") stats.pickedUp = Number(s.count);
+        if (s.status === "dropped_off") stats.droppedOff = Number(s.count);
+        if (s.status === "absent") stats.absent = Number(s.count);
+        if (s.status === "excused") stats.excused = Number(s.count);
+      });
+
+      return {
+        ...occ,
+        studentStats: stats,
+      };
+    })
+  );
+
+  // تجميع حسب التاريخ
+  const groupedByDate = ridesWithStats.reduce((acc, ride) => {
+    const dateKey = ride.occurDate instanceof Date 
+      ? ride.occurDate.toISOString().split("T")[0]
+      : String(ride.occurDate);
+    
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(ride);
+    return acc;
+  }, {} as Record<string, typeof ridesWithStats>);
+
+   SuccessResponse(res, { rides: groupedByDate,message:"Ride history fetched successfully"  });
+}
