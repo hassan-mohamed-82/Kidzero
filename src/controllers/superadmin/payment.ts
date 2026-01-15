@@ -148,26 +148,93 @@ export const ReplyToPayment = async (req: Request, res: Response) => {
         })
         .where(eq(payment.id, id));
 
-    // Create Subscription for the organization if accepted
+    // Handle approved payments based on paymentType
     if (status === "completed") {
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setFullYear(endDate.getFullYear() + 1); // Assuming yearly subscription for simplicity
-        await db.insert(subscriptions).values({
-            organizationId: paymentRecord.organizationId,
-            planId: paymentRecord.planId,
-            startDate,
-            endDate,
-            paymentId: paymentRecord.id,
-            isActive: true,
-        });
-        await db.update(organizations)
-            .set({
-                status: "subscribed",
-            })
-            .where(eq(organizations.id, paymentRecord.organizationId));
+        const paymentType = paymentRecord.paymentType || "subscription";
+
+        if (paymentType === "renewal") {
+            // Renewal: Extend existing subscription's end date by 1 year
+            const existingSubscription = await db.query.subscriptions.findFirst({
+                where: and(
+                    eq(subscriptions.organizationId, paymentRecord.organizationId),
+                    eq(subscriptions.isActive, true)
+                ),
+            });
+
+            if (existingSubscription) {
+                // Extend end date by 1 year from current end date
+                const newEndDate = new Date(existingSubscription.endDate);
+                newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+
+                await db.update(subscriptions)
+                    .set({
+                        endDate: newEndDate,
+                        paymentId: paymentRecord.id,
+                    })
+                    .where(eq(subscriptions.id, existingSubscription.id));
+
+                return SuccessResponse(res, {
+                    message: "Renewal approved. Subscription extended successfully.",
+                    subscriptionId: existingSubscription.id,
+                    newEndDate,
+                }, 200);
+            } else {
+                // No active subscription found, create new one
+                const startDate = new Date();
+                const endDate = new Date();
+                endDate.setFullYear(endDate.getFullYear() + 1);
+
+                await db.insert(subscriptions).values({
+                    organizationId: paymentRecord.organizationId,
+                    planId: paymentRecord.planId,
+                    startDate,
+                    endDate,
+                    paymentId: paymentRecord.id,
+                    isActive: true,
+                });
+
+                await db.update(organizations)
+                    .set({ status: "subscribed" })
+                    .where(eq(organizations.id, paymentRecord.organizationId));
+
+                return SuccessResponse(res, {
+                    message: "Renewal approved. New subscription created.",
+                    endDate,
+                }, 200);
+            }
+        } else if (paymentType === "plan_price") {
+            // Plan price payment: Just mark as completed, no subscription changes
+            return SuccessResponse(res, {
+                message: "Plan price payment approved successfully.",
+            }, 200);
+        } else {
+            // Default: subscription type - create new subscription
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setFullYear(endDate.getFullYear() + 1);
+
+            await db.insert(subscriptions).values({
+                organizationId: paymentRecord.organizationId,
+                planId: paymentRecord.planId,
+                startDate,
+                endDate,
+                paymentId: paymentRecord.id,
+                isActive: true,
+            });
+
+            await db.update(organizations)
+                .set({ status: "subscribed" })
+                .where(eq(organizations.id, paymentRecord.organizationId));
+
+            return SuccessResponse(res, {
+                message: "Payment approved. Subscription created successfully.",
+                endDate,
+            }, 200);
+        }
     }
-    return SuccessResponse(res, { message: `Payment ${status} successfully` },200);
+
+    // Rejected payment
+    return SuccessResponse(res, { message: "Payment rejected successfully" }, 200);
 };
 
 // =====================================================
@@ -412,5 +479,5 @@ export const ReplyToPaymentParent = async (req: Request, res: Response) => {
             isActive: true,
         });
     }
-    return SuccessResponse(res, { message: `Payment ${status} successfully` },200);
+    return SuccessResponse(res, { message: `Payment ${status} successfully` }, 200);
 };

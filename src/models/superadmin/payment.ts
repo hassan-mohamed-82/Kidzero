@@ -19,6 +19,7 @@ export const payment = mysqlTable("payments", {
 
   promocodeId: char("promocode_id", { length: 36 }).references(() => promocode.id),
   status: mysqlEnum("status", ["pending", "completed", "rejected"]).notNull().default("pending"),
+  paymentType: mysqlEnum("payment_type", ["subscription", "renewal", "plan_price"]).notNull().default("subscription"),
   rejectedReason: varchar("rejected_reason", { length: 255 }),
 
   // RequestedSubscriptionType: mysqlEnum("requested_subscription_type", ["yearly", "semester"]).notNull().default("semester"),
