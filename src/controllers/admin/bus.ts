@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { buses, busTypes } from "../../models/schema";
+import { buses, busTypes, rides } from "../../models/schema";
 import { eq, and, count } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -46,12 +46,12 @@ export const getAllBuses = async (req: Request, res: Response) => {
   const subscription = await getActiveSubscription(organizationId);
   const usageInfo = subscription
     ? {
-        current: allBuses.length,
-        max: subscription.plan.maxBuses,
-        remaining: subscription.plan.maxBuses
-          ? subscription.plan.maxBuses - allBuses.length
-          : "unlimited",
-      }
+      current: allBuses.length,
+      max: subscription.plan.maxBuses,
+      remaining: subscription.plan.maxBuses
+        ? subscription.plan.maxBuses - allBuses.length
+        : "unlimited",
+    }
     : null;
 
   SuccessResponse(res, { buses: allBuses, usage: usageInfo }, 200);
@@ -412,6 +412,12 @@ export const deleteBus = async (req: Request, res: Response) => {
     throw new NotFound("Bus not found");
   }
 
+  // Check if bus has associated rides
+  const associatedRides = await db.select().from(rides).where(eq(rides.busId, id)).limit(1);
+  if (associatedRides.length > 0) {
+    throw new BadRequest("Cannot delete bus: there are rides associated with this bus. Please delete or reassign the rides first.");
+  }
+
   // حذف الصور من السيرفر
   if (existingBus[0].licenseImage) {
     await deletePhotoFromServer(existingBus[0].licenseImage);
@@ -535,14 +541,14 @@ export const getBusStatistics = async (req: Request, res: Response) => {
   const subscription = await getActiveSubscription(organizationId);
   const subscriptionInfo = subscription
     ? {
-        planName: subscription.plan.name,
-        maxBuses: subscription.plan.maxBuses,
-        used: stats.total,
-        remaining: subscription.plan.maxBuses
-          ? subscription.plan.maxBuses - stats.total
-          : "unlimited",
-        expiresAt: subscription.subscription.endDate,
-      }
+      planName: subscription.plan.name,
+      maxBuses: subscription.plan.maxBuses,
+      used: stats.total,
+      remaining: subscription.plan.maxBuses
+        ? subscription.plan.maxBuses - stats.total
+        : "unlimited",
+      expiresAt: subscription.subscription.endDate,
+    }
     : null;
 
   SuccessResponse(

@@ -35,7 +35,7 @@ export * from "./admin/zone";
 export * from "./admin/notifications";
 export * from "./admin/rideOccurrenceStudent";
 export * from "./admin/rideOccurrence";
-
+export * from "./admin/organizationServices";
 
 
 // Relations
