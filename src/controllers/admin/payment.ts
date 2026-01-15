@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { payment, plans, paymentMethod, organizations, promocode } from "../../models/schema";
+import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -104,7 +104,7 @@ export const getPaymentById = async (req: Request, res: Response) => {
 };
 
 export const createPayment = async (req: Request, res: Response) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocodeId } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocodeId, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -125,6 +125,8 @@ export const createPayment = async (req: Request, res: Response) => {
     if (!planResult[0]) {
         throw new NotFound("Plan not found");
     }
+
+    const plan = planResult[0];
 
     // Validate payment method exists and is active
     const payMethodResult = await db
@@ -175,6 +177,141 @@ export const createPayment = async (req: Request, res: Response) => {
             totalAmount = 0;
         }
     }
+
+    // Check if payment is less than subscription fees - route to installment path
+    const subscriptionFees = plan.subscriptionFees;
+    const minPayment = plan.minSubscriptionFeesPay;
+    const isPartialPayment = totalAmount < subscriptionFees;
+
+    if (isPartialPayment) {
+        // Validate minimum payment requirement
+        if (totalAmount < minPayment) {
+            throw new BadRequest(
+                `Payment amount (${totalAmount}) is less than the minimum required payment (${minPayment}). ` +
+                `You must pay at least ${minPayment} to start a subscription with installments.`
+            );
+        }
+
+        // For partial payments, nextDueDate is required
+        if (!nextDueDate) {
+            throw new BadRequest(
+                "Next payment due date is required for partial/installment payments. " +
+                `You are paying ${totalAmount} out of ${subscriptionFees} total fees.`
+            );
+        }
+
+        // Validate due date is in the future
+        const dueDate = new Date(nextDueDate);
+        if (dueDate <= new Date()) {
+            throw new BadRequest("Next due date must be in the future");
+        }
+
+        // Insert payment record first
+        await db.insert(payment).values({
+            id: newPaymentId,
+            organizationId,
+            planId,
+            paymentMethodId,
+            amount: totalAmount,
+            receiptImage: receiptImageUrl || "",
+            promocodeId: promocodeId || null,
+            status: "pending",
+        });
+
+        // Check for existing active subscription or create new one
+        let activeSubscription = await db.query.subscriptions.findFirst({
+            where: and(
+                eq(subscriptions.organizationId, organizationId),
+                eq(subscriptions.isActive, true)
+            ),
+        });
+
+        // If no active subscription, we need to create one after payment is approved
+        // For now, create subscription with pending status linked to this payment
+        let subscriptionId: string;
+        if (!activeSubscription) {
+            subscriptionId = crypto.randomUUID();
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setFullYear(endDate.getFullYear() + 1); // 1 year subscription
+
+            await db.insert(subscriptions).values({
+                id: subscriptionId,
+                planId,
+                organizationId,
+                startDate,
+                endDate,
+                paymentId: newPaymentId,
+                isActive: false, // Will be activated when payment is approved
+            });
+        } else {
+            subscriptionId = activeSubscription.id;
+        }
+
+        // Create fee installment record
+        const newInstallmentId = crypto.randomUUID();
+        await db.insert(feeInstallments).values({
+            id: newInstallmentId,
+            subscriptionId,
+            organizationId,
+            totalFeeAmount: subscriptionFees,
+            paidAmount: 0, // Will be updated when approved
+            remainingAmount: subscriptionFees - totalAmount, // Will be this after approval
+            installmentAmount: totalAmount,
+            dueDate: new Date(nextDueDate),
+            status: "pending",
+            receiptImage: receiptImageUrl || undefined,
+            installmentNumber: 1,
+        });
+
+        // Fetch created payment with details
+        const createdPayment = await db
+            .select({
+                id: payment.id,
+                amount: payment.amount,
+                status: payment.status,
+                receiptImage: payment.receiptImage,
+                createdAt: payment.createdAt,
+                plan: {
+                    id: plans.id,
+                    name: plans.name,
+                },
+                paymentMethod: {
+                    id: paymentMethod.id,
+                    name: paymentMethod.name,
+                },
+                promocode: {
+                    id: promocode.id,
+                    code: promocode.code,
+                },
+            })
+            .from(payment)
+            .leftJoin(plans, eq(payment.planId, plans.id))
+            .leftJoin(paymentMethod, eq(payment.paymentMethodId, paymentMethod.id))
+            .leftJoin(promocode, eq(payment.promocodeId, promocode.id))
+            .where(eq(payment.id, newPaymentId))
+            .limit(1);
+
+        return SuccessResponse(
+            res,
+            {
+                message: "Installment payment created successfully. Awaiting admin approval.",
+                payment: createdPayment[0],
+                installmentDetails: {
+                    installmentId: newInstallmentId,
+                    subscriptionId,
+                    totalFeeAmount: subscriptionFees,
+                    paidAmount: totalAmount,
+                    remainingAmount: subscriptionFees - totalAmount,
+                    nextDueDate,
+                    isInstallment: true,
+                },
+            },
+            201
+        );
+    }
+
+    // Full payment path (existing logic)
     // Insert payment
     await db.insert(payment).values({
         id: newPaymentId,
@@ -224,3 +361,4 @@ export const createPayment = async (req: Request, res: Response) => {
         201
     );
 };
+
