@@ -2,8 +2,8 @@ import { Request, Response } from "express";
 import { db } from "../../models/db";
 import { SuccessResponse } from "../../utils/response";
 import { BadRequest } from "../../Errors/BadRequest";
-import { eq } from "drizzle-orm";
-import { admins, organizations, organizationTypes } from "../../models/schema";
+import { eq, inArray } from "drizzle-orm";
+import { admins, organizations, organizationTypes, buses, rides, students } from "../../models/schema";
 import { saveBase64Image } from "../../utils/handleImages";
 import { deletePhotoFromServer } from "../../utils/deleteImage";
 import bcrypt from "bcrypt";
@@ -80,9 +80,9 @@ export const updateOrganizationType = async (req: Request, res: Response) => {
         const existingType = await db.query.organizationTypes.findFirst({
             where: eq(organizationTypes.name, name),
         });
-        if(existingType && existingType.id !== id) {
+        if (existingType && existingType.id !== id) {
             throw new BadRequest("Organization type with this name already exists");
-        }else if (existingType && existingType.id === id) {
+        } else if (existingType && existingType.id === id) {
             return SuccessResponse(res, { message: "No changes detected" }, 200);
         }
     }
@@ -113,43 +113,82 @@ export const deleteOrganizationType = async (req: Request, res: Response) => {
 
 export const getAllOrganizations = async (req: Request, res: Response) => {
     try {
-        const orgs = await db.query.organizations.findMany({
-            // Select specific columns from the main table
-            columns: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                status: true, // Item 8: Status (active, blocked, subscribed)
-            },
-            // "Populate" related tables
-            with: {
-                // Item 2: Organization Type
-                organizationType: {
-                    columns: {
-                        name: true, // Only get the name of the type
-                    }
-                },
-                // Item 5: Buses
-                buses: true, // specific columns not needed? 'true' returns all
 
-                // Item 7: Rides
-                rides: true,
+        const orgs = await db
+            .select({
+                id: organizations.id,
+                name: organizations.name,
+                email: organizations.email,
+                phone: organizations.phone,
+                status: organizations.status,
+                organizationTypeId: organizations.organizationTypeId,
+                organizationTypeName: organizationTypes.name,
+            })
+            .from(organizations)
+            .leftJoin(organizationTypes, eq(organizations.organizationTypeId, organizationTypes.id));
 
-                // Item 6: Students
-                students: {
-                    columns: { id: true, name: true }
-                }
-            },
+        if (orgs.length === 0) {
+            return SuccessResponse(res, { orgs: [] }, 200);
+        }
+
+        const orgIds = orgs.map(o => o.id);
+
+        // Fetch all related data in parallel
+        const [allBuses, allRides, allStudents] = await Promise.all([
+            db.query.buses.findMany({
+                where: inArray(buses.organizationId, orgIds),
+            }),
+            db.query.rides.findMany({
+                where: inArray(rides.organizationId, orgIds),
+            }),
+            db.query.students.findMany({
+                where: inArray(students.organizationId, orgIds),
+                columns: { id: true, name: true, organizationId: true },
+            }),
+        ]);
+
+        // Group related data by organization ID
+        const busesMap = new Map<string, typeof allBuses>();
+        const ridesMap = new Map<string, typeof allRides>();
+        const studentsMap = new Map<string, typeof allStudents>();
+
+        allBuses.forEach(bus => {
+            if (!busesMap.has(bus.organizationId)) {
+                busesMap.set(bus.organizationId, []);
+            }
+            busesMap.get(bus.organizationId)!.push(bus);
         });
 
+        allRides.forEach(ride => {
+            if (!ridesMap.has(ride.organizationId)) {
+                ridesMap.set(ride.organizationId, []);
+            }
+            ridesMap.get(ride.organizationId)!.push(ride);
+        });
+
+        allStudents.forEach(student => {
+            if (!studentsMap.has(student.organizationId)) {
+                studentsMap.set(student.organizationId, []);
+            }
+            studentsMap.get(student.organizationId)!.push(student);
+        });
+
+        // Format the response
         const formattedOrgs = orgs.map(org => ({
-            ...org,
-            organizationType: org.organizationType,
+            id: org.id,
+            name: org.name,
+            email: org.email,
+            phone: org.phone,
+            status: org.status,
+            organizationType: {
+                name: org.organizationTypeName,
+            },
+            buses: busesMap.get(org.id) || [],
+            rides: ridesMap.get(org.id) || [],
+            students: studentsMap.get(org.id) || [],
         }));
 
         return SuccessResponse(res, { orgs: formattedOrgs }, 200);
-
     } catch (error) {
         throw new BadRequest(`Failed to retrieve organizations: ${error}`);
     }
