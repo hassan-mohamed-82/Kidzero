@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions } from "../../models/schema";
+import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions, paymentMethod } from "../../models/schema";
 import { db } from "../../models/db";
 import { eq, desc, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
@@ -247,20 +247,61 @@ export const ReplyToPayment = async (req: Request, res: Response) => {
 export const getAllInstallments = async (req: Request, res: Response) => {
     const { status } = req.query;
 
-    let allInstallments;
+    let query = db
+        .select({
+
+            id: feeInstallments.id,
+            subscriptionId: feeInstallments.subscriptionId,
+            organizationId: feeInstallments.organizationId,
+            paymentMethodId: feeInstallments.paymentMethodId,
+            totalFeeAmount: feeInstallments.totalFeeAmount,
+            paidAmount: feeInstallments.paidAmount,
+            remainingAmount: feeInstallments.remainingAmount,
+            installmentAmount: feeInstallments.installmentAmount,
+            dueDate: feeInstallments.dueDate,
+            status: feeInstallments.status,
+            rejectedReason: feeInstallments.rejectedReason,
+            receiptImage: feeInstallments.receiptImage,
+            installmentNumber: feeInstallments.installmentNumber,
+            createdAt: feeInstallments.createdAt,
+            updatedAt: feeInstallments.updatedAt,
+
+            organization: {
+                id: organizations.id,
+                name: organizations.name,
+            },
+
+            paymentMethod: {
+                id: paymentMethod.id,
+                name: paymentMethod.name,
+
+            },
+
+            subscription: {
+                id: subscriptions.id,
+                planId: subscriptions.planId,
+            },
+
+            plan: {
+                id: plans.id,
+                name: plans.name,
+                subscriptionFees: plans.subscriptionFees,
+            }
+        })
+        .from(feeInstallments)
+        .leftJoin(organizations, eq(feeInstallments.organizationId, organizations.id))
+        .leftJoin(paymentMethod, eq(feeInstallments.paymentMethodId, paymentMethod.id))
+        .leftJoin(subscriptions, eq(feeInstallments.subscriptionId, subscriptions.id))
+        .leftJoin(plans, eq(subscriptions.planId, plans.id))
+        .$dynamic();
 
     if (status && ["pending", "approved", "rejected", "overdue"].includes(status as string)) {
-        allInstallments = await db
-            .select()
-            .from(feeInstallments)
-            .where(eq(feeInstallments.status, status as "pending" | "approved" | "rejected" | "overdue"))
-            .orderBy(desc(feeInstallments.createdAt));
-    } else {
-        allInstallments = await db
-            .select()
-            .from(feeInstallments)
-            .orderBy(desc(feeInstallments.createdAt));
+        query = query.where(
+            eq(feeInstallments.status, status as "pending" | "approved" | "rejected" | "overdue")
+        );
     }
+
+    const allInstallments = await query.orderBy(desc(feeInstallments.createdAt));
 
     // Group by status for summary
     const pendingCount = allInstallments.filter(i => i.status === "pending").length;
@@ -280,7 +321,6 @@ export const getAllInstallments = async (req: Request, res: Response) => {
         }
     });
 };
-
 /**
  * Get a specific installment by ID
  */
@@ -291,35 +331,65 @@ export const getInstallmentById = async (req: Request, res: Response) => {
         throw new BadRequest("Installment ID is required");
     }
 
-    const installment = await db.query.feeInstallments.findFirst({
-        where: eq(feeInstallments.id, id),
-    });
+    const result = await db
+        .select({
 
-    if (!installment) {
+            id: feeInstallments.id,
+            subscriptionId: feeInstallments.subscriptionId,
+            organizationId: feeInstallments.organizationId,
+            paymentMethodId: feeInstallments.paymentMethodId,
+            totalFeeAmount: feeInstallments.totalFeeAmount,
+            paidAmount: feeInstallments.paidAmount,
+            remainingAmount: feeInstallments.remainingAmount,
+            installmentAmount: feeInstallments.installmentAmount,
+            dueDate: feeInstallments.dueDate,
+            status: feeInstallments.status,
+            rejectedReason: feeInstallments.rejectedReason,
+            receiptImage: feeInstallments.receiptImage,
+            installmentNumber: feeInstallments.installmentNumber,
+            createdAt: feeInstallments.createdAt,
+            updatedAt: feeInstallments.updatedAt,
+
+            organization: {
+                id: organizations.id,
+                name: organizations.name,
+            },
+
+            paymentMethod: {
+                id: paymentMethod.id,
+                name: paymentMethod.name,
+            },
+
+            subscription: {
+                id: subscriptions.id,
+                planId: subscriptions.planId,
+            },
+
+            plan: {
+                id: plans.id,
+                name: plans.name,
+                subscriptionFees: plans.subscriptionFees,
+            }
+        })
+        .from(feeInstallments)
+        .leftJoin(organizations, eq(feeInstallments.organizationId, organizations.id))
+        .leftJoin(paymentMethod, eq(feeInstallments.paymentMethodId, paymentMethod.id))
+        .leftJoin(subscriptions, eq(feeInstallments.subscriptionId, subscriptions.id))
+        .leftJoin(plans, eq(subscriptions.planId, plans.id))
+        .where(eq(feeInstallments.id, id))
+        .limit(1);
+
+    if (!result || result.length === 0) {
         throw new BadRequest("Installment not found");
     }
 
-    // Get organization and subscription details
-    const subscription = await db.query.subscriptions.findFirst({
-        where: eq(subscriptions.id, installment.subscriptionId),
-    });
-
-    const organization = await db.query.organizations.findFirst({
-        where: eq(organizations.id, installment.organizationId),
-    });
-
-    const plan = subscription ? await db.query.plans.findFirst({
-        where: eq(plans.id, subscription.planId),
-    }) : null;
+    const installment = result[0];
 
     return SuccessResponse(res, {
         message: "Installment retrieved successfully",
         installment,
-        organization: organization ? { id: organization.id, name: organization.name } : null,
-        plan: plan ? { id: plan.id, name: plan.name, subscriptionFees: plan.subscriptionFees } : null,
     });
 };
-
 /**
  * Approve an installment payment
  */

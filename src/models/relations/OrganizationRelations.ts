@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { organizations, organizationTypes, buses, rides, students, subscriptions, feeInstallments, organizationServices } from "../schema";
+import { organizations, organizationTypes, buses, rides, students, subscriptions, feeInstallments, organizationServices, paymentMethod } from "../schema";
 
 
 // 1. Organization Relations
@@ -69,6 +69,10 @@ export const feeInstallmentRelations = relations(feeInstallments, ({ one }) => (
   subscription: one(subscriptions, {
     fields: [feeInstallments.subscriptionId],
     references: [subscriptions.id],
+  }),
+  paymentMethod: one(paymentMethod, {
+    fields: [feeInstallments.paymentMethodId],
+    references: [paymentMethod.id],
   }),
 }));
 
