@@ -38,5 +38,7 @@ export * from "./admin/rideOccurrence";
 export * from "./admin/organizationServices";
 
 
+
+export * from "./user/walletRechargeRequest";
 // Relations
 export * from "./relations/OrganizationRelations";
