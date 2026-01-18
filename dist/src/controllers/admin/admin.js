@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAdmin = exports.updateAdmin = exports.createAdmin = exports.getAdminById = exports.getAllAdmins = void 0;
+exports.getRoleNames = exports.deleteAdmin = exports.updateAdmin = exports.createAdmin = exports.getAdminById = exports.getAllAdmins = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -196,3 +196,15 @@ const deleteAdmin = async (req, res) => {
     (0, response_1.SuccessResponse)(res, { message: "Admin deleted successfully" }, 200);
 };
 exports.deleteAdmin = deleteAdmin;
+// ✅ Get Role Names Only
+const getRoleNames = async (req, res) => {
+    const allRoles = await db_1.db
+        .select({
+        id: schema_1.roles.id,
+        name: schema_1.roles.name,
+    })
+        .from(schema_1.roles)
+        .where((0, drizzle_orm_1.eq)(schema_1.roles.status, "active")); // الـ Active بس
+    return (0, response_1.SuccessResponse)(res, { roles: allRoles }, 200);
+};
+exports.getRoleNames = getRoleNames;

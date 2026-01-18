@@ -12,20 +12,28 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const auth_1 = require("../../utils/auth");
 const Errors_1 = require("../../Errors");
 const response_1 = require("../../utils/response");
-// Helper function لتحويل الـ permissions
+// ✅ Helper function لتحويل الـ permissions (معالجة Double Escape)
 function parsePermissions(permissions) {
     if (!permissions)
         return [];
+    // لو Array جاهز
+    if (Array.isArray(permissions))
+        return permissions;
+    // لو String
     if (typeof permissions === "string") {
         try {
-            return JSON.parse(permissions);
+            let parsed = JSON.parse(permissions);
+            // ✅ لو لسه String بعد الـ parse (Double Escaped)
+            while (typeof parsed === "string") {
+                parsed = JSON.parse(parsed);
+            }
+            return Array.isArray(parsed) ? parsed : [];
         }
-        catch {
+        catch (error) {
+            console.error("Error parsing permissions:", error);
             return [];
         }
     }
-    if (Array.isArray(permissions))
-        return permissions;
     return [];
 }
 async function login(req, res) {
@@ -52,6 +60,7 @@ async function login(req, res) {
     let role = null;
     let permissions = [];
     if (admin[0].type === "organizer") {
+        // الـ Organizer له كل الصلاحيات
         permissions = [];
     }
     else if (admin[0].roleId) {
@@ -68,7 +77,7 @@ async function login(req, res) {
             permissions = parsePermissions(roleData[0].permissions);
         }
     }
-    // دمج صلاحيات الـ Admin
+    // دمج صلاحيات الـ Admin الإضافية
     const adminPermissions = parsePermissions(admin[0].permissions);
     if (adminPermissions.length > 0) {
         permissions = mergePermissions(permissions, adminPermissions);
@@ -83,7 +92,7 @@ async function login(req, res) {
         ? (0, auth_1.generateOrganizerToken)(tokenPayload)
         : (0, auth_1.generateAdminToken)(tokenPayload);
     // 6) الرد
-    (0, response_1.SuccessResponse)(res, {
+    return (0, response_1.SuccessResponse)(res, {
         message: "Login successful",
         token,
         user: {
@@ -99,7 +108,7 @@ async function login(req, res) {
         },
     }, 200);
 }
-// دالة دمج الصلاحيات
+// ✅ دالة دمج الصلاحيات
 function mergePermissions(rolePermissions, adminPermissions) {
     if (!Array.isArray(rolePermissions))
         rolePermissions = [];

@@ -6,8 +6,11 @@ const catchAsync_1 = require("../../utils/catchAsync");
 const router = (0, express_1.Router)();
 // Payment routes
 router.get('/', (0, catchAsync_1.catchAsync)(payment_1.getAllPayments));
+router.get('/parents', (0, catchAsync_1.catchAsync)(payment_1.getAllParentPayments));
+router.get('/parents/:id', (0, catchAsync_1.catchAsync)(payment_1.getParentPaymentById));
 router.get('/:id', (0, catchAsync_1.catchAsync)(payment_1.getPaymentById));
 router.put('/:id/reply', (0, catchAsync_1.catchAsync)(payment_1.ReplyToPayment));
+router.put('/:id/reply-parent', (0, catchAsync_1.catchAsync)(payment_1.ReplyToPaymentParent));
 // Installment routes
 router.get('/installments/all', (0, catchAsync_1.catchAsync)(payment_1.getAllInstallments));
 router.get('/installments/:id', (0, catchAsync_1.catchAsync)(payment_1.getInstallmentById));

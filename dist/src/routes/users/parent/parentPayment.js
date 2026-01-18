@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const payment_1 = require("../../../controllers/users/parent/payment");
+const catchAsync_1 = require("../../../utils/catchAsync");
+const router = (0, express_1.Router)();
+router.get("/", (0, catchAsync_1.catchAsync)(payment_1.getParentPayments));
+router.get("/:id", (0, catchAsync_1.catchAsync)(payment_1.getParentPaymentbyId));
+router.post("/", (0, catchAsync_1.catchAsync)(payment_1.createParentPayment));
+exports.default = router;

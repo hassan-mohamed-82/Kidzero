@@ -7,7 +7,7 @@ const drizzle_orm_1 = require("drizzle-orm");
 exports.drivers = (0, mysql_core_1.mysqlTable)("drivers", {
     id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
     organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull(),
-    fcm_tokens: (0, mysql_core_1.json)("fcm_tokens").$type().default([]),
+    fcmTokens: (0, mysql_core_1.text)("fcm_tokens"), // JSON array of FCM tokens
     name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
     phone: (0, mysql_core_1.varchar)("phone", { length: 20 }).notNull().unique(), // للـ Login
     password: (0, mysql_core_1.varchar)("password", { length: 255 }).notNull(),

@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const parentPlan_1 = require("../../controllers/superadmin/parentPlan");
+const catchAsync_1 = require("../../utils/catchAsync");
+const router = (0, express_1.Router)();
+router.get("/", (0, catchAsync_1.catchAsync)(parentPlan_1.getAllParentPlans));
+router.post("/", (0, catchAsync_1.catchAsync)(parentPlan_1.createParentPlan));
+router.get("/:id", (0, catchAsync_1.catchAsync)(parentPlan_1.getParentPlanbyId));
+router.delete("/:id", (0, catchAsync_1.catchAsync)(parentPlan_1.deleteParentPlanById));
+router.put("/:id", (0, catchAsync_1.catchAsync)(parentPlan_1.updateParentPlan));
+exports.default = router;

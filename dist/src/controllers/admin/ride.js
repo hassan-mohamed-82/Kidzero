@@ -1,7 +1,6 @@
 "use strict";
-// src/controllers/admin/rideController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRidesByDate = exports.selection = exports.searchStudentsForRide = exports.removeStudentFromRide = exports.addStudentsToRide = exports.deleteRide = exports.updateRide = exports.getRideById = exports.getAllRides = exports.createRide = void 0;
+exports.searchStudentsForRide = exports.selection = exports.updateOccurrenceStatus = exports.deleteRide = exports.updateRide = exports.getOccurrenceDetails = exports.getUpcomingRides = exports.getRidesByDate = exports.getRideById = exports.getAllRides = exports.createRide = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -9,9 +8,8 @@ const response_1 = require("../../utils/response");
 const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
 const uuid_1 = require("uuid");
-// ✅ Create Ride
+// ================== HELPERS ==================
 const checkBusCapacity = async (busId, rideId, newStudentsCount) => {
-    // جلب سعة الباص
     const [bus] = await db_1.db
         .select({ maxSeats: schema_1.buses.maxSeats })
         .from(schema_1.buses)
@@ -20,7 +18,6 @@ const checkBusCapacity = async (busId, rideId, newStudentsCount) => {
     if (!bus) {
         throw new NotFound_1.NotFound("Bus not found");
     }
-    // عد الطلاب الحاليين في الـ Ride (لو موجود)
     let currentStudentsCount = 0;
     if (rideId) {
         const [result] = await db_1.db
@@ -31,17 +28,87 @@ const checkBusCapacity = async (busId, rideId, newStudentsCount) => {
     }
     const totalStudents = currentStudentsCount + newStudentsCount;
     if (totalStudents > bus.maxSeats) {
-        throw new BadRequest_1.BadRequest(`Bus capacity exceeded. Max: ${bus.maxSeats}, Current: ${currentStudentsCount}, Trying to add: ${newStudentsCount}, Total would be: ${totalStudents}`);
+        throw new BadRequest_1.BadRequest(`Bus capacity exceeded. Max: ${bus.maxSeats}, Current: ${currentStudentsCount}, Trying to add: ${newStudentsCount}`);
     }
 };
+const generateOccurrences = async (rideId, startDate, endDate, frequency, repeatType, studentsData) => {
+    const occurrences = [];
+    const start = new Date(startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (frequency === "once") {
+        occurrences.push({
+            id: (0, uuid_1.v4)(),
+            rideId,
+            occurDate: startDate,
+        });
+    }
+    else if (frequency === "repeat") {
+        let generateUntil;
+        if (repeatType === "limited" && endDate) {
+            generateUntil = new Date(endDate);
+        }
+        else {
+            // ✅ unlimited: توليد 30 يوم من اليوم أو startDate (الأكبر)
+            generateUntil = new Date(Math.max(today.getTime(), start.getTime()));
+            generateUntil.setDate(generateUntil.getDate() + 30);
+        }
+        const current = new Date(start);
+        while (current <= generateUntil) {
+            occurrences.push({
+                id: (0, uuid_1.v4)(),
+                rideId,
+                occurDate: current.toISOString().split("T")[0],
+            });
+            current.setDate(current.getDate() + 1);
+        }
+    }
+    if (occurrences.length > 0) {
+        await db_1.db.insert(schema_1.rideOccurrences).values(occurrences);
+        for (const occ of occurrences) {
+            if (studentsData.length > 0) {
+                const occStudents = studentsData.map((s) => ({
+                    id: (0, uuid_1.v4)(),
+                    occurrenceId: occ.id,
+                    studentId: s.studentId,
+                    pickupPointId: s.pickupPointId,
+                    pickupTime: s.pickupTime || null,
+                }));
+                await db_1.db.insert(schema_1.rideOccurrenceStudents).values(occStudents);
+            }
+        }
+    }
+    return occurrences.length;
+};
+// ================== CONTROLLERS ==================
 // ✅ Create Ride
 const createRide = async (req, res) => {
-    const { busId, driverId, codriverId, routeId, name, rideType, frequency, repeatType, startDate, endDate, students: rideStudentsData, } = req.body;
+    const { busId, driverId, codriverId, routeId, name, rideType, frequency, repeatType, startDate, endDate, students: rideStudentsData = [], } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    // Check bus exists
+    if (!busId || !driverId || !routeId || !rideType || !frequency || !startDate) {
+        throw new BadRequest_1.BadRequest("Missing required fields");
+    }
+    // ✅ التحقق المُحسّن
+    if (frequency === "repeat") {
+        if (!repeatType) {
+            throw new BadRequest_1.BadRequest("Repeat type is required for repeating rides");
+        }
+        if (repeatType === "limited") {
+            if (!endDate) {
+                throw new BadRequest_1.BadRequest("End date is required for limited repeat rides");
+            }
+            if (new Date(endDate) <= new Date(startDate)) {
+                throw new BadRequest_1.BadRequest("End date must be after start date");
+            }
+        }
+        // ✅ unlimited لا يحتاج endDate
+        if (repeatType === "unlimited" && endDate) {
+            console.log("Warning: endDate ignored for unlimited rides");
+        }
+    }
     const bus = await db_1.db
         .select()
         .from(schema_1.buses)
@@ -49,9 +116,9 @@ const createRide = async (req, res) => {
         .limit(1);
     if (!bus[0])
         throw new NotFound_1.NotFound("Bus not found");
-    // ✅ التحقق من سعة الباص
-    await checkBusCapacity(busId, null, rideStudentsData.length);
-    // Check driver exists
+    if (rideStudentsData.length > 0) {
+        await checkBusCapacity(busId, null, rideStudentsData.length);
+    }
     const driver = await db_1.db
         .select()
         .from(schema_1.drivers)
@@ -59,7 +126,6 @@ const createRide = async (req, res) => {
         .limit(1);
     if (!driver[0])
         throw new NotFound_1.NotFound("Driver not found");
-    // Check codriver if provided
     if (codriverId) {
         const codriver = await db_1.db
             .select()
@@ -69,7 +135,6 @@ const createRide = async (req, res) => {
         if (!codriver[0])
             throw new NotFound_1.NotFound("Codriver not found");
     }
-    // Check route exists
     const route = await db_1.db
         .select()
         .from(schema_1.Rout)
@@ -77,32 +142,32 @@ const createRide = async (req, res) => {
         .limit(1);
     if (!route[0])
         throw new NotFound_1.NotFound("Route not found");
-    // Get route pickup points
-    const routePickupPointsList = await db_1.db
-        .select()
-        .from(schema_1.routePickupPoints)
-        .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, routeId));
-    const validPickupPointIds = routePickupPointsList.map((p) => p.pickupPointId);
-    // Validate students and pickup points
-    const studentIds = rideStudentsData.map((s) => s.studentId);
-    // تحقق من عدم تكرار الطلاب
-    const uniqueStudentIds = [...new Set(studentIds)];
-    if (uniqueStudentIds.length !== studentIds.length) {
-        throw new BadRequest_1.BadRequest("Duplicate students not allowed");
-    }
-    const existingStudents = await db_1.db
-        .select()
-        .from(schema_1.students)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.students.id, studentIds), (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)));
-    if (existingStudents.length !== studentIds.length) {
-        throw new BadRequest_1.BadRequest("One or more students not found");
-    }
-    for (const s of rideStudentsData) {
-        if (!validPickupPointIds.includes(s.pickupPointId)) {
-            throw new BadRequest_1.BadRequest(`Pickup point ${s.pickupPointId} not found in this route`);
+    if (rideStudentsData.length > 0) {
+        const routePickupPointsList = await db_1.db
+            .select()
+            .from(schema_1.routePickupPoints)
+            .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, routeId));
+        const validPickupPointIds = routePickupPointsList.map((p) => p.pickupPointId);
+        const studentIds = rideStudentsData.map((s) => s.studentId);
+        const uniqueStudentIds = [...new Set(studentIds)];
+        if (uniqueStudentIds.length !== studentIds.length) {
+            throw new BadRequest_1.BadRequest("Duplicate students not allowed");
+        }
+        const existingStudents = await db_1.db
+            .select()
+            .from(schema_1.students)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.students.id, studentIds), (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)));
+        if (existingStudents.length !== studentIds.length) {
+            throw new BadRequest_1.BadRequest("One or more students not found");
+        }
+        for (const s of rideStudentsData) {
+            if (!validPickupPointIds.includes(s.pickupPointId)) {
+                throw new BadRequest_1.BadRequest(`Pickup point ${s.pickupPointId} not found in this route`);
+            }
         }
     }
     const rideId = (0, uuid_1.v4)();
+    // ✅ الإدراج المُصحّح - endDate فقط لو limited
     await db_1.db.insert(schema_1.rides).values({
         id: rideId,
         organizationId,
@@ -113,33 +178,40 @@ const createRide = async (req, res) => {
         name: name || null,
         rideType,
         frequency,
-        repeatType: repeatType || null,
+        repeatType: frequency === "repeat" ? repeatType : null,
         startDate,
-        endDate: endDate || null,
+        endDate: (frequency === "repeat" && repeatType === "limited") ? endDate : null,
     });
-    const rideStudentsInsert = rideStudentsData.map((s) => ({
-        id: (0, uuid_1.v4)(),
-        rideId,
-        studentId: s.studentId,
-        pickupPointId: s.pickupPointId,
-        pickupTime: s.pickupTime || null,
-    }));
-    await db_1.db.insert(schema_1.rideStudents).values(rideStudentsInsert);
+    if (rideStudentsData.length > 0) {
+        const rideStudentsInsert = rideStudentsData.map((s) => ({
+            id: (0, uuid_1.v4)(),
+            rideId,
+            studentId: s.studentId,
+            pickupPointId: s.pickupPointId,
+            pickupTime: s.pickupTime || null,
+        }));
+        await db_1.db.insert(schema_1.rideStudents).values(rideStudentsInsert);
+    }
+    // ✅ تمرير null لـ endDate في حالة unlimited
+    const occurrencesCount = await generateOccurrences(rideId, startDate, (frequency === "repeat" && repeatType === "limited") ? endDate : null, frequency, repeatType, rideStudentsData);
     (0, response_1.SuccessResponse)(res, {
         message: "Ride created successfully",
         rideId,
+        frequency,
+        repeatType: repeatType || null,
         studentsCount: rideStudentsData.length,
-        busCapacity: bus[0].maxSeats,
+        occurrencesGenerated: occurrencesCount,
     }, 201);
 };
 exports.createRide = createRide;
-// ✅ Get All Rides
+// ✅ Get All Rides with Classification
 const getAllRides = async (req, res) => {
     const organizationId = req.user?.organizationId;
+    const { tab } = req.query;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    // جلب كل الرحلات
+    const today = new Date().toISOString().split("T")[0];
     const allRides = await db_1.db
         .select({
         id: schema_1.rides.id,
@@ -150,22 +222,14 @@ const getAllRides = async (req, res) => {
         startDate: schema_1.rides.startDate,
         endDate: schema_1.rides.endDate,
         isActive: schema_1.rides.isActive,
-        status: schema_1.rides.status,
-        startedAt: schema_1.rides.startedAt,
-        completedAt: schema_1.rides.completedAt,
         createdAt: schema_1.rides.createdAt,
-        // Bus
         busId: schema_1.buses.id,
         busNumber: schema_1.buses.busNumber,
         plateNumber: schema_1.buses.plateNumber,
-        // Driver
         driverId: schema_1.drivers.id,
         driverName: schema_1.drivers.name,
-        driverPhone: schema_1.drivers.phone,
-        // Codriver
         codriverId: schema_1.codrivers.id,
         codriverName: schema_1.codrivers.name,
-        // Route
         routeId: schema_1.Rout.id,
         routeName: schema_1.Rout.name,
     })
@@ -175,59 +239,127 @@ const getAllRides = async (req, res) => {
         .leftJoin(schema_1.codrivers, (0, drizzle_orm_1.eq)(schema_1.rides.codriverId, schema_1.codrivers.id))
         .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
         .where((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId))
-        .orderBy((0, drizzle_orm_1.sql) `${schema_1.rides.startDate} DESC`);
-    // جلب عدد الطلاب لكل رحلة
+        .orderBy((0, drizzle_orm_1.desc)(schema_1.rides.createdAt));
     const rideIds = allRides.map((r) => r.id);
     let studentsCountMap = {};
     if (rideIds.length > 0) {
         const studentsCounts = await db_1.db
             .select({
             rideId: schema_1.rideStudents.rideId,
-            total: (0, drizzle_orm_1.sql) `COUNT(*)`,
-            pending: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
-            pickedUp: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
-            droppedOff: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
-            absent: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'absent' THEN 1 ELSE 0 END)`,
-            excused: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'excused' THEN 1 ELSE 0 END)`,
+            count: (0, drizzle_orm_1.count)(),
         })
             .from(schema_1.rideStudents)
             .where((0, drizzle_orm_1.inArray)(schema_1.rideStudents.rideId, rideIds))
             .groupBy(schema_1.rideStudents.rideId);
         studentsCountMap = studentsCounts.reduce((acc, item) => {
+            acc[item.rideId] = item.count;
+            return acc;
+        }, {});
+    }
+    let todayOccurrenceMap = {};
+    if (rideIds.length > 0) {
+        const todayOccurrences = await db_1.db
+            .select({
+            rideId: schema_1.rideOccurrences.rideId,
+            occurrenceId: schema_1.rideOccurrences.id,
+            status: schema_1.rideOccurrences.status,
+            startedAt: schema_1.rideOccurrences.startedAt,
+            completedAt: schema_1.rideOccurrences.completedAt,
+        })
+            .from(schema_1.rideOccurrences)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrences.rideId, rideIds), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) = ${today}`));
+        todayOccurrenceMap = todayOccurrences.reduce((acc, item) => {
             acc[item.rideId] = {
-                total: Number(item.total) || 0,
-                pending: Number(item.pending) || 0,
-                pickedUp: Number(item.pickedUp) || 0,
-                droppedOff: Number(item.droppedOff) || 0,
-                absent: Number(item.absent) || 0,
-                excused: Number(item.excused) || 0,
+                occurrenceId: item.occurrenceId,
+                status: item.status,
+                startedAt: item.startedAt,
+                completedAt: item.completedAt,
             };
             return acc;
         }, {});
     }
-    // تاريخ اليوم
-    const today = new Date().toISOString().split("T")[0];
-    // Format ride function
+    let nextOccurrenceMap = {};
+    if (rideIds.length > 0) {
+        const nextOccurrences = await db_1.db
+            .select({
+            rideId: schema_1.rideOccurrences.rideId,
+            occurDate: (0, drizzle_orm_1.sql) `MIN(DATE(${schema_1.rideOccurrences.occurDate}))`,
+        })
+            .from(schema_1.rideOccurrences)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrences.rideId, rideIds), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) >= ${today}`, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "scheduled")))
+            .groupBy(schema_1.rideOccurrences.rideId);
+        nextOccurrenceMap = nextOccurrences.reduce((acc, item) => {
+            acc[item.rideId] = item.occurDate;
+            return acc;
+        }, {});
+    }
     const formatRide = (ride) => {
-        const stats = studentsCountMap[ride.id] || {
-            total: 0, pending: 0, pickedUp: 0, droppedOff: 0, absent: 0, excused: 0,
-        };
+        const todayOcc = todayOccurrenceMap[ride.id];
+        const nextOccDate = nextOccurrenceMap[ride.id];
+        let classification;
+        let currentStatus = null;
+        if (todayOcc) {
+            if (todayOcc.status === "in_progress") {
+                classification = "current";
+                currentStatus = "in_progress";
+            }
+            else if (todayOcc.status === "scheduled") {
+                classification = "current";
+                currentStatus = "scheduled";
+            }
+            else if (todayOcc.status === "completed") {
+                if (nextOccDate && nextOccDate > today) {
+                    classification = "upcoming";
+                }
+                else {
+                    classification = "past";
+                }
+                currentStatus = "completed";
+            }
+            else if (todayOcc.status === "cancelled") {
+                if (nextOccDate && nextOccDate > today) {
+                    classification = "upcoming";
+                }
+                else {
+                    classification = "past";
+                }
+                currentStatus = "cancelled";
+            }
+            else {
+                classification = "past";
+            }
+        }
+        else if (nextOccDate) {
+            if (nextOccDate > today) {
+                classification = "upcoming";
+            }
+            else {
+                classification = "current";
+            }
+        }
+        else {
+            classification = "past";
+        }
         return {
             id: ride.id,
             name: ride.name,
             type: ride.rideType,
             frequency: ride.frequency,
+            repeatType: ride.repeatType,
             startDate: ride.startDate,
-            endDate: ride.endDate,
+            // ✅ إصلاح endDate
+            endDate: ride.endDate || null,
             isActive: ride.isActive,
-            status: ride.status,
-            startedAt: ride.startedAt,
-            completedAt: ride.completedAt,
+            createdAt: ride.createdAt,
+            classification,
+            todayOccurrence: todayOcc || null,
+            nextOccurrenceDate: nextOccDate || null,
+            currentStatus,
             bus: ride.busId
                 ? { id: ride.busId, busNumber: ride.busNumber, plateNumber: ride.plateNumber }
                 : null,
             driver: ride.driverId
-                ? { id: ride.driverId, name: ride.driverName, phone: ride.driverPhone }
+                ? { id: ride.driverId, name: ride.driverName }
                 : null,
             codriver: ride.codriverId
                 ? { id: ride.codriverId, name: ride.codriverName }
@@ -235,42 +367,39 @@ const getAllRides = async (req, res) => {
             route: ride.routeId
                 ? { id: ride.routeId, name: ride.routeName }
                 : null,
-            students: stats,
+            studentsCount: studentsCountMap[ride.id] || 0,
         };
     };
-    // تصنيف الرحلات
-    const upcoming = []; // الرحلات القادمة
-    const current = []; // الرحلات الحالية (اليوم + in_progress)
-    const past = []; // الرحلات السابقة
-    for (const ride of allRides) {
-        const rideDate = ride.startDate?.toString();
-        // الرحلات الجارية حالياً
-        if (ride.status === "in_progress") {
-            current.push(formatRide(ride));
-        }
-        // رحلات اليوم (scheduled)
-        else if (rideDate === today && ride.status === "scheduled") {
-            current.push(formatRide(ride));
-        }
-        // الرحلات القادمة
-        else if (rideDate && rideDate > today && ride.status === "scheduled") {
-            upcoming.push(formatRide(ride));
-        }
-        // الرحلات السابقة (completed, cancelled, أو تاريخ قديم)
-        else {
-            past.push(formatRide(ride));
-        }
+    const formattedRides = allRides.map(formatRide);
+    const upcoming = formattedRides.filter((r) => r.classification === "upcoming");
+    const current = formattedRides.filter((r) => r.classification === "current");
+    const past = formattedRides.filter((r) => r.classification === "past");
+    upcoming.sort((a, b) => {
+        const dateA = a.nextOccurrenceDate || a.startDate;
+        const dateB = b.nextOccurrenceDate || b.startDate;
+        return new Date(dateA).getTime() - new Date(dateB).getTime();
+    });
+    past.sort((a, b) => {
+        return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+    });
+    let result = formattedRides;
+    if (tab === "upcoming") {
+        result = upcoming;
     }
-    // ترتيب
-    upcoming.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()); // الأقرب أولاً
-    past.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime()); // الأحدث أولاً
-    return (0, response_1.SuccessResponse)(res, {
-        all: allRides.map(formatRide),
+    else if (tab === "current") {
+        result = current;
+    }
+    else if (tab === "past") {
+        result = past;
+    }
+    (0, response_1.SuccessResponse)(res, {
+        rides: result,
+        all: formattedRides,
         upcoming,
         current,
         past,
         summary: {
-            total: allRides.length,
+            all: formattedRides.length,
             upcoming: upcoming.length,
             current: current.length,
             past: past.length,
@@ -278,14 +407,13 @@ const getAllRides = async (req, res) => {
     }, 200);
 };
 exports.getAllRides = getAllRides;
-// ✅ Get Ride By ID - Full Details
+// ✅ Get Ride By ID
 const getRideById = async (req, res) => {
     const { id } = req.params;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    // 1) جلب بيانات الرحلة الأساسية
     const ride = await db_1.db
         .select({
         id: schema_1.rides.id,
@@ -296,26 +424,18 @@ const getRideById = async (req, res) => {
         startDate: schema_1.rides.startDate,
         endDate: schema_1.rides.endDate,
         isActive: schema_1.rides.isActive,
-        status: schema_1.rides.status,
-        startedAt: schema_1.rides.startedAt,
-        completedAt: schema_1.rides.completedAt,
-        currentLat: schema_1.rides.currentLat,
-        currentLng: schema_1.rides.currentLng,
         createdAt: schema_1.rides.createdAt,
-        // Bus
         busId: schema_1.buses.id,
         busNumber: schema_1.buses.busNumber,
         plateNumber: schema_1.buses.plateNumber,
-        // Driver
+        busMaxSeats: schema_1.buses.maxSeats,
         driverId: schema_1.drivers.id,
         driverName: schema_1.drivers.name,
         driverPhone: schema_1.drivers.phone,
         driverAvatar: schema_1.drivers.avatar,
-        // Codriver
         codriverId: schema_1.codrivers.id,
         codriverName: schema_1.codrivers.name,
         codriverPhone: schema_1.codrivers.phone,
-        // Route
         routeId: schema_1.Rout.id,
         routeName: schema_1.Rout.name,
     })
@@ -330,108 +450,29 @@ const getRideById = async (req, res) => {
         throw new NotFound_1.NotFound("Ride not found");
     }
     const rideData = ride[0];
-    // 2) جلب كل الطلاب في الرحلة
-    const allStudents = await db_1.db
+    const rideStudentsList = await db_1.db
         .select({
         id: schema_1.rideStudents.id,
         pickupTime: schema_1.rideStudents.pickupTime,
-        status: schema_1.rideStudents.status,
-        excuseReason: schema_1.rideStudents.excuseReason,
-        pickedUpAt: schema_1.rideStudents.pickedUpAt,
-        droppedOffAt: schema_1.rideStudents.droppedOffAt,
-        // Student
         studentId: schema_1.students.id,
         studentName: schema_1.students.name,
         studentAvatar: schema_1.students.avatar,
         studentGrade: schema_1.students.grade,
         studentClassroom: schema_1.students.classroom,
-        // Parent
         parentId: schema_1.parents.id,
         parentName: schema_1.parents.name,
         parentPhone: schema_1.parents.phone,
-        // Pickup Point
         pickupPointId: schema_1.pickupPoints.id,
         pickupPointName: schema_1.pickupPoints.name,
         pickupPointAddress: schema_1.pickupPoints.address,
         pickupPointLat: schema_1.pickupPoints.lat,
         pickupPointLng: schema_1.pickupPoints.lng,
-        stopOrder: schema_1.routePickupPoints.stopOrder,
     })
         .from(schema_1.rideStudents)
-        .leftJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.rideStudents.studentId, schema_1.students.id))
+        .innerJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.rideStudents.studentId, schema_1.students.id))
         .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
         .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.rideStudents.pickupPointId, schema_1.pickupPoints.id))
-        .leftJoin(schema_1.routePickupPoints, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.pickupPointId, schema_1.rideStudents.pickupPointId), (0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, rideData.routeId)))
-        .where((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, id))
-        .orderBy(schema_1.routePickupPoints.stopOrder);
-    // 3) تصنيف الطلاب حسب الحالة
-    const formatStudent = (s) => ({
-        id: s.id,
-        pickupTime: s.pickupTime,
-        status: s.status,
-        excuseReason: s.excuseReason,
-        pickedUpAt: s.pickedUpAt,
-        droppedOffAt: s.droppedOffAt,
-        student: {
-            id: s.studentId,
-            name: s.studentName,
-            avatar: s.studentAvatar,
-            grade: s.studentGrade,
-            classroom: s.studentClassroom,
-        },
-        parent: {
-            id: s.parentId,
-            name: s.parentName,
-            phone: s.parentPhone,
-        },
-        pickupPoint: {
-            id: s.pickupPointId,
-            name: s.pickupPointName,
-            address: s.pickupPointAddress,
-            lat: s.pickupPointLat,
-            lng: s.pickupPointLng,
-            stopOrder: s.stopOrder,
-        },
-    });
-    // تصنيف الطلاب
-    const pending = allStudents.filter((s) => s.status === "pending").map(formatStudent);
-    const pickedUp = allStudents.filter((s) => s.status === "picked_up").map(formatStudent);
-    const droppedOff = allStudents.filter((s) => s.status === "dropped_off").map(formatStudent);
-    const absent = allStudents.filter((s) => s.status === "absent").map(formatStudent);
-    const excused = allStudents.filter((s) => s.status === "excused").map(formatStudent);
-    // 4) إحصائيات
-    const stats = {
-        total: allStudents.length,
-        pending: pending.length,
-        pickedUp: pickedUp.length,
-        droppedOff: droppedOff.length,
-        absent: absent.length,
-        excused: excused.length,
-        onBus: pickedUp.length, // الطلاب في الباص حالياً
-    };
-    // 5) حساب حالة الرحلة التفصيلية
-    const today = new Date().toISOString().split("T")[0];
-    const rideDate = rideData.startDate?.toString();
-    let ridePhase;
-    if (rideData.status === "cancelled") {
-        ridePhase = "cancelled";
-    }
-    else if (rideData.status === "completed") {
-        ridePhase = "completed";
-    }
-    else if (rideData.status === "in_progress") {
-        ridePhase = "in_progress";
-    }
-    else if (rideDate && rideDate > today) {
-        ridePhase = "upcoming";
-    }
-    else if (rideDate && rideDate === today) {
-        ridePhase = "today";
-    }
-    else {
-        ridePhase = "past";
-    }
-    // 6) جلب نقاط المسار بالترتيب
+        .where((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, id));
     let routeStops = [];
     if (rideData.routeId) {
         routeStops = await db_1.db
@@ -447,31 +488,14 @@ const getRideById = async (req, res) => {
             .innerJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.pickupPoints.id, schema_1.routePickupPoints.pickupPointId))
             .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, rideData.routeId))
             .orderBy(schema_1.routePickupPoints.stopOrder);
-        // إضافة عدد الطلاب في كل محطة وحالتهم
-        routeStops = routeStops.map((stop) => {
-            const studentsAtStop = allStudents.filter((s) => s.pickupPointId === stop.id);
-            return {
-                ...stop,
-                studentsCount: studentsAtStop.length,
-                pendingCount: studentsAtStop.filter((s) => s.status === "pending").length,
-                pickedUpCount: studentsAtStop.filter((s) => s.status === "picked_up" || s.status === "dropped_off").length,
-                absentCount: studentsAtStop.filter((s) => s.status === "absent" || s.status === "excused").length,
-            };
-        });
     }
-    // 7) حساب مدة الرحلة
-    let duration = null;
-    if (rideData.startedAt && rideData.completedAt) {
-        const start = new Date(rideData.startedAt).getTime();
-        const end = new Date(rideData.completedAt).getTime();
-        const diffMinutes = Math.round((end - start) / (1000 * 60));
-        duration = {
-            minutes: diffMinutes,
-            formatted: `${Math.floor(diffMinutes / 60)}h ${diffMinutes % 60}m`,
-        };
-    }
-    // 8) بناء الـ Response
-    const response = {
+    const recentOccurrences = await db_1.db
+        .select()
+        .from(schema_1.rideOccurrences)
+        .where((0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, id))
+        .orderBy((0, drizzle_orm_1.desc)(schema_1.rideOccurrences.occurDate))
+        .limit(10);
+    (0, response_1.SuccessResponse)(res, {
         ride: {
             id: rideData.id,
             name: rideData.name,
@@ -479,16 +503,9 @@ const getRideById = async (req, res) => {
             frequency: rideData.frequency,
             repeatType: rideData.repeatType,
             startDate: rideData.startDate,
-            endDate: rideData.endDate,
+            // ✅ إصلاح endDate
+            endDate: rideData.endDate || null,
             isActive: rideData.isActive,
-            status: rideData.status,
-            phase: ridePhase,
-            startedAt: rideData.startedAt,
-            completedAt: rideData.completedAt,
-            duration,
-            currentLocation: rideData.currentLat && rideData.currentLng
-                ? { lat: rideData.currentLat, lng: rideData.currentLng }
-                : null,
             createdAt: rideData.createdAt,
         },
         bus: rideData.busId
@@ -496,6 +513,7 @@ const getRideById = async (req, res) => {
                 id: rideData.busId,
                 busNumber: rideData.busNumber,
                 plateNumber: rideData.plateNumber,
+                maxSeats: rideData.busMaxSeats,
             }
             : null,
         driver: rideData.driverId
@@ -520,47 +538,448 @@ const getRideById = async (req, res) => {
                 stops: routeStops,
             }
             : null,
-        stats,
-        students: {
-            all: allStudents.map(formatStudent),
-            pending, // في انتظار الصعود
-            pickedUp, // تم استلامهم (في الباص)
-            droppedOff, // تم توصيلهم
-            absent, // غائبين
-            excused, // معذورين
-        },
-    };
-    return (0, response_1.SuccessResponse)(res, response, 200);
+        students: rideStudentsList.map((s) => ({
+            id: s.id,
+            pickupTime: s.pickupTime,
+            student: {
+                id: s.studentId,
+                name: s.studentName,
+                avatar: s.studentAvatar,
+                grade: s.studentGrade,
+                classroom: s.studentClassroom,
+            },
+            parent: {
+                id: s.parentId,
+                name: s.parentName,
+                phone: s.parentPhone,
+            },
+            pickupPoint: {
+                id: s.pickupPointId,
+                name: s.pickupPointName,
+                address: s.pickupPointAddress,
+                lat: s.pickupPointLat,
+                lng: s.pickupPointLng,
+            },
+        })),
+        studentsCount: rideStudentsList.length,
+        recentOccurrences,
+    }, 200);
 };
 exports.getRideById = getRideById;
-// ✅ Update Ride
-const updateRide = async (req, res) => {
-    const { id } = req.params;
-    const { busId, driverId, codriverId, routeId, name, rideType, frequency, repeatType, startDate, endDate, isActive, status } = req.body;
+// ✅ Get Rides By Date (Occurrences)
+const getRidesByDate = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    const { date } = req.body;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const targetDate = date ? String(date) : new Date().toISOString().split("T")[0];
+    const dayOccurrences = await db_1.db
+        .select({
+        occurrenceId: schema_1.rideOccurrences.id,
+        occurDate: schema_1.rideOccurrences.occurDate,
+        occurrenceStatus: schema_1.rideOccurrences.status,
+        startedAt: schema_1.rideOccurrences.startedAt,
+        completedAt: schema_1.rideOccurrences.completedAt,
+        currentLat: schema_1.rideOccurrences.currentLat,
+        currentLng: schema_1.rideOccurrences.currentLng,
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        frequency: schema_1.rides.frequency,
+        busId: schema_1.buses.id,
+        busNumber: schema_1.buses.busNumber,
+        plateNumber: schema_1.buses.plateNumber,
+        driverId: schema_1.drivers.id,
+        driverName: schema_1.drivers.name,
+        driverPhone: schema_1.drivers.phone,
+        driverAvatar: schema_1.drivers.avatar,
+        codriverId: schema_1.codrivers.id,
+        codriverName: schema_1.codrivers.name,
+        routeId: schema_1.Rout.id,
+        routeName: schema_1.Rout.name,
+    })
+        .from(schema_1.rideOccurrences)
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
+        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .leftJoin(schema_1.codrivers, (0, drizzle_orm_1.eq)(schema_1.rides.codriverId, schema_1.codrivers.id))
+        .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rides.isActive, "on"), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) = ${targetDate}`))
+        .orderBy(schema_1.rides.rideType, schema_1.rideOccurrences.createdAt);
+    const occurrenceIds = dayOccurrences.map((o) => o.occurrenceId);
+    let studentsStatsMap = {};
+    if (occurrenceIds.length > 0) {
+        const studentsStats = await db_1.db
+            .select({
+            occurrenceId: schema_1.rideOccurrenceStudents.occurrenceId,
+            total: (0, drizzle_orm_1.sql) `COUNT(*)`,
+            pending: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
+            pickedUp: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
+            droppedOff: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
+            absent: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'absent' THEN 1 ELSE 0 END)`,
+            excused: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'excused' THEN 1 ELSE 0 END)`,
+        })
+            .from(schema_1.rideOccurrenceStudents)
+            .where((0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.occurrenceId, occurrenceIds))
+            .groupBy(schema_1.rideOccurrenceStudents.occurrenceId);
+        studentsStatsMap = studentsStats.reduce((acc, item) => {
+            acc[item.occurrenceId] = {
+                total: Number(item.total) || 0,
+                pending: Number(item.pending) || 0,
+                pickedUp: Number(item.pickedUp) || 0,
+                droppedOff: Number(item.droppedOff) || 0,
+                absent: Number(item.absent) || 0,
+                excused: Number(item.excused) || 0,
+            };
+            return acc;
+        }, {});
+    }
+    const formatOccurrence = (occ) => {
+        const stats = studentsStatsMap[occ.occurrenceId] || {
+            total: 0, pending: 0, pickedUp: 0, droppedOff: 0, absent: 0, excused: 0,
+        };
+        return {
+            id: occ.occurrenceId,
+            date: occ.occurDate,
+            status: occ.occurrenceStatus,
+            startedAt: occ.startedAt,
+            completedAt: occ.completedAt,
+            currentLocation: occ.currentLat && occ.currentLng
+                ? { lat: occ.currentLat, lng: occ.currentLng }
+                : null,
+            ride: {
+                id: occ.rideId,
+                name: occ.rideName,
+                type: occ.rideType,
+                frequency: occ.frequency,
+            },
+            bus: occ.busId
+                ? { id: occ.busId, busNumber: occ.busNumber, plateNumber: occ.plateNumber }
+                : null,
+            driver: occ.driverId
+                ? { id: occ.driverId, name: occ.driverName, phone: occ.driverPhone, avatar: occ.driverAvatar }
+                : null,
+            codriver: occ.codriverId
+                ? { id: occ.codriverId, name: occ.codriverName }
+                : null,
+            route: occ.routeId
+                ? { id: occ.routeId, name: occ.routeName }
+                : null,
+            students: stats,
+        };
+    };
+    const allFormatted = dayOccurrences.map(formatOccurrence);
+    const morning = allFormatted.filter((o) => o.ride.type === "morning");
+    const afternoon = allFormatted.filter((o) => o.ride.type === "afternoon");
+    const scheduled = allFormatted.filter((o) => o.status === "scheduled");
+    const inProgress = allFormatted.filter((o) => o.status === "in_progress");
+    const completed = allFormatted.filter((o) => o.status === "completed");
+    const cancelled = allFormatted.filter((o) => o.status === "cancelled");
+    (0, response_1.SuccessResponse)(res, {
+        date: targetDate,
+        occurrences: allFormatted,
+        byType: { morning, afternoon },
+        byStatus: { scheduled, inProgress, completed, cancelled },
+        summary: {
+            total: allFormatted.length,
+            morning: morning.length,
+            afternoon: afternoon.length,
+            scheduled: scheduled.length,
+            inProgress: inProgress.length,
+            completed: completed.length,
+            cancelled: cancelled.length,
+        },
+    }, 200);
+};
+exports.getRidesByDate = getRidesByDate;
+// ✅ Get Upcoming Rides
+const getUpcomingRides = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    const { limit = 20 } = req.query;
+    const today = new Date().toISOString().split("T")[0];
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const upcomingOccurrences = await db_1.db
+        .select({
+        occurrenceId: schema_1.rideOccurrences.id,
+        occurDate: schema_1.rideOccurrences.occurDate,
+        occurrenceStatus: schema_1.rideOccurrences.status,
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        busId: schema_1.buses.id,
+        busNumber: schema_1.buses.busNumber,
+        driverId: schema_1.drivers.id,
+        driverName: schema_1.drivers.name,
+        routeId: schema_1.Rout.id,
+        routeName: schema_1.Rout.name,
+    })
+        .from(schema_1.rideOccurrences)
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
+        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rides.isActive, "on"), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) >= ${today}`, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "scheduled")))
+        .orderBy((0, drizzle_orm_1.asc)(schema_1.rideOccurrences.occurDate))
+        .limit(Number(limit));
+    const result = upcomingOccurrences.map((occ) => ({
+        id: occ.occurrenceId,
+        date: occ.occurDate,
+        status: occ.occurrenceStatus,
+        ride: {
+            id: occ.rideId,
+            name: occ.rideName,
+            type: occ.rideType,
+        },
+        bus: occ.busId ? { id: occ.busId, busNumber: occ.busNumber } : null,
+        driver: occ.driverId ? { id: occ.driverId, name: occ.driverName } : null,
+        route: occ.routeId ? { id: occ.routeId, name: occ.routeName } : null,
+    }));
+    (0, response_1.SuccessResponse)(res, { upcoming: result, count: result.length }, 200);
+};
+exports.getUpcomingRides = getUpcomingRides;
+// ✅ Get Occurrence Details
+const getOccurrenceDetails = async (req, res) => {
+    const { occurrenceId } = req.params;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const existingRide = await db_1.db.select().from(schema_1.rides).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.id, id), (0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId))).limit(1);
+    if (!occurrenceId) {
+        throw new BadRequest_1.BadRequest("Occurrence ID is required");
+    }
+    const occurrence = await db_1.db
+        .select({
+        occurrenceId: schema_1.rideOccurrences.id,
+        occurDate: schema_1.rideOccurrences.occurDate,
+        occurrenceStatus: schema_1.rideOccurrences.status,
+        startedAt: schema_1.rideOccurrences.startedAt,
+        completedAt: schema_1.rideOccurrences.completedAt,
+        currentLat: schema_1.rideOccurrences.currentLat,
+        currentLng: schema_1.rideOccurrences.currentLng,
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        frequency: schema_1.rides.frequency,
+        repeatType: schema_1.rides.repeatType,
+        busId: schema_1.buses.id,
+        busNumber: schema_1.buses.busNumber,
+        plateNumber: schema_1.buses.plateNumber,
+        busMaxSeats: schema_1.buses.maxSeats,
+        driverId: schema_1.drivers.id,
+        driverName: schema_1.drivers.name,
+        driverPhone: schema_1.drivers.phone,
+        driverAvatar: schema_1.drivers.avatar,
+        codriverId: schema_1.codrivers.id,
+        codriverName: schema_1.codrivers.name,
+        codriverPhone: schema_1.codrivers.phone,
+        routeId: schema_1.Rout.id,
+        routeName: schema_1.Rout.name,
+    })
+        .from(schema_1.rideOccurrences)
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
+        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .leftJoin(schema_1.codrivers, (0, drizzle_orm_1.eq)(schema_1.rides.codriverId, schema_1.codrivers.id))
+        .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrences.id, occurrenceId), (0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId)))
+        .limit(1);
+    if (!occurrence[0]) {
+        throw new NotFound_1.NotFound("Occurrence not found");
+    }
+    const occ = occurrence[0];
+    const occId = occ.occurrenceId;
+    const occStudents = await db_1.db
+        .select({
+        id: schema_1.rideOccurrenceStudents.id,
+        status: schema_1.rideOccurrenceStudents.status,
+        pickupTime: schema_1.rideOccurrenceStudents.pickupTime,
+        excuseReason: schema_1.rideOccurrenceStudents.excuseReason,
+        pickedUpAt: schema_1.rideOccurrenceStudents.pickedUpAt,
+        droppedOffAt: schema_1.rideOccurrenceStudents.droppedOffAt,
+        studentId: schema_1.students.id,
+        studentName: schema_1.students.name,
+        studentAvatar: schema_1.students.avatar,
+        studentGrade: schema_1.students.grade,
+        studentClassroom: schema_1.students.classroom,
+        parentId: schema_1.parents.id,
+        parentName: schema_1.parents.name,
+        parentPhone: schema_1.parents.phone,
+        pickupPointId: schema_1.pickupPoints.id,
+        pickupPointName: schema_1.pickupPoints.name,
+        pickupPointAddress: schema_1.pickupPoints.address,
+        pickupPointLat: schema_1.pickupPoints.lat,
+        pickupPointLng: schema_1.pickupPoints.lng,
+        stopOrder: schema_1.routePickupPoints.stopOrder,
+    })
+        .from(schema_1.rideOccurrenceStudents)
+        .innerJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, schema_1.students.id))
+        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
+        .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.pickupPointId, schema_1.pickupPoints.id))
+        .leftJoin(schema_1.routePickupPoints, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.pickupPointId, schema_1.rideOccurrenceStudents.pickupPointId), (0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, occ.routeId)))
+        .where((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, occId))
+        .orderBy(schema_1.routePickupPoints.stopOrder);
+    const formatStudent = (s) => ({
+        id: s.id,
+        status: s.status,
+        pickupTime: s.pickupTime,
+        excuseReason: s.excuseReason,
+        pickedUpAt: s.pickedUpAt,
+        droppedOffAt: s.droppedOffAt,
+        student: {
+            id: s.studentId,
+            name: s.studentName,
+            avatar: s.studentAvatar,
+            grade: s.studentGrade,
+            classroom: s.studentClassroom,
+        },
+        parent: {
+            id: s.parentId,
+            name: s.parentName,
+            phone: s.parentPhone,
+        },
+        pickupPoint: {
+            id: s.pickupPointId,
+            name: s.pickupPointName,
+            address: s.pickupPointAddress,
+            lat: s.pickupPointLat,
+            lng: s.pickupPointLng,
+            stopOrder: s.stopOrder,
+        },
+    });
+    const allStudents = occStudents.map(formatStudent);
+    const pending = allStudents.filter((s) => s.status === "pending");
+    const pickedUp = allStudents.filter((s) => s.status === "picked_up");
+    const droppedOff = allStudents.filter((s) => s.status === "dropped_off");
+    const absent = allStudents.filter((s) => s.status === "absent");
+    const excused = allStudents.filter((s) => s.status === "excused");
+    let duration = null;
+    if (occ.startedAt && occ.completedAt) {
+        const diffMs = new Date(occ.completedAt).getTime() - new Date(occ.startedAt).getTime();
+        const diffMins = Math.round(diffMs / 60000);
+        duration = {
+            minutes: diffMins,
+            formatted: `${Math.floor(diffMins / 60)}h ${diffMins % 60}m`,
+        };
+    }
+    let routeStops = [];
+    if (occ.routeId) {
+        routeStops = await db_1.db
+            .select({
+            id: schema_1.pickupPoints.id,
+            name: schema_1.pickupPoints.name,
+            address: schema_1.pickupPoints.address,
+            lat: schema_1.pickupPoints.lat,
+            lng: schema_1.pickupPoints.lng,
+            stopOrder: schema_1.routePickupPoints.stopOrder,
+        })
+            .from(schema_1.routePickupPoints)
+            .innerJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.pickupPoints.id, schema_1.routePickupPoints.pickupPointId))
+            .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, occ.routeId))
+            .orderBy(schema_1.routePickupPoints.stopOrder);
+        routeStops = routeStops.map((stop) => {
+            const studentsAtStop = occStudents.filter((s) => s.pickupPointId === stop.id);
+            return {
+                ...stop,
+                studentsCount: studentsAtStop.length,
+                pendingCount: studentsAtStop.filter((s) => s.status === "pending").length,
+                pickedUpCount: studentsAtStop.filter((s) => s.status === "picked_up" || s.status === "dropped_off").length,
+                absentCount: studentsAtStop.filter((s) => s.status === "absent" || s.status === "excused").length,
+            };
+        });
+    }
+    res.json({
+        success: true,
+        data: {
+            occurrence: {
+                id: occId,
+                date: occ.occurDate,
+                status: occ.occurrenceStatus,
+                startedAt: occ.startedAt,
+                completedAt: occ.completedAt,
+                duration,
+                currentLocation: occ.currentLat && occ.currentLng
+                    ? { lat: occ.currentLat, lng: occ.currentLng }
+                    : null,
+            },
+            ride: {
+                id: occ.rideId,
+                name: occ.rideName,
+                type: occ.rideType,
+                frequency: occ.frequency,
+                repeatType: occ.repeatType,
+            },
+            bus: occ.busId
+                ? { id: occ.busId, busNumber: occ.busNumber, plateNumber: occ.plateNumber, maxSeats: occ.busMaxSeats }
+                : null,
+            driver: occ.driverId
+                ? { id: occ.driverId, name: occ.driverName, phone: occ.driverPhone, avatar: occ.driverAvatar }
+                : null,
+            codriver: occ.codriverId
+                ? { id: occ.codriverId, name: occ.codriverName, phone: occ.codriverPhone }
+                : null,
+            route: occ.routeId
+                ? { id: occ.routeId, name: occ.routeName, stops: routeStops }
+                : null,
+            stats: {
+                total: allStudents.length,
+                pending: pending.length,
+                pickedUp: pickedUp.length,
+                droppedOff: droppedOff.length,
+                absent: absent.length,
+                excused: excused.length,
+                onBus: pickedUp.length,
+            },
+            students: {
+                all: allStudents,
+                pending,
+                pickedUp,
+                droppedOff,
+                absent,
+                excused,
+            },
+        },
+    });
+};
+exports.getOccurrenceDetails = getOccurrenceDetails;
+// ✅ Update Ride
+const updateRide = async (req, res) => {
+    const { id } = req.params;
+    const { busId, driverId, codriverId, routeId, name, rideType, isActive, students: studentsData } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const existingRide = await db_1.db
+        .select()
+        .from(schema_1.rides)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.id, id), (0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId)))
+        .limit(1);
     if (!existingRide[0])
         throw new NotFound_1.NotFound("Ride not found");
     if (busId) {
-        const bus = await db_1.db.select().from(schema_1.buses).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.buses.id, busId), (0, drizzle_orm_1.eq)(schema_1.buses.organizationId, organizationId))).limit(1);
+        const bus = await db_1.db.select().from(schema_1.buses)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.buses.id, busId), (0, drizzle_orm_1.eq)(schema_1.buses.organizationId, organizationId))).limit(1);
         if (!bus[0])
             throw new NotFound_1.NotFound("Bus not found");
     }
     if (driverId) {
-        const driver = await db_1.db.select().from(schema_1.drivers).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.drivers.id, driverId), (0, drizzle_orm_1.eq)(schema_1.drivers.organizationId, organizationId))).limit(1);
+        const driver = await db_1.db.select().from(schema_1.drivers)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.drivers.id, driverId), (0, drizzle_orm_1.eq)(schema_1.drivers.organizationId, organizationId))).limit(1);
         if (!driver[0])
             throw new NotFound_1.NotFound("Driver not found");
     }
     if (codriverId) {
-        const codriver = await db_1.db.select().from(schema_1.codrivers).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.codrivers.id, codriverId), (0, drizzle_orm_1.eq)(schema_1.codrivers.organizationId, organizationId))).limit(1);
+        const codriver = await db_1.db.select().from(schema_1.codrivers)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.codrivers.id, codriverId), (0, drizzle_orm_1.eq)(schema_1.codrivers.organizationId, organizationId))).limit(1);
         if (!codriver[0])
             throw new NotFound_1.NotFound("Codriver not found");
     }
     if (routeId) {
-        const route = await db_1.db.select().from(schema_1.Rout).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.Rout.id, routeId), (0, drizzle_orm_1.eq)(schema_1.Rout.organizationId, organizationId))).limit(1);
+        const route = await db_1.db.select().from(schema_1.Rout)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.Rout.id, routeId), (0, drizzle_orm_1.eq)(schema_1.Rout.organizationId, organizationId))).limit(1);
         if (!route[0])
             throw new NotFound_1.NotFound("Route not found");
     }
@@ -571,16 +990,81 @@ const updateRide = async (req, res) => {
         routeId: routeId ?? existingRide[0].routeId,
         name: name !== undefined ? name : existingRide[0].name,
         rideType: rideType ?? existingRide[0].rideType,
-        frequency: frequency ?? existingRide[0].frequency,
-        repeatType: repeatType !== undefined ? repeatType : existingRide[0].repeatType,
-        startDate: startDate ?? existingRide[0].startDate,
-        endDate: endDate !== undefined ? endDate : existingRide[0].endDate,
         isActive: isActive ?? existingRide[0].isActive,
-        status: status ?? existingRide[0].status,
     }).where((0, drizzle_orm_1.eq)(schema_1.rides.id, id));
-    (0, response_1.SuccessResponse)(res, { message: "Ride updated successfully" }, 200);
+    let studentsUpdated = false;
+    if (studentsData && Array.isArray(studentsData)) {
+        await updateRideStudents(id, studentsData, organizationId);
+        studentsUpdated = true;
+    }
+    (0, response_1.SuccessResponse)(res, {
+        message: "Ride updated successfully",
+        studentsUpdated,
+    }, 200);
 };
 exports.updateRide = updateRide;
+// ✅ دالة تحديث الطلاب
+async function updateRideStudents(rideId, studentsData, organizationId) {
+    const currentStudents = await db_1.db
+        .select()
+        .from(schema_1.rideStudents)
+        .where((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, rideId));
+    const currentStudentIds = currentStudents.map(s => s.studentId);
+    const newStudentIds = studentsData.map(s => s.studentId);
+    const toAdd = studentsData.filter(s => !currentStudentIds.includes(s.studentId));
+    const toRemove = currentStudents.filter(s => !newStudentIds.includes(s.studentId));
+    const toUpdate = studentsData.filter(s => currentStudentIds.includes(s.studentId));
+    const futureOccurrences = await db_1.db
+        .select({ id: schema_1.rideOccurrences.id })
+        .from(schema_1.rideOccurrences)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, rideId), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, new Date()), (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "scheduled")));
+    const futureOccIds = futureOccurrences.map(o => o.id);
+    if (toRemove.length > 0) {
+        const removeIds = toRemove.map(s => s.studentId);
+        await db_1.db.delete(schema_1.rideStudents)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, rideId), (0, drizzle_orm_1.inArray)(schema_1.rideStudents.studentId, removeIds)));
+        if (futureOccIds.length > 0) {
+            await db_1.db.delete(schema_1.rideOccurrenceStudents)
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.occurrenceId, futureOccIds), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, removeIds)));
+        }
+    }
+    if (toAdd.length > 0) {
+        const rideStudentsToAdd = toAdd.map(s => ({
+            rideId,
+            studentId: s.studentId,
+            pickupPointId: s.pickupPointId,
+            pickupTime: s.pickupTime || null,
+        }));
+        await db_1.db.insert(schema_1.rideStudents).values(rideStudentsToAdd);
+        if (futureOccIds.length > 0) {
+            const occStudentsToAdd = [];
+            for (const occId of futureOccIds) {
+                for (const student of toAdd) {
+                    occStudentsToAdd.push({
+                        occurrenceId: occId,
+                        studentId: student.studentId,
+                        pickupPointId: student.pickupPointId,
+                        pickupTime: student.pickupTime || null,
+                        status: "pending",
+                    });
+                }
+            }
+            await db_1.db.insert(schema_1.rideOccurrenceStudents).values(occStudentsToAdd);
+        }
+    }
+    for (const student of toUpdate) {
+        await db_1.db.update(schema_1.rideStudents).set({
+            pickupPointId: student.pickupPointId,
+            pickupTime: student.pickupTime || null,
+        }).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, rideId), (0, drizzle_orm_1.eq)(schema_1.rideStudents.studentId, student.studentId)));
+        if (futureOccIds.length > 0) {
+            await db_1.db.update(schema_1.rideOccurrenceStudents).set({
+                pickupPointId: student.pickupPointId,
+                pickupTime: student.pickupTime || null,
+            }).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.occurrenceId, futureOccIds), (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, student.studentId)));
+        }
+    }
+}
 // ✅ Delete Ride
 const deleteRide = async (req, res) => {
     const { id } = req.params;
@@ -588,7 +1072,11 @@ const deleteRide = async (req, res) => {
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const existingRide = await db_1.db.select().from(schema_1.rides).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.id, id), (0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId))).limit(1);
+    const existingRide = await db_1.db
+        .select()
+        .from(schema_1.rides)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.id, id), (0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId)))
+        .limit(1);
     if (!existingRide[0])
         throw new NotFound_1.NotFound("Ride not found");
     await db_1.db.delete(schema_1.rideStudents).where((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, id));
@@ -596,173 +1084,53 @@ const deleteRide = async (req, res) => {
     (0, response_1.SuccessResponse)(res, { message: "Ride deleted successfully" }, 200);
 };
 exports.deleteRide = deleteRide;
-// ✅ Add Students to Ride
-const addStudentsToRide = async (req, res) => {
-    const { id } = req.params;
-    const { students: newStudents } = req.body;
+// ✅ Update Occurrence Status
+const updateOccurrenceStatus = async (req, res) => {
+    const { occurrenceId } = req.params;
+    const { status } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const existingRide = await db_1.db
-        .select()
-        .from(schema_1.rides)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.id, id), (0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId)))
-        .limit(1);
-    if (!existingRide[0])
-        throw new NotFound_1.NotFound("Ride not found");
-    // ✅ التحقق من سعة الباص
-    await checkBusCapacity(existingRide[0].busId, id, newStudents.length);
-    // Get route pickup points
-    const routePickupPointsList = await db_1.db
-        .select()
-        .from(schema_1.routePickupPoints)
-        .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, existingRide[0].routeId));
-    const validPickupPointIds = routePickupPointsList.map((p) => p.pickupPointId);
-    // Validate students
-    const studentIds = newStudents.map((s) => s.studentId);
-    // تحقق من عدم تكرار الطلاب
-    const uniqueStudentIds = [...new Set(studentIds)];
-    if (uniqueStudentIds.length !== studentIds.length) {
-        throw new BadRequest_1.BadRequest("Duplicate students not allowed");
+    if (!occurrenceId) {
+        throw new BadRequest_1.BadRequest("Occurrence ID is required");
     }
-    const existingStudents = await db_1.db
-        .select()
-        .from(schema_1.students)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.students.id, studentIds), (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)));
-    if (existingStudents.length !== studentIds.length) {
-        throw new BadRequest_1.BadRequest("One or more students not found");
+    if (!status || !["scheduled", "cancelled"].includes(status)) {
+        throw new BadRequest_1.BadRequest("Invalid status. Use 'scheduled' or 'cancelled'");
     }
-    // Check if students already in ride
-    const alreadyInRide = await db_1.db
-        .select()
-        .from(schema_1.rideStudents)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, id), (0, drizzle_orm_1.inArray)(schema_1.rideStudents.studentId, studentIds)));
-    if (alreadyInRide.length > 0) {
-        throw new BadRequest_1.BadRequest("One or more students already in this ride");
-    }
-    for (const s of newStudents) {
-        if (!validPickupPointIds.includes(s.pickupPointId)) {
-            throw new BadRequest_1.BadRequest(`Pickup point ${s.pickupPointId} not found in this route`);
-        }
-    }
-    const rideStudentsInsert = newStudents.map((s) => ({
-        id: (0, uuid_1.v4)(),
-        rideId: id,
-        studentId: s.studentId,
-        pickupPointId: s.pickupPointId,
-        pickupTime: s.pickupTime || null,
-    }));
-    await db_1.db.insert(schema_1.rideStudents).values(rideStudentsInsert);
-    // جلب العدد الحالي
-    const [currentCount] = await db_1.db
-        .select({ count: (0, drizzle_orm_1.count)() })
-        .from(schema_1.rideStudents)
-        .where((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, id));
-    const [bus] = await db_1.db
-        .select({ maxSeats: schema_1.buses.maxSeats })
-        .from(schema_1.buses)
-        .where((0, drizzle_orm_1.eq)(schema_1.buses.id, existingRide[0].busId))
-        .limit(1);
-    (0, response_1.SuccessResponse)(res, {
-        message: "Students added to ride successfully",
-        studentsAdded: newStudents.length,
-        totalStudents: currentCount.count,
-        busCapacity: bus.maxSeats,
-        remainingSeats: bus.maxSeats - currentCount.count,
-    }, 201);
-};
-exports.addStudentsToRide = addStudentsToRide;
-// ✅ Remove Student from Ride
-const removeStudentFromRide = async (req, res) => {
-    const { id, studentId } = req.params;
-    const organizationId = req.user?.organizationId;
-    if (!organizationId) {
-        throw new BadRequest_1.BadRequest("Organization ID is required");
-    }
-    const existingRide = await db_1.db
-        .select()
-        .from(schema_1.rides)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.id, id), (0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId)))
-        .limit(1);
-    if (!existingRide[0])
-        throw new NotFound_1.NotFound("Ride not found");
-    const existingRideStudent = await db_1.db
-        .select()
-        .from(schema_1.rideStudents)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, id), (0, drizzle_orm_1.eq)(schema_1.rideStudents.studentId, studentId)))
-        .limit(1);
-    if (!existingRideStudent[0])
-        throw new NotFound_1.NotFound("Student not found in this ride");
-    await db_1.db.delete(schema_1.rideStudents).where((0, drizzle_orm_1.eq)(schema_1.rideStudents.id, existingRideStudent[0].id));
-    // جلب العدد المتبقي
-    const [currentCount] = await db_1.db
-        .select({ count: (0, drizzle_orm_1.count)() })
-        .from(schema_1.rideStudents)
-        .where((0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, id));
-    (0, response_1.SuccessResponse)(res, {
-        message: "Student removed from ride successfully",
-        remainingStudents: currentCount.count,
-    }, 200);
-};
-exports.removeStudentFromRide = removeStudentFromRide;
-// ✅ Search Students by Parent Phone (for adding to ride)
-const searchStudentsForRide = async (req, res) => {
-    const { phone, name, parentName } = req.query;
-    const organizationId = req.user?.organizationId;
-    if (!organizationId) {
-        throw new BadRequest_1.BadRequest("Organization ID is required");
-    }
-    if (!phone && !name && !parentName) {
-        throw new BadRequest_1.BadRequest("Please provide phone, student name, or parent name to search");
-    }
-    let conditions = [(0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)];
-    // البحث برقم تليفون ولي الأمر
-    if (phone) {
-        conditions.push((0, drizzle_orm_1.sql) `${schema_1.parents.phone} LIKE ${`%${phone}%`}`);
-    }
-    // البحث باسم الطالب
-    if (name) {
-        conditions.push((0, drizzle_orm_1.sql) `${schema_1.students.name} LIKE ${`%${name}%`}`);
-    }
-    // البحث باسم ولي الأمر
-    if (parentName) {
-        conditions.push((0, drizzle_orm_1.sql) `${schema_1.parents.name} LIKE ${`%${parentName}%`}`);
-    }
-    const searchResults = await db_1.db
+    const occurrence = await db_1.db
         .select({
-        id: schema_1.students.id,
-        name: schema_1.students.name,
-        avatar: schema_1.students.avatar,
-        grade: schema_1.students.grade,
-        classroom: schema_1.students.classroom,
-        parent: {
-            id: schema_1.parents.id,
-            name: schema_1.parents.name,
-            phone: schema_1.parents.phone,
-            avatar: schema_1.parents.avatar,
-        },
+        occId: schema_1.rideOccurrences.id,
+        status: schema_1.rideOccurrences.status,
     })
-        .from(schema_1.students)
-        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
-        .where((0, drizzle_orm_1.and)(...conditions))
-        .limit(20);
-    (0, response_1.SuccessResponse)(res, {
-        students: searchResults,
-        count: searchResults.length,
-    }, 200);
+        .from(schema_1.rideOccurrences)
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrences.id, occurrenceId), (0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId)))
+        .limit(1);
+    if (!occurrence[0]) {
+        throw new NotFound_1.NotFound("Occurrence not found");
+    }
+    if (occurrence[0].status === "in_progress" || occurrence[0].status === "completed") {
+        throw new BadRequest_1.BadRequest("Cannot change status of in-progress or completed occurrence");
+    }
+    await db_1.db
+        .update(schema_1.rideOccurrences)
+        .set({ status, updatedAt: new Date() })
+        .where((0, drizzle_orm_1.eq)(schema_1.rideOccurrences.id, occurrenceId));
+    res.json({
+        success: true,
+        message: "Occurrence status updated successfully",
+    });
 };
-exports.searchStudentsForRide = searchStudentsForRide;
+exports.updateOccurrenceStatus = updateOccurrenceStatus;
+// ✅ Selection Data
 const selection = async (req, res) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const allroutswithpickuppoints = await db_1.db
-        .select()
-        .from(schema_1.Rout)
-        .where((0, drizzle_orm_1.eq)(schema_1.Rout.organizationId, organizationId));
-    const routesWithPickupPoints = await Promise.all(allroutswithpickuppoints.map(async (route) => {
+    const allRoutes = await db_1.db.select().from(schema_1.Rout).where((0, drizzle_orm_1.eq)(schema_1.Rout.organizationId, organizationId));
+    const routesWithPickupPoints = await Promise.all(allRoutes.map(async (route) => {
         const points = await db_1.db
             .select({
             id: schema_1.routePickupPoints.id,
@@ -777,22 +1145,14 @@ const selection = async (req, res) => {
         })
             .from(schema_1.routePickupPoints)
             .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.routePickupPoints.pickupPointId, schema_1.pickupPoints.id))
-            .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, route.id));
+            .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, route.id))
+            .orderBy(schema_1.routePickupPoints.stopOrder);
         return { ...route, pickupPoints: points };
     }));
-    const allbuses = await db_1.db
-        .select()
-        .from(schema_1.buses)
-        .where((0, drizzle_orm_1.eq)(schema_1.buses.organizationId, organizationId));
-    const alldrivers = await db_1.db
-        .select()
-        .from(schema_1.drivers)
-        .where((0, drizzle_orm_1.eq)(schema_1.drivers.organizationId, organizationId));
-    const allcodrivers = await db_1.db
-        .select()
-        .from(schema_1.codrivers)
-        .where((0, drizzle_orm_1.eq)(schema_1.codrivers.organizationId, organizationId));
-    const allstudents = await db_1.db
+    const allBuses = await db_1.db.select().from(schema_1.buses).where((0, drizzle_orm_1.eq)(schema_1.buses.organizationId, organizationId));
+    const allDrivers = await db_1.db.select().from(schema_1.drivers).where((0, drizzle_orm_1.eq)(schema_1.drivers.organizationId, organizationId));
+    const allCodrivers = await db_1.db.select().from(schema_1.codrivers).where((0, drizzle_orm_1.eq)(schema_1.codrivers.organizationId, organizationId));
+    const allStudents = await db_1.db
         .select({
         id: schema_1.students.id,
         name: schema_1.students.name,
@@ -803,171 +1163,57 @@ const selection = async (req, res) => {
             id: schema_1.parents.id,
             name: schema_1.parents.name,
             phone: schema_1.parents.phone,
-            avatar: schema_1.parents.avatar,
         },
     })
         .from(schema_1.students)
         .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
         .where((0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId));
-    const getallparent = await db_1.db
-        .select()
-        .from(schema_1.parents)
-        .where((0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId));
     (0, response_1.SuccessResponse)(res, {
         routes: routesWithPickupPoints,
-        buses: allbuses,
-        drivers: alldrivers,
-        codrivers: allcodrivers,
-        students: allstudents,
-        parents: getallparent
+        buses: allBuses,
+        drivers: allDrivers,
+        codrivers: allCodrivers,
+        students: allStudents,
     }, 200);
 };
 exports.selection = selection;
-// ✅ Get Rides By Date
-const getRidesByDate = async (req, res) => {
+// ✅ Search Students
+const searchStudentsForRide = async (req, res) => {
+    const { phone, name, parentName } = req.query;
     const organizationId = req.user?.organizationId;
-    const { date } = req.body; // YYYY-MM-DD
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    if (!date) {
-        throw new BadRequest_1.BadRequest("Date is required");
+    if (!phone && !name && !parentName) {
+        throw new BadRequest_1.BadRequest("Please provide search criteria");
     }
-    // جلب رحلات التاريخ المحدد
-    const dayRides = await db_1.db
+    let conditions = [(0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)];
+    if (phone) {
+        conditions.push((0, drizzle_orm_1.sql) `${schema_1.parents.phone} LIKE ${`%${phone}%`}`);
+    }
+    if (name) {
+        conditions.push((0, drizzle_orm_1.sql) `${schema_1.students.name} LIKE ${`%${name}%`}`);
+    }
+    if (parentName) {
+        conditions.push((0, drizzle_orm_1.sql) `${schema_1.parents.name} LIKE ${`%${parentName}%`}`);
+    }
+    const results = await db_1.db
         .select({
-        id: schema_1.rides.id,
-        name: schema_1.rides.name,
-        rideType: schema_1.rides.rideType,
-        frequency: schema_1.rides.frequency,
-        startDate: schema_1.rides.startDate,
-        endDate: schema_1.rides.endDate,
-        isActive: schema_1.rides.isActive,
-        status: schema_1.rides.status,
-        startedAt: schema_1.rides.startedAt,
-        completedAt: schema_1.rides.completedAt,
-        createdAt: schema_1.rides.createdAt,
-        // Bus
-        busId: schema_1.buses.id,
-        busNumber: schema_1.buses.busNumber,
-        plateNumber: schema_1.buses.plateNumber,
-        // Driver
-        driverId: schema_1.drivers.id,
-        driverName: schema_1.drivers.name,
-        driverPhone: schema_1.drivers.phone,
-        driverAvatar: schema_1.drivers.avatar,
-        // Codriver
-        codriverId: schema_1.codrivers.id,
-        codriverName: schema_1.codrivers.name,
-        codriverPhone: schema_1.codrivers.phone,
-        // Route
-        routeId: schema_1.Rout.id,
-        routeName: schema_1.Rout.name,
+        id: schema_1.students.id,
+        name: schema_1.students.name,
+        avatar: schema_1.students.avatar,
+        grade: schema_1.students.grade,
+        classroom: schema_1.students.classroom,
+        parent: {
+            id: schema_1.parents.id,
+            name: schema_1.parents.name,
+            phone: schema_1.parents.phone,
+        },
     })
-        .from(schema_1.rides)
-        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
-        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
-        .leftJoin(schema_1.codrivers, (0, drizzle_orm_1.eq)(schema_1.rides.codriverId, schema_1.codrivers.id))
-        .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.sql) `${schema_1.rides.startDate} = ${date}`))
-        .orderBy(schema_1.rides.rideType, schema_1.rides.createdAt);
-    // جلب عدد الطلاب لكل رحلة
-    const rideIds = dayRides.map((r) => r.id);
-    let studentsCountMap = {};
-    if (rideIds.length > 0) {
-        const studentsCounts = await db_1.db
-            .select({
-            rideId: schema_1.rideStudents.rideId,
-            total: (0, drizzle_orm_1.sql) `COUNT(*)`,
-            pending: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
-            pickedUp: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
-            droppedOff: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
-            absent: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'absent' THEN 1 ELSE 0 END)`,
-            excused: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideStudents.status} = 'excused' THEN 1 ELSE 0 END)`,
-        })
-            .from(schema_1.rideStudents)
-            .where((0, drizzle_orm_1.inArray)(schema_1.rideStudents.rideId, rideIds))
-            .groupBy(schema_1.rideStudents.rideId);
-        studentsCountMap = studentsCounts.reduce((acc, item) => {
-            acc[item.rideId] = {
-                total: Number(item.total) || 0,
-                pending: Number(item.pending) || 0,
-                pickedUp: Number(item.pickedUp) || 0,
-                droppedOff: Number(item.droppedOff) || 0,
-                absent: Number(item.absent) || 0,
-                excused: Number(item.excused) || 0,
-            };
-            return acc;
-        }, {});
-    }
-    // Format ride
-    const formatRide = (ride) => {
-        const stats = studentsCountMap[ride.id] || {
-            total: 0, pending: 0, pickedUp: 0, droppedOff: 0, absent: 0, excused: 0,
-        };
-        return {
-            id: ride.id,
-            name: ride.name,
-            type: ride.rideType,
-            frequency: ride.frequency,
-            startDate: ride.startDate,
-            endDate: ride.endDate,
-            isActive: ride.isActive,
-            status: ride.status,
-            startedAt: ride.startedAt,
-            completedAt: ride.completedAt,
-            bus: ride.busId
-                ? { id: ride.busId, busNumber: ride.busNumber, plateNumber: ride.plateNumber }
-                : null,
-            driver: ride.driverId
-                ? { id: ride.driverId, name: ride.driverName, phone: ride.driverPhone, avatar: ride.driverAvatar }
-                : null,
-            codriver: ride.codriverId
-                ? { id: ride.codriverId, name: ride.codriverName, phone: ride.codriverPhone }
-                : null,
-            route: ride.routeId
-                ? { id: ride.routeId, name: ride.routeName }
-                : null,
-            students: stats,
-        };
-    };
-    // تقسيم حسب النوع
-    const morning = dayRides.filter((r) => r.rideType === "morning").map(formatRide);
-    const afternoon = dayRides.filter((r) => r.rideType === "afternoon").map(formatRide);
-    // تقسيم حسب الحالة
-    const scheduled = dayRides.filter((r) => r.status === "scheduled").map(formatRide);
-    const inProgress = dayRides.filter((r) => r.status === "in_progress").map(formatRide);
-    const completed = dayRides.filter((r) => r.status === "completed").map(formatRide);
-    const cancelled = dayRides.filter((r) => r.status === "cancelled").map(formatRide);
-    // إحصائيات اليوم
-    const totalStudents = Object.values(studentsCountMap).reduce((sum, s) => sum + s.total, 0);
-    const totalPickedUp = Object.values(studentsCountMap).reduce((sum, s) => sum + s.pickedUp + s.droppedOff, 0);
-    const totalAbsent = Object.values(studentsCountMap).reduce((sum, s) => sum + s.absent + s.excused, 0);
-    return (0, response_1.SuccessResponse)(res, {
-        date,
-        rides: dayRides.map(formatRide),
-        byType: {
-            morning,
-            afternoon,
-        },
-        byStatus: {
-            scheduled,
-            inProgress,
-            completed,
-            cancelled,
-        },
-        summary: {
-            totalRides: dayRides.length,
-            morning: morning.length,
-            afternoon: afternoon.length,
-            scheduled: scheduled.length,
-            inProgress: inProgress.length,
-            completed: completed.length,
-            cancelled: cancelled.length,
-            totalStudents,
-            totalPickedUp,
-            totalAbsent,
-        },
-    }, 200);
+        .from(schema_1.students)
+        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
+        .where((0, drizzle_orm_1.and)(...conditions))
+        .limit(20);
+    (0, response_1.SuccessResponse)(res, { students: results, count: results.length }, 200);
 };
-exports.getRidesByDate = getRidesByDate;
+exports.searchStudentsForRide = searchStudentsForRide;

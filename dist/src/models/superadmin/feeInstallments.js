@@ -7,6 +7,7 @@ const mysql_core_1 = require("drizzle-orm/mysql-core");
 const drizzle_orm_1 = require("drizzle-orm");
 const organization_1 = require("./organization");
 const subscribtion_1 = require("./subscribtion");
+const paymentMethod_1 = require("./paymentMethod");
 exports.feeInstallments = (0, mysql_core_1.mysqlTable)("fee_installments", {
     id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
     // Link to subscription and organization
@@ -14,6 +15,9 @@ exports.feeInstallments = (0, mysql_core_1.mysqlTable)("fee_installments", {
         .notNull().references(() => subscribtion_1.subscriptions.id),
     organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 })
         .notNull().references(() => organization_1.organizations.id),
+    // Payment method used for this installment
+    paymentMethodId: (0, mysql_core_1.char)("payment_method_id", { length: 36 })
+        .notNull().references(() => paymentMethod_1.paymentMethod.id),
     // Total fee tracking for this subscription period
     totalFeeAmount: (0, mysql_core_1.double)("total_fee_amount").notNull(), // Full subscription fees from plan
     paidAmount: (0, mysql_core_1.double)("paid_amount").notNull().default(0), // Sum of all approved payments so far

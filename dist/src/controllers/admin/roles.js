@@ -1,7 +1,7 @@
 "use strict";
 // src/controllers/admin/roleController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAvailablePermissions = exports.toggleRoleStatus = exports.deleteRole = exports.updateRole = exports.createRole = exports.getRoleById = exports.getAllRoles = void 0;
+exports.getAvailablePermissions = exports.toggleRoleStatus = exports.deleteRole = exports.updateRole = exports.createRole = exports.getRoleById = exports.getAllRoles = exports.getAdminPermissions = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -52,6 +52,43 @@ const formatRole = (role) => ({
     createdAt: role.createdAt,
     updatedAt: role.updatedAt,
 });
+function formatLabel(str) {
+    return str
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ");
+}
+// Get Admin Modules with Actions
+const getAdminPermissions = async (req, res) => {
+    try {
+        const permissions = constant_1.MODULES.map((module) => ({
+            module,
+            label: formatLabel(module),
+            actions: constant_1.ACTION_NAMES.map((action) => ({
+                key: action.toLowerCase(),
+                label: action,
+                permission: `${module}.${action.toLowerCase()}`,
+            })),
+        }));
+        return res.status(200).json({
+            success: true,
+            data: {
+                modules: [...constant_1.MODULES],
+                actions: [...constant_1.ACTION_NAMES],
+                permissions,
+            },
+        });
+    }
+    catch (error) {
+        console.error("Get admin permissions error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to get permissions",
+            error: error.message,
+        });
+    }
+};
+exports.getAdminPermissions = getAdminPermissions;
 // ✅ Get All Roles
 const getAllRoles = async (req, res) => {
     const allRoles = await db_1.db.select().from(schema_1.roles);

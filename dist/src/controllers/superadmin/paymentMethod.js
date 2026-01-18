@@ -81,9 +81,9 @@ const updatePaymentMethod = async (req, res) => {
         name: name || existingPaymentMethod.name,
         description: description || existingPaymentMethod.description,
         logo: logo || existingPaymentMethod.logo,
-        isActive: is_active || existingPaymentMethod.isActive,
-        feeStatus: fee_status || existingPaymentMethod.feeStatus,
-        feeAmount: fee_status || existingPaymentMethod.feeAmount,
+        isActive: is_active ?? existingPaymentMethod.isActive,
+        feeStatus: fee_status ?? existingPaymentMethod.feeStatus,
+        feeAmount: fee_amount ?? existingPaymentMethod.feeAmount,
     }).where((0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, id));
     return (0, response_1.SuccessResponse)(res, { message: "Payment method updated successfully" }, 200);
 };

@@ -61,6 +61,12 @@ const createOrganizationType = async (req, res) => {
     const { name } = req.body;
     if (!name)
         throw new BadRequest_1.BadRequest("Organization type name is required");
+    const existingType = await db_1.db.query.organizationTypes.findFirst({
+        where: (0, drizzle_orm_1.eq)(schema_1.organizationTypes.name, name),
+    });
+    if (existingType) {
+        throw new BadRequest_1.BadRequest("Organization type with this name already exists");
+    }
     await db_1.db.insert(schema_1.organizationTypes).values({ name });
     return (0, response_1.SuccessResponse)(res, { message: "Organization type created successfully" }, 201);
 };
@@ -70,6 +76,17 @@ const updateOrganizationType = async (req, res) => {
     const { name } = req.body;
     requireId(id, "Organization type");
     const orgType = await findOrganizationType(id);
+    if (name) {
+        const existingType = await db_1.db.query.organizationTypes.findFirst({
+            where: (0, drizzle_orm_1.eq)(schema_1.organizationTypes.name, name),
+        });
+        if (existingType && existingType.id !== id) {
+            throw new BadRequest_1.BadRequest("Organization type with this name already exists");
+        }
+        else if (existingType && existingType.id === id) {
+            return (0, response_1.SuccessResponse)(res, { message: "No changes detected" }, 200);
+        }
+    }
     await db_1.db.update(schema_1.organizationTypes)
         .set({ name: name || orgType.name })
         .where((0, drizzle_orm_1.eq)(schema_1.organizationTypes.id, id));
@@ -137,9 +154,15 @@ const getOrganizationById = async (req, res) => {
 };
 exports.getOrganizationById = getOrganizationById;
 const createOrganization = async (req, res) => {
-    const { name, phone, email, address, organizationTypeId, logo } = req.body;
-    if (!name || !phone || !email || !address || !organizationTypeId || !logo) {
+    const { name, phone, email, address, organizationTypeId, logo, adminPassword // ✅ إضافة الباسورد من الـ Request
+     } = req.body;
+    // ✅ إضافة adminPassword في الـ Validation
+    if (!name || !phone || !email || !address || !organizationTypeId || !logo || !adminPassword) {
         throw new BadRequest_1.BadRequest("Missing required fields");
+    }
+    // ✅ Validate password strength (اختياري)
+    if (adminPassword.length < 8) {
+        throw new BadRequest_1.BadRequest("Password must be at least 8 characters");
     }
     await findOrganizationType(organizationTypeId);
     const logoUrl = await validateAndSaveLogo(req, logo);
@@ -158,12 +181,9 @@ const createOrganization = async (req, res) => {
         address,
         organizationTypeId,
         logo: logoUrl,
-        // شيلت subscriptionId: null
     });
-    // Create the Main Admin for the organization - هنا بكريت الادمن الرئيسي للمنظمة
-    // const passwordAdmin = crypto.randomBytes(8).toString('hex'); // Generate a random password
-    const passwordAdmin = "Admin@1234";
-    const hashedPassword = await bcrypt_1.default.hash(passwordAdmin, 10);
+    // ✅ استخدام الباسورد من الـ Request
+    const hashedPassword = await bcrypt_1.default.hash(adminPassword, 10);
     const AdminName = name + " Admin";
     await db_1.db.insert(schema_1.admins).values({
         organizationId: orgId,
@@ -176,9 +196,15 @@ const createOrganization = async (req, res) => {
         type: "organizer",
     });
     return (0, response_1.SuccessResponse)(res, {
-        message: "Organization created successfully", adminCredentials: {
+        message: "Organization created successfully",
+        organization: {
+            id: orgId,
+            name,
+            email,
+        },
+        adminCredentials: {
             email: email,
-            password: passwordAdmin
+            password: adminPassword // ✅ إرجاع الباسورد اللي دخله
         }
     }, 201);
 };

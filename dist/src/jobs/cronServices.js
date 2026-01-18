@@ -51,7 +51,7 @@ const generateRenewalInvoices = async () => {
             const durationMs = sub.endDate.getTime() - sub.startDate.getTime();
             const daysDuration = durationMs / (1000 * 60 * 60 * 24);
             // If duration is > 200 days, assume Yearly, otherwise Semester
-            const amountToCharge = daysDuration > 200 ? plan.price_year : plan.price_semester;
+            const amountToCharge = plan.price;
             // --- Create Invoice ---
             await db_1.db.insert(schema_1.invoice).values({
                 organizationId: sub.organizationId,

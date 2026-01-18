@@ -13,12 +13,15 @@ const deleteImage_1 = require("../../utils/deleteImage");
 const uuid_1 = require("uuid");
 // ✅ Create Student
 const createStudent = async (req, res) => {
-    const { parentId, name, avatar, grade, classroom } = req.body;
+    const { parentId, name, avatar, grade, classroom, zoneId } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    // await checkStudentLimit(organizationId);
+    if (!zoneId) {
+        throw new BadRequest_1.BadRequest("Zone ID is required");
+    }
+    // تحقق من الـ Parent
     const parent = await db_1.db
         .select()
         .from(schema_1.parents)
@@ -26,6 +29,15 @@ const createStudent = async (req, res) => {
         .limit(1);
     if (!parent[0]) {
         throw new NotFound_1.NotFound("Parent not found");
+    }
+    // ✅ تحقق من الـ Zone (بدون organizationId)
+    const zone = await db_1.db
+        .select()
+        .from(schema_1.zones)
+        .where((0, drizzle_orm_1.eq)(schema_1.zones.id, zoneId))
+        .limit(1);
+    if (!zone[0]) {
+        throw new NotFound_1.NotFound("Zone not found");
     }
     const studentId = (0, uuid_1.v4)();
     let avatarUrl = null;
@@ -37,6 +49,7 @@ const createStudent = async (req, res) => {
         id: studentId,
         organizationId,
         parentId,
+        zoneId,
         name,
         avatar: avatarUrl,
         grade: grade || null,
@@ -66,9 +79,14 @@ const getAllStudents = async (req, res) => {
             name: schema_1.parents.name,
             phone: schema_1.parents.phone,
         },
+        zone: {
+            id: schema_1.zones.id,
+            name: schema_1.zones.name,
+        },
     })
         .from(schema_1.students)
         .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
+        .leftJoin(schema_1.zones, (0, drizzle_orm_1.eq)(schema_1.students.zoneId, schema_1.zones.id))
         .where((0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId));
     (0, response_1.SuccessResponse)(res, { students: allStudents }, 200);
 };
@@ -96,9 +114,14 @@ const getStudentById = async (req, res) => {
             phone: schema_1.parents.phone,
             address: schema_1.parents.address,
         },
+        zone: {
+            id: schema_1.zones.id,
+            name: schema_1.zones.name,
+        },
     })
         .from(schema_1.students)
         .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
+        .leftJoin(schema_1.zones, (0, drizzle_orm_1.eq)(schema_1.students.zoneId, schema_1.zones.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.id, id), (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)))
         .limit(1);
     if (!student[0]) {
@@ -110,7 +133,7 @@ exports.getStudentById = getStudentById;
 // ✅ Update Student
 const updateStudent = async (req, res) => {
     const { id } = req.params;
-    const { parentId, name, avatar, grade, classroom, status } = req.body;
+    const { parentId, name, avatar, grade, classroom, status, zoneId } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -123,6 +146,7 @@ const updateStudent = async (req, res) => {
     if (!existingStudent[0]) {
         throw new NotFound_1.NotFound("Student not found");
     }
+    // تحقق من الـ Parent الجديد
     if (parentId && parentId !== existingStudent[0].parentId) {
         const parent = await db_1.db
             .select()
@@ -133,6 +157,18 @@ const updateStudent = async (req, res) => {
             throw new NotFound_1.NotFound("Parent not found");
         }
     }
+    // ✅ تحقق من الـ Zone الجديد (بدون organizationId)
+    if (zoneId && zoneId !== existingStudent[0].zoneId) {
+        const zone = await db_1.db
+            .select()
+            .from(schema_1.zones)
+            .where((0, drizzle_orm_1.eq)(schema_1.zones.id, zoneId))
+            .limit(1);
+        if (!zone[0]) {
+            throw new NotFound_1.NotFound("Zone not found");
+        }
+    }
+    // معالجة الصورة
     let avatarUrl = existingStudent[0].avatar;
     if (avatar !== undefined) {
         if (existingStudent[0].avatar) {
@@ -146,8 +182,10 @@ const updateStudent = async (req, res) => {
             avatarUrl = null;
         }
     }
+    // تحديث الطالب
     await db_1.db.update(schema_1.students).set({
         parentId: parentId ?? existingStudent[0].parentId,
+        zoneId: zoneId ?? existingStudent[0].zoneId,
         name: name ?? existingStudent[0].name,
         avatar: avatarUrl,
         grade: grade !== undefined ? grade : existingStudent[0].grade,
@@ -179,8 +217,31 @@ const deleteStudent = async (req, res) => {
     (0, response_1.SuccessResponse)(res, { message: "Student deleted successfully" }, 200);
 };
 exports.deleteStudent = deleteStudent;
+// ✅ Selection (للـ Dropdowns)
 const selection = async (req, res) => {
-    const getAllParents = await db_1.db.select().from(schema_1.parents);
-    (0, response_1.SuccessResponse)(res, { parents: getAllParents }, 200);
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const allParents = await db_1.db
+        .select({
+        id: schema_1.parents.id,
+        name: schema_1.parents.name,
+        phone: schema_1.parents.phone,
+    })
+        .from(schema_1.parents)
+        .where((0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId));
+    // ✅ كل الـ zones (مشتركة)
+    const allZones = await db_1.db
+        .select({
+        id: schema_1.zones.id,
+        name: schema_1.zones.name,
+        cost: schema_1.zones.cost,
+    })
+        .from(schema_1.zones);
+    (0, response_1.SuccessResponse)(res, {
+        parents: allParents,
+        zones: allZones,
+    }, 200);
 };
 exports.selection = selection;

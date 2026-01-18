@@ -52,7 +52,6 @@ const getInstallmentStatus = async (req, res) => {
                 id: activeSubscription.id,
                 planId: activeSubscription.planId,
                 planName: plan.name,
-                subscriptionType: activeSubscription.subscriptionType,
                 startDate: activeSubscription.startDate,
                 endDate: activeSubscription.endDate,
             },
@@ -104,13 +103,25 @@ exports.getInstallmentHistory = getInstallmentHistory;
  * Organization pays either full remaining amount or partial (with next due date)
  */
 const createInstallmentPayment = async (req, res) => {
-    const { amount, receiptImage, nextDueDate } = req.body;
+    const { amount, receiptImage, nextDueDate, paymentMethodId } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
     if (!amount || amount <= 0) {
         throw new BadRequest_1.BadRequest("Valid payment amount is required");
+    }
+    if (!paymentMethodId) {
+        throw new BadRequest_1.BadRequest("Payment method ID is required");
+    }
+    // Validate payment method exists and is active
+    const payMethodResult = await db_1.db
+        .select()
+        .from(schema_1.paymentMethod)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId), (0, drizzle_orm_1.eq)(schema_1.paymentMethod.isActive, true)))
+        .limit(1);
+    if (!payMethodResult[0]) {
+        throw new NotFound_1.NotFound("Payment method not found or inactive");
     }
     // Get active subscription
     const activeSubscription = await db_1.db.query.subscriptions.findFirst({
@@ -177,6 +188,7 @@ const createInstallmentPayment = async (req, res) => {
         id: newInstallmentId,
         subscriptionId: activeSubscription.id,
         organizationId,
+        paymentMethodId,
         totalFeeAmount: plan.subscriptionFees,
         paidAmount: totalPaid,
         remainingAmount: remainingAmount - amount, // Will be this after approval

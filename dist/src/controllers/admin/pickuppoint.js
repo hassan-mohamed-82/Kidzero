@@ -30,21 +30,33 @@ const getPickupPointById = async (req, res) => {
 exports.getPickupPointById = getPickupPointById;
 // ✅ Create Pickup Point
 const createPickupPoint = async (req, res) => {
-    const { name, address, lat, lng } = req.body;
+    const { name, address, zoneId, lat, lng, status } = req.body;
     const organizationId = req.user?.organizationId;
     // ✅ تحقق إن الـ organizationId موجود
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    if (!name || !lat || !lng) {
-        throw new BadRequest_1.BadRequest("name, lat, and lng are required");
+    // ✅ تحقق من الحقول المطلوبة
+    if (!name || !zoneId || !lat || !lng) {
+        throw new BadRequest_1.BadRequest("name, zoneId, lat, and lng are required");
+    }
+    // ✅ تحقق من وجود الـ Zone
+    const existingZone = await db_1.db
+        .select()
+        .from(schema_1.zones)
+        .where((0, drizzle_orm_1.eq)(schema_1.zones.id, zoneId))
+        .limit(1);
+    if (!existingZone[0]) {
+        throw new NotFound_1.NotFound("Zone not found");
     }
     await db_1.db.insert(schema_1.pickupPoints).values({
         organizationId,
         name,
         address: address || null,
+        zoneId,
         lat,
         lng,
+        status: status || "active",
     });
     (0, response_1.SuccessResponse)(res, { message: "Pickup Point created successfully" }, 201);
 };
@@ -52,7 +64,7 @@ exports.createPickupPoint = createPickupPoint;
 // ✅ Update Pickup Point
 const updatePickupPoint = async (req, res) => {
     const { id } = req.params;
-    const { name, address, lat, lng, status } = req.body;
+    const { name, address, zoneId, lat, lng, status } = req.body;
     const existingPoint = await db_1.db
         .select()
         .from(schema_1.pickupPoints)
@@ -61,14 +73,26 @@ const updatePickupPoint = async (req, res) => {
     if (!existingPoint[0]) {
         throw new NotFound_1.NotFound("Pickup Point not found");
     }
+    // ✅ تحقق من وجود الـ Zone الجديد إذا تم تحديثه
+    if (zoneId) {
+        const existingZone = await db_1.db
+            .select()
+            .from(schema_1.zones)
+            .where((0, drizzle_orm_1.eq)(schema_1.zones.id, zoneId))
+            .limit(1);
+        if (!existingZone[0]) {
+            throw new NotFound_1.NotFound("Zone not found");
+        }
+    }
     await db_1.db
         .update(schema_1.pickupPoints)
         .set({
-        name: name || existingPoint[0].name,
+        name: name ?? existingPoint[0].name,
         address: address !== undefined ? address : existingPoint[0].address,
-        lat: lat || existingPoint[0].lat,
-        lng: lng || existingPoint[0].lng,
-        status: status || existingPoint[0].status,
+        zoneId: zoneId ?? existingPoint[0].zoneId,
+        lat: lat ?? existingPoint[0].lat,
+        lng: lng ?? existingPoint[0].lng,
+        status: status ?? existingPoint[0].status,
     })
         .where((0, drizzle_orm_1.eq)(schema_1.pickupPoints.id, id));
     (0, response_1.SuccessResponse)(res, { message: "Pickup Point updated successfully" }, 200);

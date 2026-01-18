@@ -12,15 +12,17 @@ const response_1 = require("../../utils/response");
 const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
 const bcrypt_1 = __importDefault(require("bcrypt"));
+const Errors_1 = require("../../Errors");
+const deleteImage_1 = require("../../utils/deleteImage");
+const handleImages_1 = require("../../utils/handleImages");
 const getProfile = async (req, res) => {
-    const { id } = req.params;
     const organizationId = req.user?.organizationId;
     const currentUserId = req.user?.id;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    if (id !== currentUserId) {
-        throw new BadRequest_1.BadRequest("You can only access your own profile");
+    if (!currentUserId) {
+        throw new Errors_1.UnauthorizedError("Not authenticated");
     }
     const admin = await db_1.db
         .select({
@@ -37,68 +39,103 @@ const getProfile = async (req, res) => {
         updatedAt: schema_1.admins.updatedAt,
     })
         .from(schema_1.admins)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, id), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, currentUserId), // ✅ استخدم currentUserId مباشرة
+    (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
         .limit(1);
     if (!admin[0]) {
         throw new NotFound_1.NotFound("Admin not found");
     }
-    (0, response_1.SuccessResponse)(res, { admin: admin[0] }, 200);
+    return (0, response_1.SuccessResponse)(res, { admin: admin[0] }, 200);
 };
 exports.getProfile = getProfile;
+// ✅ Update Profile
 const updateProfile = async (req, res) => {
-    const { id } = req.params;
-    const organizationId = req.user?.organizationId;
-    const currentUserId = req.user?.id;
-    const { name, phone, avatar, password } = req.body;
-    if (!organizationId) {
-        throw new BadRequest_1.BadRequest("Organization ID is required");
+    try {
+        const organizationId = req.user?.organizationId;
+        const currentUserId = req.user?.id;
+        const { name, phone, avatar, password } = req.body;
+        if (!organizationId) {
+            throw new BadRequest_1.BadRequest("Organization ID is required");
+        }
+        if (!currentUserId) {
+            throw new Errors_1.UnauthorizedError("Not authenticated");
+        }
+        const admin = await db_1.db
+            .select()
+            .from(schema_1.admins)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, currentUserId), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
+            .limit(1);
+        if (!admin[0]) {
+            throw new NotFound_1.NotFound("Admin not found");
+        }
+        // Process avatar and password in parallel for better performance
+        const [avatarUrl, hashedPassword] = await Promise.all([
+            // Handle avatar
+            (async () => {
+                if (avatar === undefined) {
+                    return admin[0].avatar;
+                }
+                if (avatar === null || avatar === "") {
+                    if (admin[0].avatar) {
+                        await (0, deleteImage_1.deletePhotoFromServer)(admin[0].avatar);
+                    }
+                    return null;
+                }
+                if (avatar.startsWith("data:image")) {
+                    if (admin[0].avatar) {
+                        await (0, deleteImage_1.deletePhotoFromServer)(admin[0].avatar);
+                    }
+                    const savedImage = await (0, handleImages_1.saveBase64Image)(req, avatar, "avatars");
+                    return savedImage.url;
+                }
+                return admin[0].avatar; // Keep existing if URL string
+            })(),
+            // Handle password
+            password ? bcrypt_1.default.hash(password, 10) : Promise.resolve(null),
+        ]);
+        await db_1.db
+            .update(schema_1.admins)
+            .set({
+            name: name ?? admin[0].name,
+            phone: phone ?? admin[0].phone,
+            avatar: avatarUrl,
+            ...(hashedPassword && { password: hashedPassword }),
+        })
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, currentUserId), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)));
+        return (0, response_1.SuccessResponse)(res, { message: "Profile updated successfully" }, 200);
     }
-    if (id !== currentUserId) {
-        throw new BadRequest_1.BadRequest("You can only  update your own profile");
+    catch (error) {
+        if (error instanceof BadRequest_1.BadRequest || error instanceof Errors_1.UnauthorizedError || error instanceof NotFound_1.NotFound) {
+            throw error;
+        }
+        console.error("Update profile error:", error);
+        throw new BadRequest_1.BadRequest("Failed to update profile");
     }
-    const admin = await db_1.db
-        .select()
-        .from(schema_1.admins)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, id), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
-        .limit(1);
-    if (!admin[0]) {
-        throw new NotFound_1.NotFound("Admin not found");
-    }
-    const updatedData = {
-        name: name ?? admin[0].name,
-        phone: phone ?? admin[0].phone,
-        avatar: avatar ?? admin[0].avatar,
-    };
-    if (password) {
-        const hashedPassword = await bcrypt_1.default.hash(password, 10);
-        updatedData.password = hashedPassword;
-    }
-    await db_1.db
-        .update(schema_1.admins)
-        .set(updatedData)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, id), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)));
-    (0, response_1.SuccessResponse)(res, { message: "Profile updated successfully" }, 200);
 };
 exports.updateProfile = updateProfile;
+// ✅ Delete Profile
 const deleteProfile = async (req, res) => {
-    const { id } = req.params;
     const organizationId = req.user?.organizationId;
     const currentUserId = req.user?.id;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    if (id !== currentUserId) {
-        throw new BadRequest_1.BadRequest("You can only delete your own profile");
+    if (!currentUserId) {
+        throw new Errors_1.UnauthorizedError("Not authenticated");
     }
     const admin = await db_1.db
         .select()
         .from(schema_1.admins)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, id), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, currentUserId), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)))
         .limit(1);
     if (!admin[0]) {
         throw new NotFound_1.NotFound("Admin not found");
     }
-    await db_1.db.delete(schema_1.admins).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, id), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)));
-    (0, response_1.SuccessResponse)(res, { message: "Profile deleted successfully" }, 200);
+    // حذف الصورة لو موجودة
+    if (admin[0].avatar) {
+        await (0, deleteImage_1.deletePhotoFromServer)(admin[0].avatar);
+    }
+    await db_1.db.delete(schema_1.admins).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.admins.id, currentUserId), (0, drizzle_orm_1.eq)(schema_1.admins.organizationId, organizationId)));
+    return (0, response_1.SuccessResponse)(res, { message: "Profile deleted successfully" }, 200);
 };
 exports.deleteProfile = deleteProfile;

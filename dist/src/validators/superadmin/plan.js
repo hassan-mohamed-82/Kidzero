@@ -8,23 +8,25 @@ const zod_1 = __importDefault(require("zod"));
 exports.createPlanSchema = zod_1.default.object({
     body: zod_1.default.object({
         name: zod_1.default.string().min(1, "Name is required"),
-        price_semester: zod_1.default.number().min(0).optional(),
-        price_year: zod_1.default.number().min(0).optional(),
-        max_buses: zod_1.default.number().min(1, "Max buses must be at least 1"),
-        max_drivers: zod_1.default.number().min(1, "Max drivers must be at least 1"),
-        max_students: zod_1.default.number().min(1, "Max students must be at least 1"),
+        price: zod_1.default.number().min(0).default(0),
+        max_buses: zod_1.default.number().int().min(1, "Max buses must be at least 1").default(10),
+        max_drivers: zod_1.default.number().int().min(1, "Max drivers must be at least 1").default(20),
+        max_students: zod_1.default.number().int().min(1, "Max students must be at least 1").default(100),
+        min_subscription_fees_pay: zod_1.default.number().min(0).default(0),
+        subscription_fees: zod_1.default.number().min(0).default(0),
     }),
 });
 exports.updatePlanSchema = zod_1.default.object({
     params: zod_1.default.object({
-        Id: zod_1.default.string().min(1, "Plan Id is required"),
+        id: zod_1.default.string().uuid("Invalid plan ID format"),
     }),
     body: zod_1.default.object({
         name: zod_1.default.string().min(1, "Name is required").optional(),
-        price_semester: zod_1.default.number().min(0).optional(),
-        price_year: zod_1.default.number().min(0).optional(),
-        max_buses: zod_1.default.number().min(1, "Max buses must be at least 1").optional(),
-        max_drivers: zod_1.default.number().min(1, "Max drivers must be at least 1").optional(),
-        max_students: zod_1.default.number().min(1, "Max students must be at least 1").optional(),
+        price: zod_1.default.number().min(0).optional(),
+        maxBuses: zod_1.default.number().int().min(1, "Max buses must be at least 1").optional(),
+        maxDrivers: zod_1.default.number().int().min(1, "Max drivers must be at least 1").optional(),
+        maxStudents: zod_1.default.number().int().min(1, "Max students must be at least 1").optional(),
+        minSubscriptionFeesPay: zod_1.default.number().min(0).optional(),
+        subscriptionFees: zod_1.default.number().min(0).optional(),
     }),
 });

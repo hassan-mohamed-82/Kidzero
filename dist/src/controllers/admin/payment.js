@@ -1,5 +1,5 @@
 "use strict";
-// src/controllers/admin/paymentController.ts
+// // src/controllers/admin/paymentController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
 const db_1 = require("../../models/db");
@@ -21,14 +21,12 @@ const getAllPayments = async (req, res) => {
         status: schema_1.payment.status,
         receiptImage: schema_1.payment.receiptImage,
         rejectedReason: schema_1.payment.rejectedReason,
-        RequestedSubscriptionType: schema_1.payment.RequestedSubscriptionType,
         createdAt: schema_1.payment.createdAt,
         updatedAt: schema_1.payment.updatedAt,
         plan: {
             id: schema_1.plans.id,
             name: schema_1.plans.name,
-            priceSemester: schema_1.plans.price_semester,
-            priceYear: schema_1.plans.price_year,
+            price: schema_1.plans.price
         },
         paymentMethod: {
             id: schema_1.paymentMethod.id,
@@ -67,14 +65,12 @@ const getPaymentById = async (req, res) => {
         receiptImage: schema_1.payment.receiptImage,
         rejectedReason: schema_1.payment.rejectedReason,
         promocodeId: schema_1.payment.promocodeId,
-        RequestedSubscriptionType: schema_1.payment.RequestedSubscriptionType,
         createdAt: schema_1.payment.createdAt,
         updatedAt: schema_1.payment.updatedAt,
         plan: {
             id: schema_1.plans.id,
             name: schema_1.plans.name,
-            priceSemester: schema_1.plans.price_semester,
-            priceYear: schema_1.plans.price_year,
+            price: schema_1.plans.price,
             maxBuses: schema_1.plans.maxBuses,
             maxDrivers: schema_1.plans.maxDrivers,
             maxStudents: schema_1.plans.maxStudents,
@@ -98,7 +94,7 @@ const getPaymentById = async (req, res) => {
 };
 exports.getPaymentById = getPaymentById;
 const createPayment = async (req, res) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocodeId, RequestedSubscriptionType } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocodeId, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -115,6 +111,7 @@ const createPayment = async (req, res) => {
     if (!planResult[0]) {
         throw new NotFound_1.NotFound("Plan not found");
     }
+    const plan = planResult[0];
     // Validate payment method exists and is active
     const payMethodResult = await db_1.db
         .select()
@@ -132,17 +129,158 @@ const createPayment = async (req, res) => {
     }
     // Generate new payment ID
     const newPaymentId = crypto.randomUUID();
+    // Calculate total amount with fee if applicable
+    let totalAmount = amount;
+    if (payMethodResult[0].feeStatus === true) {
+        if (payMethodResult[0].feeAmount > 0) {
+            totalAmount = amount + payMethodResult[0].feeAmount;
+        }
+        else {
+            throw new BadRequest_1.BadRequest("Invalid fee amount in payment method");
+        }
+    }
+    // Apply promocode if provided
+    if (promocodeId) {
+        const promoResult = await db_1.db
+            .select()
+            .from(schema_1.promocode)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.promocode.id, promocodeId)))
+            .limit(1);
+        if (!promoResult[0]) {
+            throw new NotFound_1.NotFound("Promocode not found");
+        }
+        if (promoResult[0].isActive === false) {
+            throw new BadRequest_1.BadRequest("Promocode is not active");
+        }
+        totalAmount = totalAmount - promoResult[0].amount;
+        if (totalAmount < 0) {
+            totalAmount = 0;
+        }
+    }
+    // Check if payment is less than subscription fees - route to installment path
+    const subscriptionFees = plan.subscriptionFees;
+    const minPayment = plan.minSubscriptionFeesPay;
+    const isPartialPayment = totalAmount < subscriptionFees;
+    if (isPartialPayment) {
+        // Validate minimum payment requirement
+        if (totalAmount < minPayment) {
+            throw new BadRequest_1.BadRequest(`Payment amount (${totalAmount}) is less than the minimum required payment (${minPayment}). ` +
+                `You must pay at least ${minPayment} to start a subscription with installments.`);
+        }
+        // For partial payments, nextDueDate is required
+        if (!nextDueDate) {
+            throw new BadRequest_1.BadRequest("Next payment due date is required for partial/installment payments. " +
+                `You are paying ${totalAmount} out of ${subscriptionFees} total fees.`);
+        }
+        // Validate due date is in the future
+        const dueDate = new Date(nextDueDate);
+        if (dueDate <= new Date()) {
+            throw new BadRequest_1.BadRequest("Next due date must be in the future");
+        }
+        // Insert payment record first
+        await db_1.db.insert(schema_1.payment).values({
+            id: newPaymentId,
+            organizationId,
+            planId,
+            paymentMethodId,
+            amount: totalAmount,
+            receiptImage: receiptImageUrl || "",
+            promocodeId: promocodeId || null,
+            status: "pending",
+        });
+        // Check for existing active subscription or create new one
+        let activeSubscription = await db_1.db.query.subscriptions.findFirst({
+            where: (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true)),
+        });
+        // If no active subscription, we need to create one after payment is approved
+        // For now, create subscription with pending status linked to this payment
+        let subscriptionId;
+        if (!activeSubscription) {
+            subscriptionId = crypto.randomUUID();
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setFullYear(endDate.getFullYear() + 1); // 1 year subscription
+            await db_1.db.insert(schema_1.subscriptions).values({
+                id: subscriptionId,
+                planId,
+                organizationId,
+                startDate,
+                endDate,
+                paymentId: newPaymentId,
+                isActive: false, // Will be activated when payment is approved
+            });
+        }
+        else {
+            subscriptionId = activeSubscription.id;
+        }
+        // Create fee installment record
+        const newInstallmentId = crypto.randomUUID();
+        await db_1.db.insert(schema_1.feeInstallments).values({
+            id: newInstallmentId,
+            subscriptionId,
+            organizationId,
+            paymentMethodId,
+            totalFeeAmount: subscriptionFees,
+            paidAmount: 0, // Will be updated when approved
+            remainingAmount: subscriptionFees - totalAmount, // Will be this after approval
+            installmentAmount: totalAmount,
+            dueDate: new Date(nextDueDate),
+            status: "pending",
+            receiptImage: receiptImageUrl || undefined,
+            installmentNumber: 1,
+        });
+        // Fetch created payment with details
+        const createdPayment = await db_1.db
+            .select({
+            id: schema_1.payment.id,
+            amount: schema_1.payment.amount,
+            status: schema_1.payment.status,
+            receiptImage: schema_1.payment.receiptImage,
+            createdAt: schema_1.payment.createdAt,
+            plan: {
+                id: schema_1.plans.id,
+                name: schema_1.plans.name,
+            },
+            paymentMethod: {
+                id: schema_1.paymentMethod.id,
+                name: schema_1.paymentMethod.name,
+            },
+            promocode: {
+                id: schema_1.promocode.id,
+                code: schema_1.promocode.code,
+            },
+        })
+            .from(schema_1.payment)
+            .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.payment.planId, schema_1.plans.id))
+            .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.payment.paymentMethodId, schema_1.paymentMethod.id))
+            .leftJoin(schema_1.promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, schema_1.promocode.id))
+            .where((0, drizzle_orm_1.eq)(schema_1.payment.id, newPaymentId))
+            .limit(1);
+        return (0, response_1.SuccessResponse)(res, {
+            message: "Installment payment created successfully. Awaiting admin approval.",
+            payment: createdPayment[0],
+            installmentDetails: {
+                installmentId: newInstallmentId,
+                subscriptionId,
+                totalFeeAmount: subscriptionFees,
+                paidAmount: totalAmount,
+                remainingAmount: subscriptionFees - totalAmount,
+                nextDueDate,
+                isInstallment: true,
+            },
+        }, 201);
+    }
+    // Full payment path (existing logic)
     // Insert payment
     await db_1.db.insert(schema_1.payment).values({
         id: newPaymentId,
         organizationId,
         planId,
         paymentMethodId,
-        amount,
+        amount: totalAmount,
         receiptImage: receiptImageUrl || "",
         promocodeId: promocodeId || null,
         status: "pending",
-        RequestedSubscriptionType,
     });
     // Fetch created payment with details
     const createdPayment = await db_1.db
@@ -151,7 +289,6 @@ const createPayment = async (req, res) => {
         amount: schema_1.payment.amount,
         status: schema_1.payment.status,
         receiptImage: schema_1.payment.receiptImage,
-        RequestedSubscriptionType: schema_1.payment.RequestedSubscriptionType,
         createdAt: schema_1.payment.createdAt,
         plan: {
             id: schema_1.plans.id,
@@ -161,10 +298,15 @@ const createPayment = async (req, res) => {
             id: schema_1.paymentMethod.id,
             name: schema_1.paymentMethod.name,
         },
+        promocode: {
+            id: schema_1.promocode.id,
+            code: schema_1.promocode.code,
+        },
     })
         .from(schema_1.payment)
         .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.payment.planId, schema_1.plans.id))
         .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.payment.paymentMethodId, schema_1.paymentMethod.id))
+        .leftJoin(schema_1.promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, schema_1.promocode.id))
         .where((0, drizzle_orm_1.eq)(schema_1.payment.id, newPaymentId))
         .limit(1);
     (0, response_1.SuccessResponse)(res, {

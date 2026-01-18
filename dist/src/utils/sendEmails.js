@@ -5,21 +5,20 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendEmail = void 0;
 const nodemailer_1 = __importDefault(require("nodemailer"));
+// Transporter configuration
+const transporter = nodemailer_1.default.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    },
+});
 const sendEmail = async (to, subject, text) => {
-    console.log("== sendEmail called ==");
-    console.log("To:", to);
-    const transporter = nodemailer_1.default.createTransport({
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-    });
     try {
         const info = await transporter.sendMail({
-            from: `"15May Club" <${process.env.EMAIL_USER}>`, // ← هنا التعديل
+            from: `"Kidzero" <${process.env.EMAIL_USER}>`, // ← هنا التعديل
             to: to,
             subject: subject,
             text: text,
@@ -28,9 +27,6 @@ const sendEmail = async (to, subject, text) => {
         <p style="font-size: 24px; font-weight: bold;">${text}</p>
       </div>`,
         });
-        console.log("Email sent - accepted:", info.accepted);
-        console.log("Email sent - rejected:", info.rejected);
-        console.log("Email sent - messageId:", info.messageId);
         return info;
     }
     catch (err) {

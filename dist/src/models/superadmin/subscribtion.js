@@ -6,7 +6,6 @@ const plan_1 = require("./plan");
 const organization_1 = require("./organization");
 const drizzle_orm_1 = require("drizzle-orm");
 const payment_1 = require("./payment");
-const mysql_core_2 = require("drizzle-orm/mysql-core");
 exports.subscriptions = (0, mysql_core_1.mysqlTable)("subscriptions", {
     id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
     planId: (0, mysql_core_1.char)("plan_id", { length: 36 }).notNull().references(() => plan_1.plans.id),
@@ -15,7 +14,7 @@ exports.subscriptions = (0, mysql_core_1.mysqlTable)("subscriptions", {
     endDate: (0, mysql_core_1.timestamp)("end_date").notNull(),
     paymentId: (0, mysql_core_1.char)("payment_id", { length: 36 }).notNull().references(() => payment_1.payment.id),
     isActive: (0, mysql_core_1.boolean)("is_active").notNull().default(true),
-    subscriptionType: (0, mysql_core_2.mysqlEnum)("subscription_type", ["yearly", "semester"]).notNull().default("semester"),
+    // subscriptionType: mysqlEnum("subscription_type", ["yearly", "semester"]).notNull().default("semester"),
     createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
     updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });

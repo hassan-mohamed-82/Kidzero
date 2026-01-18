@@ -12,17 +12,23 @@ const schema_5 = require("../models/schema"); // لو عايز تستخدمه ل
 const drizzle_orm_1 = require("drizzle-orm");
 // جلب الاشتراك النشط مع الخطة
 const getActiveSubscription = async (organizationId) => {
-    const now = new Date();
-    const result = await db_1.db
-        .select({
-        subscription: schema_1.subscriptions,
-        plan: schema_2.plans,
-    })
-        .from(schema_1.subscriptions)
-        .innerJoin(schema_2.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_2.plans.id))
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true), (0, drizzle_orm_1.gte)(schema_1.subscriptions.endDate, now)))
-        .limit(1);
-    return result[0] || null;
+    try {
+        const now = new Date();
+        const result = await db_1.db
+            .select({
+            subscription: schema_1.subscriptions,
+            plan: schema_2.plans,
+        })
+            .from(schema_1.subscriptions)
+            .innerJoin(schema_2.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_2.plans.id))
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true), (0, drizzle_orm_1.gte)(schema_1.subscriptions.endDate, now)))
+            .limit(1);
+        return result[0] || null;
+    }
+    catch (error) {
+        console.error("Error fetching active subscription:", error);
+        return null;
+    }
 };
 exports.getActiveSubscription = getActiveSubscription;
 // ✅ التحقق من حد الباصات

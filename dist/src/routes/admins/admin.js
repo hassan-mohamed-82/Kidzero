@@ -6,6 +6,7 @@ const catchAsync_1 = require("../../utils/catchAsync");
 const validation_1 = require("../../middlewares/validation");
 const admin_2 = require("../../validators/admin/admin");
 const router = (0, express_1.Router)();
+router.get("/roles", (0, catchAsync_1.catchAsync)(admin_1.getRoleNames));
 router.get("/", (0, catchAsync_1.catchAsync)(admin_1.getAllAdmins));
 router.get("/:id", (0, catchAsync_1.catchAsync)(admin_1.getAdminById));
 router.post("/", (0, validation_1.validate)(admin_2.createAdminSchema), (0, catchAsync_1.catchAsync)(admin_1.createAdmin));

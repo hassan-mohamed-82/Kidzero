@@ -4,11 +4,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.pickupPoints = void 0;
 const mysql_core_1 = require("drizzle-orm/mysql-core");
 const drizzle_orm_1 = require("drizzle-orm");
+const schema_1 = require("../schema");
 exports.pickupPoints = (0, mysql_core_1.mysqlTable)("pickup_points", {
     id: (0, mysql_core_1.char)("id", { length: 36 }).primaryKey().default((0, drizzle_orm_1.sql) `(UUID())`),
-    organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull(),
+    organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull().references(() => schema_1.organizations.id),
     name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
     address: (0, mysql_core_1.text)("address"),
+    zoneId: (0, mysql_core_1.char)("zone_id", { length: 36 }).notNull().references(() => schema_1.zones.id),
     lat: (0, mysql_core_1.decimal)("lat", { precision: 10, scale: 8 }).notNull(),
     lng: (0, mysql_core_1.decimal)("lng", { precision: 11, scale: 8 }).notNull(),
     status: (0, mysql_core_1.mysqlEnum)("status", ["active", "inactive"]).default("active"),

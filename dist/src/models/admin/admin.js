@@ -21,7 +21,7 @@ exports.admins = (0, mysql_core_1.mysqlTable)("admins", {
     type: (0, mysql_core_1.mysqlEnum)("type", ["organizer", "admin"]).notNull().default("admin"),
     // صلاحيات إضافية (override)
     permissions: (0, mysql_core_1.json)("permissions").$type().default([]),
-    fcm_tokens: (0, mysql_core_1.json)("fcm_tokens").$type().default([]),
+    fcmTokens: (0, mysql_core_1.text)("fcm_tokens"), // JSON array of FCM tokens
     status: (0, mysql_core_1.mysqlEnum)("status", ["active", "inactive"]).default("active"),
     createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
     updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),

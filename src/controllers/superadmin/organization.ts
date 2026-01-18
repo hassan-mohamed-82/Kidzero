@@ -164,14 +164,29 @@ export const getOrganizationById = async (req: Request, res: Response) => {
 };
 
 export const createOrganization = async (req: Request, res: Response) => {
-    const { name, phone, email, address, organizationTypeId, logo } = req.body;
+    const { 
+        name, 
+        phone, 
+        email, 
+        address, 
+        organizationTypeId, 
+        logo,
+        adminPassword  // ✅ إضافة الباسورد من الـ Request
+    } = req.body;
 
-    if (!name || !phone || !email || !address || !organizationTypeId || !logo) {
+    // ✅ إضافة adminPassword في الـ Validation
+    if (!name || !phone || !email || !address || !organizationTypeId || !logo || !adminPassword) {
         throw new BadRequest("Missing required fields");
+    }
+
+    // ✅ Validate password strength (اختياري)
+    if (adminPassword.length < 8) {
+        throw new BadRequest("Password must be at least 8 characters");
     }
 
     await findOrganizationType(organizationTypeId);
     const logoUrl = await validateAndSaveLogo(req, logo);
+    
     const existingOrg = await db.query.organizations.findFirst({
         where: eq(organizations.email, email),
     });
@@ -182,7 +197,6 @@ export const createOrganization = async (req: Request, res: Response) => {
 
     const orgId = crypto.randomUUID();
 
-
     await db.insert(organizations).values({
         id: orgId,
         name,
@@ -191,13 +205,10 @@ export const createOrganization = async (req: Request, res: Response) => {
         address,
         organizationTypeId,
         logo: logoUrl,
-        // شيلت subscriptionId: null
     });
 
-    // Create the Main Admin for the organization - هنا بكريت الادمن الرئيسي للمنظمة
-    // const passwordAdmin = crypto.randomBytes(8).toString('hex'); // Generate a random password
-    const passwordAdmin = "Admin@1234";
-    const hashedPassword = await bcrypt.hash(passwordAdmin, 10);
+    // ✅ استخدام الباسورد من الـ Request
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
     const AdminName = name + " Admin";
 
     await db.insert(admins).values({
@@ -212,12 +223,19 @@ export const createOrganization = async (req: Request, res: Response) => {
     });
 
     return SuccessResponse(res, {
-        message: "Organization created successfully", adminCredentials: {
+        message: "Organization created successfully",
+        organization: {
+            id: orgId,
+            name,
+            email,
+        },
+        adminCredentials: {
             email: email,
-            password: passwordAdmin
+            password: adminPassword  // ✅ إرجاع الباسورد اللي دخله
         }
     }, 201);
 };
+
 
 
 export const updateOrganization = async (req: Request, res: Response) => {

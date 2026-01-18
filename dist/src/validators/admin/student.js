@@ -13,6 +13,9 @@ exports.createStudentSchema = zod_1.z.object({
             .string({ required_error: "Student name is required" })
             .min(1, "Student name cannot be empty")
             .max(255, "Student name cannot exceed 255 characters"),
+        zoneId: zod_1.z
+            .string({ required_error: "Zone ID is required" })
+            .uuid("Invalid Zone ID"),
         avatar: zod_1.z
             .string()
             .regex(BASE64_IMAGE_REGEX, "Invalid avatar format")
@@ -35,6 +38,10 @@ exports.updateStudentSchema = zod_1.z.object({
         parentId: zod_1.z
             .string()
             .uuid("Invalid Parent ID")
+            .optional(),
+        zoneId: zod_1.z
+            .string()
+            .uuid("Invalid Zone ID")
             .optional(),
         name: zod_1.z
             .string()

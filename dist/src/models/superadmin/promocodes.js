@@ -12,4 +12,5 @@ exports.promocode = (0, mysql_core_1.mysqlTable)("promocodes", {
     description: (0, mysql_core_1.text)("description").notNull(),
     startDate: (0, mysql_core_1.timestamp)("start_date").notNull(),
     endDate: (0, mysql_core_1.timestamp)("end_date").notNull(),
+    isActive: (0, mysql_core_1.boolean)("is_active").notNull().default(true),
 });
