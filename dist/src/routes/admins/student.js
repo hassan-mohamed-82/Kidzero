@@ -10,6 +10,7 @@ const router = (0, express_1.Router)();
 router.get("/", (0, checkpermission_1.checkPermission)("students", "View"), (0, catchAsync_1.catchAsync)(student_1.getAllStudents));
 router.post("/", (0, checkpermission_1.checkPermission)("students", "Add"), (0, validation_1.validate)(student_2.createStudentSchema), (0, catchAsync_1.catchAsync)(student_1.createStudent));
 router.get("/selection", (0, checkpermission_1.checkPermission)("students", "View"), (0, catchAsync_1.catchAsync)(student_1.selection));
+router.get("/without-parent", (0, checkpermission_1.checkPermission)("students", "View"), (0, catchAsync_1.catchAsync)(student_1.getStudentsWithoutParent));
 router.get("/:id", (0, checkpermission_1.checkPermission)("students", "View"), (0, catchAsync_1.catchAsync)(student_1.getStudentById));
 router.delete("/:id", (0, checkpermission_1.checkPermission)("students", "Delete"), (0, catchAsync_1.catchAsync)(student_1.deleteStudent));
 router.put("/:id", (0, checkpermission_1.checkPermission)("students", "Edit"), (0, validation_1.validate)(student_2.updateStudentSchema), (0, catchAsync_1.catchAsync)(student_1.updateStudent));
