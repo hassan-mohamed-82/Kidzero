@@ -7,6 +7,7 @@ import {authorizeRoles} from "../../middlewares/authorized"
 import { authenticated } from "../../middlewares/authenticated";
 import organizationRoute from "./organization";
 import profileRoute from "./profile";
+import walletRoute from "./walletRechargeRequest";
 import rolesRoute from "./superadminrole";
 import subadminRouter from "./subadmins";
 import paymentMethodRoute from "./paymentMethod";
@@ -29,6 +30,7 @@ route.use("/paymentmethods", paymentMethodRoute);
 route.use("/subscriptions", subscriptionRoute);
 route.use("/invoices", invoiceRoute);
 route.use("/payments", paymentRoute);
+route.use("/wallet", walletRoute);
 route.use("/parentplans", parentPlanRoute);
 
 export default route;                           
