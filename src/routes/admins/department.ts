@@ -3,10 +3,11 @@ import {createDepartment, deleteDepartment, getAllDepartments, getDepartmentById
 import {catchAsync} from "../../utils/catchAsync";
 import {validate} from "../../middlewares/validation";
 import {createDepartmentSchema, updateDepartmentSchema} from "../../validators/admin/department";
+import { checkPermission } from "../../middlewares/checkpermission";
 const router = Router();
-router.get("/", catchAsync(getAllDepartments));
-router.post("/", validate(createDepartmentSchema), catchAsync(createDepartment));
-router.get("/:id", catchAsync(getDepartmentById));
-router.delete("/:id", catchAsync(deleteDepartment));
-router.put("/:id", validate(updateDepartmentSchema), catchAsync(updateDepartment));
+router.get("/",checkPermission("departments","View"), catchAsync(getAllDepartments));
+router.post("/",checkPermission("departments","Add"), validate(createDepartmentSchema), catchAsync(createDepartment));
+router.get("/:id",checkPermission("departments","View"), catchAsync(getDepartmentById));
+router.delete("/:id",checkPermission("departments","Delete"), catchAsync(deleteDepartment));
+router.put("/:id",checkPermission("departments","Edit"), validate(updateDepartmentSchema), catchAsync(updateDepartment));
 export default router;

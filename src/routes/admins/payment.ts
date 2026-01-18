@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { getPaymentById, getAllPayments, createPayment, requestRenewal, payPlanPrice } from '../../controllers/admin/payment';
 import { catchAsync } from '../../utils/catchAsync';
-
+import { checkPermission } from '../../middlewares/checkpermission';
 
 const router = Router();
 
-router.get('/', catchAsync(getAllPayments));
-router.get('/:id', catchAsync(getPaymentById));
-router.post('/', catchAsync(createPayment));
-router.post('/renewal', catchAsync(requestRenewal));
-router.post('/plan-price', catchAsync(payPlanPrice));
+router.get('/',checkPermission("payments","View"), catchAsync(getAllPayments));
+router.get('/:id',checkPermission("payments","View"), catchAsync(getPaymentById));
+router.post('/',checkPermission("payments","Add"), catchAsync(createPayment));
+router.post('/renewal',checkPermission("payments","Add"), catchAsync(requestRenewal));
+router.post('/plan-price',checkPermission("payments","Add"), catchAsync(payPlanPrice));
 
 export default router;

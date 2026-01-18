@@ -4,17 +4,18 @@ import {
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
 import { createCodriverSchema, updateCodriverSchema } from "../../validators/admin/codriver";
+import { checkPermission } from "../../middlewares/checkpermission";
 
 const router = Router();
 
 // ✅ Get All Codrivers
-router.get("/", catchAsync(getAllCodrivers));   
+router.get("/",checkPermission("codrivers","View"), catchAsync(getAllCodrivers));   
 // ✅ Get Codriver By ID
-router.get("/:id", catchAsync(getCodriverById));
+router.get("/:id",checkPermission("codrivers","View"), catchAsync(getCodriverById));
 // ✅ Create Codriver
-router.post("/", validate(createCodriverSchema), catchAsync(createCodriver));
+router.post("/",checkPermission("codrivers","Add"), validate(createCodriverSchema), catchAsync(createCodriver));
 // ✅ Update Codriver
-router.put("/:id", validate(updateCodriverSchema), catchAsync(updateCodriver));
+router.put("/:id",checkPermission("codrivers","Edit"), validate(updateCodriverSchema), catchAsync(updateCodriver));
 // ✅ Delete Codriver
-router.delete("/:id", catchAsync(deleteCodriver));
+router.delete("/:id",checkPermission("codrivers","Delete"), catchAsync(deleteCodriver));
 export default router;

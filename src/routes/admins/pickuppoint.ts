@@ -12,12 +12,12 @@ import {
     createPickupPointSchema,
     updatePickupPointSchema,
 } from "../../validators/admin/pickuppoint";
-
+import { checkPermission } from "../../middlewares/checkpermission";
 const router = Router();
-router.get("/", catchAsync(getAllPickupPoints));
-router.get("/:id", catchAsync(getPickupPointById));
-router.post("/", validate(createPickupPointSchema), catchAsync(createPickupPoint));
-router.put("/:id", validate(updatePickupPointSchema), catchAsync(updatePickupPoint));
-router.delete("/:id", catchAsync(deletePickupPoint));
+router.get("/",checkPermission("pickup_points","View"), catchAsync(getAllPickupPoints));
+router.get("/:id",checkPermission("pickup_points","View"), catchAsync(getPickupPointById));
+router.post("/",checkPermission("pickup_points","Add"), validate(createPickupPointSchema), catchAsync(createPickupPoint));
+router.put("/:id",checkPermission("pickup_points","Edit"), validate(updatePickupPointSchema), catchAsync(updatePickupPoint));
+router.delete("/:id",checkPermission("pickup_points","Delete"), catchAsync(deletePickupPoint));
 
 export default router;

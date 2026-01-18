@@ -9,10 +9,22 @@ export const MODULES = [
   "codrivers",
   "pickup_points",
   "routes",
+  "departments",
   "rides",
   "notes",
   "reports",
   "settings",
+  "students",
+  "parents",
+  "City",
+  "Zone",
+  "feeinstallments",
+  "Subscription",
+  "invoices",
+  "organizationServices",
+  "payments",
+  "paymentMethods",
+  "plans"
 ] as const;
 
 export const ACTION_NAMES = ["View", "Add", "Edit", "Delete", "Status"] as const;

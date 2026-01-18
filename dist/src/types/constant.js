@@ -11,10 +11,22 @@ exports.MODULES = [
     "codrivers",
     "pickup_points",
     "routes",
+    "departments",
     "rides",
     "notes",
     "reports",
     "settings",
+    "students",
+    "parents",
+    "City",
+    "Zone",
+    "feeinstallments",
+    "Subscription",
+    "invoices",
+    "organizationServices",
+    "payments",
+    "paymentMethods",
+    "plans"
 ];
 exports.ACTION_NAMES = ["View", "Add", "Edit", "Delete", "Status"];
 // src/constants/superAdminPermissions.ts

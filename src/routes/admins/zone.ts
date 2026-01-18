@@ -3,15 +3,16 @@ import { createZone,updateZone,getZoneById,getZones ,deleteZone} from "../../con
 import { catchAsync } from "../../utils/catchAsync";
 import { validate } from "../../middlewares/validation";
 import { createZoneSchema, updateZoneSchema } from "../../validators/admin/zone";
+import { checkPermission } from "../../middlewares/checkpermission";
 const router = Router();
 // ✅ Create Zone
-router.post("/", validate(createZoneSchema), catchAsync(createZone));
+router.post("/",checkPermission("Zone","Add"), validate(createZoneSchema), catchAsync(createZone));
 // ✅ Get All Zones
-router.get("/", catchAsync(getZones));
+router.get("/",checkPermission("Zone","View"), catchAsync(getZones));
 // ✅ Get Zone By ID
-router.get("/:id", catchAsync(getZoneById));
+router.get("/:id",checkPermission("Zone","View"), catchAsync(getZoneById));
 // ✅ Update Zone
-router.put("/:id", validate(updateZoneSchema), catchAsync(updateZone));
+router.put("/:id",checkPermission("Zone","Edit"), validate(updateZoneSchema), catchAsync(updateZone));
 // ✅ Delete Zone
-router.delete("/:id", catchAsync(deleteZone));
+router.delete("/:id",checkPermission("Zone","Delete"), catchAsync(deleteZone));
 export default router;
