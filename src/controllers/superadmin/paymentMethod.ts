@@ -4,7 +4,21 @@ import { SuccessResponse } from '../../utils/response';
 import { paymentMethod } from '../../models/schema';
 import { eq } from 'drizzle-orm';
 import { BadRequest } from '../../Errors/BadRequest';
+import { saveBase64Image } from "../../utils/handleImages";
 
+const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
+
+const validateAndSaveLogo = async (req: Request, logo: string): Promise<string> => {
+    if (!logo.match(BASE64_IMAGE_REGEX)) {
+        throw new BadRequest("Invalid logo format. Must be a base64 encoded image (JPEG, PNG, GIF, or WebP)");
+    }
+    try {
+        const logoData = await saveBase64Image(req, logo, 'paymentMethods');
+        return logoData.url;
+    } catch (error: any) {
+        throw new BadRequest(`Failed to save logo: ${error.message}`);
+    }
+};
 
 export const getAllPaymentMethods = async (req: Request, res: Response) => {
     const paymentMethods = await db.query.paymentMethod.findMany();
@@ -31,6 +45,7 @@ export const createPaymentMethod = async (req: Request, res: Response) => {
         throw new BadRequest("Missing required fields");
     }
     let feeAmountNumber: number;
+    const logoUrl = await validateAndSaveLogo(req, logo);
     if (fee_status == true) {
         if (isNaN(fee_amount) || fee_amount < 0) {
             throw new BadRequest("Invalid fee amount");
@@ -40,10 +55,10 @@ export const createPaymentMethod = async (req: Request, res: Response) => {
     } else {
         feeAmountNumber = 0;
     }
-    const newPaymentMethod = await db.insert(paymentMethod).values({
+    await db.insert(paymentMethod).values({
         name,
         description,
-        logo,
+        logo: logoUrl,
         isActive: is_active,
         feeStatus: fee_status,
         feeAmount: feeAmountNumber,
@@ -65,6 +80,8 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
     if (!existingPaymentMethod) {
         throw new BadRequest("Payment Method not found");
     }
+    const logoUrl = await validateAndSaveLogo(req, logo);
+
     let feeAmountNumber: number;
     if (fee_status) {
         if (isNaN(fee_amount) || fee_amount < 0) {
@@ -78,7 +95,7 @@ export const updatePaymentMethod = async (req: Request, res: Response) => {
     await db.update(paymentMethod).set({
         name: name || existingPaymentMethod.name,
         description: description || existingPaymentMethod.description,
-        logo: logo || existingPaymentMethod.logo,
+        logo: logoUrl || existingPaymentMethod.logo,
         isActive: is_active ?? existingPaymentMethod.isActive,
         feeStatus: fee_status ?? existingPaymentMethod.feeStatus,
         feeAmount: fee_amount ?? existingPaymentMethod.feeAmount,
