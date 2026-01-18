@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateRenewalInvoices = void 0;
+exports.checkExpiredSubscriptions = exports.generateRenewalInvoices = void 0;
 const db_1 = require("../models/db");
 const schema_1 = require("../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -70,3 +70,48 @@ const generateRenewalInvoices = async () => {
     }
 };
 exports.generateRenewalInvoices = generateRenewalInvoices;
+/**
+ * Check for expired subscriptions and deactivate them if no renewal payment is pending
+ */
+const checkExpiredSubscriptions = async () => {
+    console.log("⏳ [CRON] Checking for expired subscriptions...");
+    const today = new Date();
+    try {
+        // Find active subscriptions that have ended (endDate < today)
+        const expiredSubs = await db_1.db
+            .select()
+            .from(schema_1.subscriptions)
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true), (0, drizzle_orm_1.lt)(schema_1.subscriptions.endDate, today)));
+        if (expiredSubs.length === 0) {
+            console.log("✅ [CRON] No expired subscriptions found.");
+            return;
+        }
+        console.log(`📋 [CRON] Found ${expiredSubs.length} expired subscriptions to check.`);
+        for (const sub of expiredSubs) {
+            // Check if there's a pending renewal payment for this organization
+            const pendingRenewal = await db_1.db
+                .select()
+                .from(schema_1.payment)
+                .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.payment.organizationId, sub.organizationId), (0, drizzle_orm_1.eq)(schema_1.payment.status, "pending"), (0, drizzle_orm_1.eq)(schema_1.payment.paymentType, "renewal")))
+                .limit(1);
+            if (pendingRenewal.length > 0) {
+                console.log(`⏳ Subscription ${sub.id} has pending renewal, keeping active.`);
+                continue;
+            }
+            // No pending renewal - deactivate the subscription
+            await db_1.db.update(schema_1.subscriptions)
+                .set({ isActive: false })
+                .where((0, drizzle_orm_1.eq)(schema_1.subscriptions.id, sub.id));
+            // Update organization status to "active" (no longer subscribed)
+            await db_1.db.update(schema_1.organizations)
+                .set({ status: "active" })
+                .where((0, drizzle_orm_1.eq)(schema_1.organizations.id, sub.organizationId));
+            console.log(`⛔ Deactivated subscription ${sub.id} for org ${sub.organizationId}`);
+        }
+        console.log("✅ [CRON] Expired subscription check completed.");
+    }
+    catch (err) {
+        console.error("❌ [CRON] Error checking expired subscriptions:", err);
+    }
+};
+exports.checkExpiredSubscriptions = checkExpiredSubscriptions;

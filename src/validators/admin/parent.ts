@@ -7,6 +7,7 @@ const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
 export const createParentSchema = z.object({
     body: z.object({
                 fcm_tokens: z.string().optional(),
+                email: z.string().email("Invalid email").optional(),
 
         name: z
             .string({ required_error: "Parent name is required" })
@@ -40,6 +41,7 @@ export const updateParentSchema = z.object({
     }),
     body: z.object({
      fcm_tokens: z.string().optional(),
+     email: z.string().email("Invalid email").optional(),
 
         name: z
             .string()

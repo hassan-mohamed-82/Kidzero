@@ -85,6 +85,8 @@ async function login(req, res) {
     // 5) إنشاء التوكن
     const tokenPayload = {
         id: admin[0].id,
+        type: admin[0].type,
+        email: admin[0].email,
         name: admin[0].name,
         organizationId: admin[0].organizationId,
     };

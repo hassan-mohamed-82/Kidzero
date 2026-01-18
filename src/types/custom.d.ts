@@ -21,6 +21,8 @@ export interface TokenPayload {
     id: string;
     name: string;
     role: Role;
+    email?: string;
+    phone?: string;
     organizationId?: string;
     permissions?: Permission[];
 }
@@ -31,6 +33,7 @@ declare global {
     namespace Express {
         interface Request {
             user?: AppUser;
+            parent?: AppUser;
         }
     }
 }

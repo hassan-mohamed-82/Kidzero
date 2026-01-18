@@ -13,6 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const generateSuperAdminToken = (data) => {
     const payload = {
         id: data.id,
+        email: data.email,
         name: data.name,
         role: "superadmin",
     };
@@ -23,6 +24,7 @@ exports.generateSuperAdminToken = generateSuperAdminToken;
 const generateOrganizerToken = (data) => {
     const payload = {
         id: data.id,
+        email: data.email,
         name: data.name,
         role: "organizer",
         organizationId: data.organizationId,
@@ -35,6 +37,7 @@ const generateAdminToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
+        email: data.email,
         role: "admin",
         organizationId: data.organizationId,
     };
@@ -46,6 +49,7 @@ const generateDriverToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
+        email: data.email,
         role: "driver",
         organizationId: data.organizationId,
     };
@@ -57,6 +61,7 @@ const generateCoDriverToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
+        email: data.email,
         role: "codriver",
         organizationId: data.organizationId,
     };
@@ -68,6 +73,8 @@ const generateParentToken = (data) => {
     const payload = {
         id: data.id,
         name: data.name,
+        email: data.email,
+        phone: data.phone,
         role: "parent",
         organizationId: data.organizationId,
     };

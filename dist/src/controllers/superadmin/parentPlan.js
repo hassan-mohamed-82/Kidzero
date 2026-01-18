@@ -46,9 +46,6 @@ const createParentPlan = async (req, res) => {
     if (!name || !subscriptionFees || !minSubscriptionfeesPay) {
         throw new BadRequest_1.BadRequest("Please provide all required fields: name, subscriptionFees , minSubscriptionfeesPay");
     }
-    if (!startDate || !endDate) {
-        throw new BadRequest_1.BadRequest("Please provide startDate and endDate");
-    }
     await db_1.db.insert(schema_1.parentPlans).values({
         name,
         price,
@@ -63,7 +60,7 @@ const updateParentPlan = async (req, res) => {
     if (!id) {
         throw new BadRequest_1.BadRequest("Please Enter Parent Plan Id");
     }
-    const { name, price, startDate, endDate, minSubscriptionfeesPay, subscriptionFees } = req.body;
+    const { name, price, minSubscriptionfeesPay, subscriptionFees } = req.body;
     const parentPlan = await db_1.db.query.parentPlans.findFirst({
         where: (0, drizzle_orm_1.eq)(schema_1.parentPlans.id, id)
     });

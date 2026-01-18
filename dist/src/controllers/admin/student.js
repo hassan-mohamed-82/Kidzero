@@ -1,7 +1,7 @@
 "use strict";
 // src/controllers/admin/studentController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.selection = exports.deleteStudent = exports.updateStudent = exports.getStudentById = exports.getAllStudents = exports.createStudent = void 0;
+exports.getStudentsWithoutParent = exports.selection = exports.deleteStudent = exports.updateStudent = exports.getStudentById = exports.getAllStudents = exports.createStudent = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -11,51 +11,63 @@ const BadRequest_1 = require("../../Errors/BadRequest");
 const handleImages_1 = require("../../utils/handleImages");
 const deleteImage_1 = require("../../utils/deleteImage");
 const uuid_1 = require("uuid");
-// ✅ Create Student
+const GenerateUniqueCode_1 = require("../../utils/GenerateUniqueCode");
+// ✅ Create Student (بدون Parent - بيتربط بعدين بالـ Code)
+// src/controllers/admin/studentController.ts
 const createStudent = async (req, res) => {
-    const { parentId, name, avatar, grade, classroom, zoneId } = req.body;
+    const { name, avatar, grade, classroom, zoneId } = req.body;
+    // ✅ تأكد من استخدام req.admin مش req.user
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
+    if (!name) {
+        throw new BadRequest_1.BadRequest("Student name is required");
+    }
     if (!zoneId) {
         throw new BadRequest_1.BadRequest("Zone ID is required");
     }
-    // تحقق من الـ Parent
-    const parent = await db_1.db
-        .select()
-        .from(schema_1.parents)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parents.id, parentId), (0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId)))
-        .limit(1);
-    if (!parent[0]) {
-        throw new NotFound_1.NotFound("Parent not found");
-    }
-    // ✅ تحقق من الـ Zone (بدون organizationId)
-    const zone = await db_1.db
+    // تحقق من الـ Zone
+    const [zone] = await db_1.db
         .select()
         .from(schema_1.zones)
         .where((0, drizzle_orm_1.eq)(schema_1.zones.id, zoneId))
         .limit(1);
-    if (!zone[0]) {
+    if (!zone) {
         throw new NotFound_1.NotFound("Zone not found");
     }
+    // Generate unique code
+    const code = await (0, GenerateUniqueCode_1.generateUniqueStudentCode)();
     const studentId = (0, uuid_1.v4)();
+    // معالجة الصورة
     let avatarUrl = null;
     if (avatar) {
         const result = await (0, handleImages_1.saveBase64Image)(req, avatar, `students/${studentId}`);
         avatarUrl = result.url;
     }
+    // ✅ الإدراج - بدون parentId خالص (هيكون null تلقائي)
     await db_1.db.insert(schema_1.students).values({
         id: studentId,
         organizationId,
-        parentId,
+        // ❌ لا تضع parentId هنا - خليه يكون undefined فيتجاهله
+        code,
         zoneId,
         name,
         avatar: avatarUrl,
         grade: grade || null,
         classroom: classroom || null,
     });
-    (0, response_1.SuccessResponse)(res, { message: "Student created successfully", studentId }, 201);
+    return (0, response_1.SuccessResponse)(res, {
+        message: "Student created successfully",
+        student: {
+            id: studentId,
+            name,
+            code, // ✅ الكود اللي هيديه الأدمن لولي الأمر
+            grade,
+            classroom,
+            avatar: avatarUrl,
+        },
+    }, 201);
 };
 exports.createStudent = createStudent;
 // ✅ Get All Students
@@ -68,27 +80,53 @@ const getAllStudents = async (req, res) => {
         .select({
         id: schema_1.students.id,
         name: schema_1.students.name,
+        code: schema_1.students.code, // ✅
         avatar: schema_1.students.avatar,
         grade: schema_1.students.grade,
         classroom: schema_1.students.classroom,
+        walletBalance: schema_1.students.walletBalance, // ✅
+        nfcId: schema_1.students.nfcId, // ✅
         status: schema_1.students.status,
         createdAt: schema_1.students.createdAt,
-        updatedAt: schema_1.students.updatedAt,
-        parent: {
-            id: schema_1.parents.id,
-            name: schema_1.parents.name,
-            phone: schema_1.parents.phone,
-        },
-        zone: {
-            id: schema_1.zones.id,
-            name: schema_1.zones.name,
-        },
+        parentId: schema_1.students.parentId,
+        parentName: schema_1.parents.name,
+        parentPhone: schema_1.parents.phone,
+        zoneId: schema_1.zones.id,
+        zoneName: schema_1.zones.name,
     })
         .from(schema_1.students)
         .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
         .leftJoin(schema_1.zones, (0, drizzle_orm_1.eq)(schema_1.students.zoneId, schema_1.zones.id))
         .where((0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId));
-    (0, response_1.SuccessResponse)(res, { students: allStudents }, 200);
+    const formattedStudents = allStudents.map((s) => ({
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        avatar: s.avatar,
+        grade: s.grade,
+        classroom: s.classroom,
+        status: s.status,
+        createdAt: s.createdAt,
+        hasParent: !!s.parentId, // ✅
+        hasNfc: !!s.nfcId, // ✅
+        wallet: {
+            balance: Number(s.walletBalance) || 0,
+        },
+        parent: s.parentId
+            ? {
+                id: s.parentId,
+                name: s.parentName,
+                phone: s.parentPhone,
+            }
+            : null,
+        zone: s.zoneId
+            ? {
+                id: s.zoneId,
+                name: s.zoneName,
+            }
+            : null,
+    }));
+    (0, response_1.SuccessResponse)(res, { students: formattedStudents }, 200);
 };
 exports.getAllStudents = getAllStudents;
 // ✅ Get Student By ID
@@ -98,81 +136,104 @@ const getStudentById = async (req, res) => {
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const student = await db_1.db
+    const [student] = await db_1.db
         .select({
         id: schema_1.students.id,
         name: schema_1.students.name,
+        code: schema_1.students.code,
         avatar: schema_1.students.avatar,
         grade: schema_1.students.grade,
         classroom: schema_1.students.classroom,
+        walletBalance: schema_1.students.walletBalance,
+        nfcId: schema_1.students.nfcId,
         status: schema_1.students.status,
         createdAt: schema_1.students.createdAt,
         updatedAt: schema_1.students.updatedAt,
-        parent: {
-            id: schema_1.parents.id,
-            name: schema_1.parents.name,
-            phone: schema_1.parents.phone,
-            address: schema_1.parents.address,
-        },
-        zone: {
-            id: schema_1.zones.id,
-            name: schema_1.zones.name,
-        },
+        parentId: schema_1.students.parentId,
+        parentName: schema_1.parents.name,
+        parentPhone: schema_1.parents.phone,
+        parentEmail: schema_1.parents.email,
+        parentAddress: schema_1.parents.address,
+        zoneId: schema_1.zones.id,
+        zoneName: schema_1.zones.name,
+        zoneCost: schema_1.zones.cost,
     })
         .from(schema_1.students)
         .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
         .leftJoin(schema_1.zones, (0, drizzle_orm_1.eq)(schema_1.students.zoneId, schema_1.zones.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.id, id), (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)))
         .limit(1);
-    if (!student[0]) {
+    if (!student) {
         throw new NotFound_1.NotFound("Student not found");
     }
-    (0, response_1.SuccessResponse)(res, { student: student[0] }, 200);
+    (0, response_1.SuccessResponse)(res, {
+        student: {
+            id: student.id,
+            name: student.name,
+            code: student.code,
+            avatar: student.avatar,
+            grade: student.grade,
+            classroom: student.classroom,
+            status: student.status,
+            createdAt: student.createdAt,
+            updatedAt: student.updatedAt,
+            hasParent: !!student.parentId,
+            hasNfc: !!student.nfcId,
+            wallet: {
+                balance: Number(student.walletBalance) || 0,
+            },
+            parent: student.parentId
+                ? {
+                    id: student.parentId,
+                    name: student.parentName,
+                    phone: student.parentPhone,
+                    email: student.parentEmail,
+                    address: student.parentAddress,
+                }
+                : null,
+            zone: student.zoneId
+                ? {
+                    id: student.zoneId,
+                    name: student.zoneName,
+                    cost: student.zoneCost,
+                }
+                : null,
+        },
+    }, 200);
 };
 exports.getStudentById = getStudentById;
 // ✅ Update Student
 const updateStudent = async (req, res) => {
     const { id } = req.params;
-    const { parentId, name, avatar, grade, classroom, status, zoneId } = req.body;
+    const { name, avatar, grade, classroom, status, zoneId } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const existingStudent = await db_1.db
+    const [existingStudent] = await db_1.db
         .select()
         .from(schema_1.students)
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.id, id), (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)))
         .limit(1);
-    if (!existingStudent[0]) {
+    if (!existingStudent) {
         throw new NotFound_1.NotFound("Student not found");
     }
-    // تحقق من الـ Parent الجديد
-    if (parentId && parentId !== existingStudent[0].parentId) {
-        const parent = await db_1.db
-            .select()
-            .from(schema_1.parents)
-            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parents.id, parentId), (0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId)))
-            .limit(1);
-        if (!parent[0]) {
-            throw new NotFound_1.NotFound("Parent not found");
-        }
-    }
-    // ✅ تحقق من الـ Zone الجديد (بدون organizationId)
-    if (zoneId && zoneId !== existingStudent[0].zoneId) {
-        const zone = await db_1.db
+    // تحقق من الـ Zone الجديد
+    if (zoneId && zoneId !== existingStudent.zoneId) {
+        const [zone] = await db_1.db
             .select()
             .from(schema_1.zones)
             .where((0, drizzle_orm_1.eq)(schema_1.zones.id, zoneId))
             .limit(1);
-        if (!zone[0]) {
+        if (!zone) {
             throw new NotFound_1.NotFound("Zone not found");
         }
     }
     // معالجة الصورة
-    let avatarUrl = existingStudent[0].avatar;
+    let avatarUrl = existingStudent.avatar;
     if (avatar !== undefined) {
-        if (existingStudent[0].avatar) {
-            await (0, deleteImage_1.deletePhotoFromServer)(existingStudent[0].avatar);
+        if (existingStudent.avatar) {
+            await (0, deleteImage_1.deletePhotoFromServer)(existingStudent.avatar);
         }
         if (avatar) {
             const result = await (0, handleImages_1.saveBase64Image)(req, avatar, `students/${id}`);
@@ -182,16 +243,17 @@ const updateStudent = async (req, res) => {
             avatarUrl = null;
         }
     }
-    // تحديث الطالب
-    await db_1.db.update(schema_1.students).set({
-        parentId: parentId ?? existingStudent[0].parentId,
-        zoneId: zoneId ?? existingStudent[0].zoneId,
-        name: name ?? existingStudent[0].name,
+    await db_1.db
+        .update(schema_1.students)
+        .set({
+        zoneId: zoneId ?? existingStudent.zoneId,
+        name: name ?? existingStudent.name,
         avatar: avatarUrl,
-        grade: grade !== undefined ? grade : existingStudent[0].grade,
-        classroom: classroom !== undefined ? classroom : existingStudent[0].classroom,
-        status: status ?? existingStudent[0].status,
-    }).where((0, drizzle_orm_1.eq)(schema_1.students.id, id));
+        grade: grade !== undefined ? grade : existingStudent.grade,
+        classroom: classroom !== undefined ? classroom : existingStudent.classroom,
+        status: status ?? existingStudent.status,
+    })
+        .where((0, drizzle_orm_1.eq)(schema_1.students.id, id));
     (0, response_1.SuccessResponse)(res, { message: "Student updated successfully" }, 200);
 };
 exports.updateStudent = updateStudent;
@@ -202,16 +264,16 @@ const deleteStudent = async (req, res) => {
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const existingStudent = await db_1.db
+    const [existingStudent] = await db_1.db
         .select()
         .from(schema_1.students)
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.id, id), (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)))
         .limit(1);
-    if (!existingStudent[0]) {
+    if (!existingStudent) {
         throw new NotFound_1.NotFound("Student not found");
     }
-    if (existingStudent[0].avatar) {
-        await (0, deleteImage_1.deletePhotoFromServer)(existingStudent[0].avatar);
+    if (existingStudent.avatar) {
+        await (0, deleteImage_1.deletePhotoFromServer)(existingStudent.avatar);
     }
     await db_1.db.delete(schema_1.students).where((0, drizzle_orm_1.eq)(schema_1.students.id, id));
     (0, response_1.SuccessResponse)(res, { message: "Student deleted successfully" }, 200);
@@ -223,14 +285,6 @@ const selection = async (req, res) => {
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const allParents = await db_1.db
-        .select({
-        id: schema_1.parents.id,
-        name: schema_1.parents.name,
-        phone: schema_1.parents.phone,
-    })
-        .from(schema_1.parents)
-        .where((0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId));
     // ✅ كل الـ zones (مشتركة)
     const allZones = await db_1.db
         .select({
@@ -240,8 +294,30 @@ const selection = async (req, res) => {
     })
         .from(schema_1.zones);
     (0, response_1.SuccessResponse)(res, {
-        parents: allParents,
         zones: allZones,
     }, 200);
 };
 exports.selection = selection;
+// ✅ Get Students Without Parent (الطلاب اللي مش مربوطين بولي أمر)
+const getStudentsWithoutParent = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const studentsWithoutParent = await db_1.db
+        .select({
+        id: schema_1.students.id,
+        name: schema_1.students.name,
+        code: schema_1.students.code,
+        grade: schema_1.students.grade,
+        classroom: schema_1.students.classroom,
+        createdAt: schema_1.students.createdAt,
+    })
+        .from(schema_1.students)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId), (0, drizzle_orm_1.isNull)(schema_1.students.parentId)));
+    (0, response_1.SuccessResponse)(res, {
+        students: studentsWithoutParent,
+        count: studentsWithoutParent.length,
+    }, 200);
+};
+exports.getStudentsWithoutParent = getStudentsWithoutParent;

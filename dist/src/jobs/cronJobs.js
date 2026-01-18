@@ -10,8 +10,9 @@ const startCronJobs = () => {
     // Schedule: Every day at 00:00 (Midnight)
     // Format: "minute hour day-of-month month day-of-week"
     node_cron_1.default.schedule("0 0 * * *", async () => {
-        console.log("--- Triggering Daily Invoice Job ---");
+        console.log("--- Triggering Daily Cron Jobs ---");
         await (0, cronServices_1.generateRenewalInvoices)();
+        await (0, cronServices_1.checkExpiredSubscriptions)();
     });
     console.log("🕒 Cron Jobs Initialized");
 };

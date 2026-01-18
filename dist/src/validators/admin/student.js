@@ -4,11 +4,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.studentIdSchema = exports.updateStudentSchema = exports.createStudentSchema = void 0;
 const zod_1 = require("zod");
 const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
+// ✅ Create Student - بدون parentId
 exports.createStudentSchema = zod_1.z.object({
     body: zod_1.z.object({
-        parentId: zod_1.z
-            .string({ required_error: "Parent ID is required" })
-            .uuid("Invalid Parent ID"),
         name: zod_1.z
             .string({ required_error: "Student name is required" })
             .min(1, "Student name cannot be empty")
@@ -30,15 +28,12 @@ exports.createStudentSchema = zod_1.z.object({
             .optional(),
     }),
 });
+// ✅ Update Student - بدون parentId
 exports.updateStudentSchema = zod_1.z.object({
     params: zod_1.z.object({
         id: zod_1.z.string().uuid("Invalid Student ID"),
     }),
     body: zod_1.z.object({
-        parentId: zod_1.z
-            .string()
-            .uuid("Invalid Parent ID")
-            .optional(),
         zoneId: zod_1.z
             .string()
             .uuid("Invalid Zone ID")
@@ -63,9 +58,7 @@ exports.updateStudentSchema = zod_1.z.object({
             .max(50, "Classroom cannot exceed 50 characters")
             .nullable()
             .optional(),
-        status: zod_1.z
-            .enum(["active", "inactive"])
-            .optional(),
+        status: zod_1.z.enum(["active", "inactive"]).optional(),
     }),
 });
 exports.studentIdSchema = zod_1.z.object({

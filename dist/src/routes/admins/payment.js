@@ -7,4 +7,6 @@ const router = (0, express_1.Router)();
 router.get('/', (0, catchAsync_1.catchAsync)(payment_1.getAllPayments));
 router.get('/:id', (0, catchAsync_1.catchAsync)(payment_1.getPaymentById));
 router.post('/', (0, catchAsync_1.catchAsync)(payment_1.createPayment));
+router.post('/renewal', (0, catchAsync_1.catchAsync)(payment_1.requestRenewal));
+router.post('/plan-price', (0, catchAsync_1.catchAsync)(payment_1.payPlanPrice));
 exports.default = router;

@@ -327,6 +327,11 @@ const deleteBus = async (req, res) => {
     if (!existingBus[0]) {
         throw new NotFound_1.NotFound("Bus not found");
     }
+    // Check if bus has associated rides
+    const associatedRides = await db_1.db.select().from(schema_1.rides).where((0, drizzle_orm_1.eq)(schema_1.rides.busId, id)).limit(1);
+    if (associatedRides.length > 0) {
+        throw new BadRequest_1.BadRequest("Cannot delete bus: there are rides associated with this bus. Please delete or reassign the rides first.");
+    }
     // حذف الصور من السيرفر
     if (existingBus[0].licenseImage) {
         await (0, deleteImage_1.deletePhotoFromServer)(existingBus[0].licenseImage);

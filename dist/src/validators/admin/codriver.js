@@ -6,6 +6,7 @@ const zod_1 = require("zod");
 const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
 exports.createCodriverSchema = zod_1.z.object({
     body: zod_1.z.object({
+        email: zod_1.z.string().email("Invalid email format"),
         name: zod_1.z
             .string({ required_error: "Codriver name is required" })
             .min(1, "Codriver name cannot be empty")
@@ -38,6 +39,7 @@ exports.updateCodriverSchema = zod_1.z.object({
     }),
     body: zod_1.z.object({
         fcm_tokens: zod_1.z.string().optional(),
+        email: zod_1.z.string().email("Invalid email format").optional(),
         name: zod_1.z
             .string()
             .min(1, "Codriver name cannot be empty")

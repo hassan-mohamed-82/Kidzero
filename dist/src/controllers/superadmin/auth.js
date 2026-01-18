@@ -25,6 +25,7 @@ async function login(req, res) {
     }
     const token = (0, auth_1.generateSuperAdminToken)({
         id: SuperAdmin.id,
+        email: SuperAdmin.email,
         name: SuperAdmin.name,
     });
     (0, response_1.SuccessResponse)(res, { message: "login Successful", token: token,

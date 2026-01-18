@@ -15,7 +15,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // ✅ Create Driver
 export const createDriver = async (req: Request, res: Response) => {
-    const { name, phone, password, avatar, licenseExpiry, licenseImage, nationalId, nationalIdImage } = req.body;
+    const { name, phone, password,email ,avatar, licenseExpiry, licenseImage, nationalId, nationalIdImage } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -64,6 +64,7 @@ export const createDriver = async (req: Request, res: Response) => {
     await db.insert(drivers).values({
         id: driverId,
         organizationId,
+        email,
         name,
         phone,
         password: hashedPassword,
@@ -142,7 +143,7 @@ export const getDriverById = async (req: Request, res: Response) => {
 // ✅ Update Driver
 export const updateDriver = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, phone, password, avatar, licenseExpiry, licenseImage, nationalId, nationalIdImage, status } = req.body;
+    const { name, phone, password,email, avatar, licenseExpiry, licenseImage, nationalId, nationalIdImage, status } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -224,6 +225,7 @@ export const updateDriver = async (req: Request, res: Response) => {
         name: name ?? existingDriver[0].name,
         phone: phone ?? existingDriver[0].phone,
         password: hashedPassword,
+        email: email ?? existingDriver[0].email,
         avatar: avatarUrl,
         licenseExpiry: licenseExpiry !== undefined 
             ? (licenseExpiry ? new Date(licenseExpiry) : null) 

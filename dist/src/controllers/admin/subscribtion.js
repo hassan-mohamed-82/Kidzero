@@ -1,185 +1,161 @@
 "use strict";
 // // src/controllers/admin/subscriptionController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-// import { Request, Response } from "express";
-// import { db } from "../../models/db";
-// import { subscriptions, plans, payment, paymentMethod } from "../../models/schema";
-// import { eq, and, desc, gte } from "drizzle-orm";
-// import { SuccessResponse } from "../../utils/response";
-// import { NotFound } from "../../Errors/NotFound";
-// import { BadRequest } from "../../Errors/BadRequest";
-// import { sql } from "drizzle-orm";
-// import { v4 as uuidv4 } from "uuid";
-// import { saveBase64Image } from "../../utils/handleImages";
-// // ✅ Get My Subscriptions (Active & Inactive)
-// export const getMySubscriptions = async (req: Request, res: Response) => {
-//   const organizationId = req.user?.organizationId;
-//   if (!organizationId) {
-//     throw new BadRequest("Organization ID is required");
-//   }
-//   const now = new Date();
-//   const allSubscriptions = await db
-//     .select({
-//       id: subscriptions.id,
-//       startDate: subscriptions.startDate,
-//       endDate: subscriptions.endDate,
-//       isActive: subscriptions.isActive,
-//       createdAt: subscriptions.createdAt,
-//       plan: {
-//         id: plans.id,
-//         name: plans.name,
-//         price: plans.price,
-//         maxBuses: plans.maxBuses,
-//         maxDrivers: plans.maxDrivers,
-//         maxStudents: plans.maxStudents,
-//       },
-//       payment: {
-//         id: payment.id,
-//         amount: payment.amount,
-//         status: payment.status,
-//         receiptImage: payment.receiptImage,
-//         rejectedReason: payment.rejectedReason,
-//       },
-//     })
-//     .from(subscriptions)
-//     .leftJoin(plans, eq(subscriptions.planId, plans.id))
-//     .leftJoin(payment, eq(subscriptions.paymentId, payment.id))
-//     .where(eq(subscriptions.organizationId, organizationId))
-//     .orderBy(desc(subscriptions.createdAt));
-//   // Active: payment completed, isActive = true, not expired
-//   const active = allSubscriptions.filter(
-//     (sub) =>
-//       sub.payment?.status === "completed" &&
-//       sub.isActive &&
-//       new Date(sub.endDate) >= now
-//   );
-//   // Pending: payment status is pending
-//   const pending = allSubscriptions.filter(
-//     (sub) => sub.payment?.status === "pending"
-//   );
-//   // Rejected: payment status is rejected
-//   const rejected = allSubscriptions.filter(
-//     (sub) => sub.payment?.status === "rejected"
-//   );
-//   // Expired: payment completed but endDate < now
-//   const expired = allSubscriptions.filter(
-//     (sub) =>
-//       sub.payment?.status === "completed" && new Date(sub.endDate) < now
-//   );
-//   // // Cancelled: payment completed, isActive = false, not expired
-//   // const cancelled = allSubscriptions.filter(
-//   //   (sub) =>
-//   //     sub.payment?.status === "completed" &&
-//   //     !sub.isActive &&
-//   //     new Date(sub.endDate) >= now
-//   // );
-//   // Add daysRemaining for active subscriptions
-//   const activeWithInfo = active.map((sub) => {
-//     const daysRemaining = Math.ceil(
-//       (new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-//     );
-//     return {
-//       ...sub,
-//       daysRemaining,
-//       isExpiringSoon: daysRemaining <= 7,
-//     };
-//   });
-//   // Add daysUntilStart for pending subscriptions
-//   const pendingWithInfo = pending.map((sub) => {
-//     const daysUntilStart = Math.ceil(
-//       (new Date(sub.startDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-//     );
-//     return {
-//       ...sub,
-//       daysUntilStart: daysUntilStart > 0 ? daysUntilStart : 0,
-//     };
-//   });
-//   SuccessResponse(
-//     res,
-//     {
-//       active: activeWithInfo,
-//       pending: pendingWithInfo,
-//       rejected,
-//       expired,
-//       //cancelled,
-//       summary: {
-//         totalActive: active.length,
-//         totalPending: pending.length,
-//         totalRejected: rejected.length,
-//         totalExpired: expired.length,
-//         //totalCancelled: cancelled.length,
-//         total: allSubscriptions.length,
-//       },
-//     },
-//     200
-//   );
-// };
-// // ✅ Subscribe (اشتراك جديد)
-// export const getSubscriptionById = async (req: Request, res: Response) => {
-//   const { id } = req.params;
-//   const organizationId = req.user?.organizationId;
-//   if (!organizationId) {
-//     throw new BadRequest("Organization ID is required");
-//   }
-//   const subscription = await db
-//     .select({
-//       id: subscriptions.id,
-//       startDate: subscriptions.startDate,
-//       endDate: subscriptions.endDate,
-//       isActive: subscriptions.isActive,
-//       createdAt: subscriptions.createdAt,
-//       updatedAt: subscriptions.updatedAt,
-//       plan: {
-//         id: plans.id,
-//         name: plans.name,
-//               price: plans.price,
-//         maxBuses: plans.maxBuses,
-//         maxDrivers: plans.maxDrivers,
-//         maxStudents: plans.maxStudents,
-//       },
-//       payment: {
-//         id: payment.id,
-//         amount: payment.amount,
-//         status: payment.status,
-//         receiptImage: payment.receiptImage,
-//         rejectedReason: payment.rejectedReason,
-//       },
-//     })
-//     .from(subscriptions)
-//     .leftJoin(plans, eq(subscriptions.planId, plans.id))
-//     .leftJoin(payment, eq(subscriptions.paymentId, payment.id))
-//     .where(
-//       and(
-//         eq(subscriptions.id, id),
-//         eq(subscriptions.organizationId, organizationId)
-//       )
-//     )
-//     .limit(1);
-//   if (!subscription || subscription.length === 0) {
-//     throw new NotFound("Subscription not found");
-//   }
-//   const sub = subscription[0];
-//   const now = new Date();
-//   const daysRemaining = Math.ceil(
-//     (new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-//   );
-//   SuccessResponse(
-//     res,
-//     {
-//       subscription: {
-//         ...sub,
-//         daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
-//         isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0,
-//         isExpired: daysRemaining <= 0,
-//       },
-//     },
-//     200
-//   );
-// };
-// // ==================== SUBSCRIPTION ACTIONS ====================
-// /**
-//  * Subscribe to a new plan
-//  */
+exports.getSubscriptionById = exports.getMySubscriptions = void 0;
+const db_1 = require("../../models/db");
+const schema_1 = require("../../models/schema");
+const drizzle_orm_1 = require("drizzle-orm");
+const response_1 = require("../../utils/response");
+const NotFound_1 = require("../../Errors/NotFound");
+const BadRequest_1 = require("../../Errors/BadRequest");
+// ✅ Get My Subscriptions (Active & Inactive)
+const getMySubscriptions = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const Org = await db_1.db.query.organizations.findFirst({
+        where: (0, drizzle_orm_1.eq)(schema_1.organizations.id, organizationId),
+    });
+    if (!Org) {
+        throw new NotFound_1.NotFound("Organization not found");
+    }
+    const now = new Date();
+    const allSubscriptions = await db_1.db
+        .select({
+        id: schema_1.subscriptions.id,
+        startDate: schema_1.subscriptions.startDate,
+        endDate: schema_1.subscriptions.endDate,
+        isActive: schema_1.subscriptions.isActive,
+        createdAt: schema_1.subscriptions.createdAt,
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+            price: schema_1.plans.price,
+            maxBuses: schema_1.plans.maxBuses,
+            maxDrivers: schema_1.plans.maxDrivers,
+            maxStudents: schema_1.plans.maxStudents,
+        },
+        payment: {
+            id: schema_1.payment.id,
+            amount: schema_1.payment.amount,
+            status: schema_1.payment.status,
+            receiptImage: schema_1.payment.receiptImage,
+            rejectedReason: schema_1.payment.rejectedReason,
+        },
+    })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_1.plans.id))
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId))
+        .orderBy((0, drizzle_orm_1.desc)(schema_1.subscriptions.createdAt));
+    // Active: payment completed, isActive = true, not expired
+    const active = allSubscriptions.filter((sub) => sub.payment?.status === "completed" &&
+        sub.isActive &&
+        new Date(sub.endDate) >= now);
+    // Pending: payment status is pending
+    const pending = allSubscriptions.filter((sub) => sub.payment?.status === "pending");
+    // Rejected: payment status is rejected
+    const rejected = allSubscriptions.filter((sub) => sub.payment?.status === "rejected");
+    // Expired: payment completed but endDate < now
+    const expired = allSubscriptions.filter((sub) => sub.payment?.status === "completed" && new Date(sub.endDate) < now);
+    // // Cancelled: payment completed, isActive = false, not expired
+    // const cancelled = allSubscriptions.filter(
+    //   (sub) =>
+    //     sub.payment?.status === "completed" &&
+    //     !sub.isActive &&
+    //     new Date(sub.endDate) >= now
+    // );
+    // Add daysRemaining for active subscriptions
+    const activeWithInfo = active.map((sub) => {
+        const daysRemaining = Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+            ...sub,
+            daysRemaining,
+            isExpiringSoon: daysRemaining <= 7,
+        };
+    });
+    // Add daysUntilStart for pending subscriptions
+    const pendingWithInfo = pending.map((sub) => {
+        const daysUntilStart = Math.ceil((new Date(sub.startDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+            ...sub,
+            daysUntilStart: daysUntilStart > 0 ? daysUntilStart : 0,
+        };
+    });
+    (0, response_1.SuccessResponse)(res, {
+        subscriptionStatus: Org.status,
+        active: activeWithInfo,
+        pending: pendingWithInfo,
+        rejected,
+        expired,
+        //cancelled,
+        summary: {
+            totalActive: active.length,
+            totalPending: pending.length,
+            totalRejected: rejected.length,
+            totalExpired: expired.length,
+            //totalCancelled: cancelled.length,
+            total: allSubscriptions.length,
+        },
+    }, 200);
+};
+exports.getMySubscriptions = getMySubscriptions;
+const getSubscriptionById = async (req, res) => {
+    const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const subscription = await db_1.db
+        .select({
+        id: schema_1.subscriptions.id,
+        startDate: schema_1.subscriptions.startDate,
+        endDate: schema_1.subscriptions.endDate,
+        isActive: schema_1.subscriptions.isActive,
+        createdAt: schema_1.subscriptions.createdAt,
+        updatedAt: schema_1.subscriptions.updatedAt,
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+            price: schema_1.plans.price,
+            maxBuses: schema_1.plans.maxBuses,
+            maxDrivers: schema_1.plans.maxDrivers,
+            maxStudents: schema_1.plans.maxStudents,
+        },
+        payment: {
+            id: schema_1.payment.id,
+            amount: schema_1.payment.amount,
+            status: schema_1.payment.status,
+            receiptImage: schema_1.payment.receiptImage,
+            rejectedReason: schema_1.payment.rejectedReason,
+        },
+    })
+        .from(schema_1.subscriptions)
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_1.plans.id))
+        .leftJoin(schema_1.payment, (0, drizzle_orm_1.eq)(schema_1.subscriptions.paymentId, schema_1.payment.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.id, id), (0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId)))
+        .limit(1);
+    if (!subscription || subscription.length === 0) {
+        throw new NotFound_1.NotFound("Subscription not found");
+    }
+    const sub = subscription[0];
+    const now = new Date();
+    const daysRemaining = Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    (0, response_1.SuccessResponse)(res, {
+        subscription: {
+            ...sub,
+            daysRemaining: daysRemaining > 0 ? daysRemaining : 0,
+            isExpiringSoon: daysRemaining <= 7 && daysRemaining > 0,
+            isExpired: daysRemaining <= 0,
+        },
+    }, 200);
+};
+exports.getSubscriptionById = getSubscriptionById;
+// ==================== SUBSCRIPTION ACTIONS ====================
+/**
+ * Subscribe to a new plan
+ */
 // export const subscribe = async (req: Request, res: Response) => {
 //   const { planId, duration, paymentMethodId, receiptImage } = req.body;
 //   const organizationId = req.user?.organizationId;
@@ -454,9 +430,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 //     201
 //   );
 // };
-// /**
-//  * Upgrade to a new plan
-//  */
+/**
+ * Upgrade to a new plan
+ */
 // export const upgradeSubscription = async (req: Request, res: Response) => {
 //   const { newPlanId, paymentMethodId, receiptImage } = req.body;
 //   const organizationId = req.user?.organizationId;

@@ -6,6 +6,7 @@ const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
 
 export const createCodriverSchema = z.object({
     body: z.object({
+        email: z.string().email("Invalid email format"),
         name: z
             .string({ required_error: "Codriver name is required" })
             .min(1, "Codriver name cannot be empty")
@@ -39,6 +40,7 @@ export const updateCodriverSchema = z.object({
     }),
     body: z.object({
                 fcm_tokens: z.string().optional(),
+                email: z.string().email("Invalid email format").optional(),
         name: z
             .string()
             .min(1, "Codriver name cannot be empty")

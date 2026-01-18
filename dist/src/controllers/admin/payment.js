@@ -1,7 +1,7 @@
 "use strict";
 // // src/controllers/admin/paymentController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
+exports.payPlanPrice = exports.requestRenewal = exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -315,3 +315,163 @@ const createPayment = async (req, res) => {
     }, 201);
 };
 exports.createPayment = createPayment;
+/**
+ * Request subscription renewal - Admin pays plan price to extend subscription
+ */
+const requestRenewal = async (req, res) => {
+    const { paymentMethodId, receiptImage } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    if (!paymentMethodId) {
+        throw new BadRequest_1.BadRequest("Payment method ID is required");
+    }
+    // Get active subscription
+    const activeSubscription = await db_1.db.query.subscriptions.findFirst({
+        where: (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true)),
+    });
+    if (!activeSubscription) {
+        throw new NotFound_1.NotFound("No active subscription found to renew");
+    }
+    // Get plan details
+    const plan = await db_1.db.query.plans.findFirst({
+        where: (0, drizzle_orm_1.eq)(schema_1.plans.id, activeSubscription.planId),
+    });
+    if (!plan) {
+        throw new NotFound_1.NotFound("Plan not found");
+    }
+    // Check if there's already a pending renewal
+    const existingRenewal = await db_1.db
+        .select()
+        .from(schema_1.payment)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.payment.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.payment.status, "pending"), (0, drizzle_orm_1.eq)(schema_1.payment.paymentType, "renewal")))
+        .limit(1);
+    if (existingRenewal.length > 0) {
+        throw new BadRequest_1.BadRequest("You already have a pending renewal request. Please wait for Super Admin review.");
+    }
+    // Validate payment method exists and is active
+    const payMethodResult = await db_1.db
+        .select()
+        .from(schema_1.paymentMethod)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId), (0, drizzle_orm_1.eq)(schema_1.paymentMethod.isActive, true)))
+        .limit(1);
+    if (!payMethodResult[0]) {
+        throw new NotFound_1.NotFound("Payment method not found or inactive");
+    }
+    // Save receipt image if provided
+    let receiptImageUrl = null;
+    if (receiptImage) {
+        const savedImage = await (0, handleImages_1.saveBase64Image)(req, receiptImage, "payments/renewals");
+        receiptImageUrl = savedImage.url;
+    }
+    // Create renewal payment - amount is the plan price
+    const newPaymentId = crypto.randomUUID();
+    await db_1.db.insert(schema_1.payment).values({
+        id: newPaymentId,
+        organizationId,
+        planId: activeSubscription.planId,
+        paymentMethodId,
+        amount: plan.price,
+        receiptImage: receiptImageUrl || "",
+        status: "pending",
+        paymentType: "renewal",
+    });
+    // Fetch created payment
+    const createdPayment = await db_1.db
+        .select({
+        id: schema_1.payment.id,
+        amount: schema_1.payment.amount,
+        status: schema_1.payment.status,
+        paymentType: schema_1.payment.paymentType,
+        createdAt: schema_1.payment.createdAt,
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+            price: schema_1.plans.price,
+        },
+    })
+        .from(schema_1.payment)
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.payment.planId, schema_1.plans.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.payment.id, newPaymentId))
+        .limit(1);
+    return (0, response_1.SuccessResponse)(res, {
+        message: "Renewal request submitted successfully. Awaiting super admin approval.",
+        payment: createdPayment[0],
+        subscription: {
+            currentEndDate: activeSubscription.endDate,
+            newEndDateIfApproved: new Date(new Date(activeSubscription.endDate).setFullYear(new Date(activeSubscription.endDate).getFullYear() + 1)),
+        },
+    }, 201);
+};
+exports.requestRenewal = requestRenewal;
+/**
+ * Pay plan price - Admin pays for the plan's price (separate from subscription fees)
+ */
+const payPlanPrice = async (req, res) => {
+    const { planId, paymentMethodId, receiptImage } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    if (!planId || !paymentMethodId) {
+        throw new BadRequest_1.BadRequest("Plan ID and Payment method ID are required");
+    }
+    // Get plan details
+    const plan = await db_1.db.query.plans.findFirst({
+        where: (0, drizzle_orm_1.eq)(schema_1.plans.id, planId),
+    });
+    if (!plan) {
+        throw new NotFound_1.NotFound("Plan not found");
+    }
+    // Validate payment method exists and is active
+    const payMethodResult = await db_1.db
+        .select()
+        .from(schema_1.paymentMethod)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId), (0, drizzle_orm_1.eq)(schema_1.paymentMethod.isActive, true)))
+        .limit(1);
+    if (!payMethodResult[0]) {
+        throw new NotFound_1.NotFound("Payment method not found or inactive");
+    }
+    // Save receipt image if provided
+    let receiptImageUrl = null;
+    if (receiptImage) {
+        const savedImage = await (0, handleImages_1.saveBase64Image)(req, receiptImage, "payments/plan-price");
+        receiptImageUrl = savedImage.url;
+    }
+    // Create plan price payment
+    const newPaymentId = crypto.randomUUID();
+    await db_1.db.insert(schema_1.payment).values({
+        id: newPaymentId,
+        organizationId,
+        planId,
+        paymentMethodId,
+        amount: plan.price,
+        receiptImage: receiptImageUrl || "",
+        status: "pending",
+        paymentType: "plan_price",
+    });
+    // Fetch created payment
+    const createdPayment = await db_1.db
+        .select({
+        id: schema_1.payment.id,
+        amount: schema_1.payment.amount,
+        status: schema_1.payment.status,
+        paymentType: schema_1.payment.paymentType,
+        createdAt: schema_1.payment.createdAt,
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+            price: schema_1.plans.price,
+        },
+    })
+        .from(schema_1.payment)
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.payment.planId, schema_1.plans.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.payment.id, newPaymentId))
+        .limit(1);
+    return (0, response_1.SuccessResponse)(res, {
+        message: "Plan price payment submitted successfully. Awaiting super admin approval.",
+        payment: createdPayment[0],
+    }, 201);
+};
+exports.payPlanPrice = payPlanPrice;

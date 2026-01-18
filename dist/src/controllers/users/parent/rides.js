@@ -1,19 +1,20 @@
 "use strict";
 // src/controllers/users/parent/rides.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.submitExcuse = exports.getLiveTracking = exports.getChildRides = exports.getMyChildrenRides = void 0;
+exports.getRideHistorySummary = exports.submitExcuse = exports.getLiveTracking = exports.getChildRides = exports.getTodayRidesForAllChildren = exports.getMyChildrenRides = void 0;
 const db_1 = require("../../../models/db");
 const schema_1 = require("../../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
 const response_1 = require("../../../utils/response");
 const NotFound_1 = require("../../../Errors/NotFound");
 const BadRequest_1 = require("../../../Errors/BadRequest");
+// ✅ Get All Children with Their Rides
 const getMyChildrenRides = async (req, res) => {
     const parentId = req.user?.id;
     if (!parentId) {
         throw new BadRequest_1.BadRequest("Parent authentication required");
     }
-    // جلب أولاد الـ Parent
+    // جلب أولاد الـ Parent مع معلومات المدرسة
     const myChildren = await db_1.db
         .select({
         id: schema_1.students.id,
@@ -21,11 +22,21 @@ const getMyChildrenRides = async (req, res) => {
         avatar: schema_1.students.avatar,
         grade: schema_1.students.grade,
         classroom: schema_1.students.classroom,
+        code: schema_1.students.code,
+        // معلومات المدرسة
+        organizationId: schema_1.students.organizationId,
+        organizationName: schema_1.organizations.name,
+        organizationLogo: schema_1.organizations.logo,
     })
         .from(schema_1.students)
+        .leftJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.students.organizationId, schema_1.organizations.id))
         .where((0, drizzle_orm_1.eq)(schema_1.students.parentId, parentId));
     if (myChildren.length === 0) {
-        return (0, response_1.SuccessResponse)(res, { children: [] }, 200);
+        return (0, response_1.SuccessResponse)(res, {
+            children: [],
+            byOrganization: [],
+            totalChildren: 0,
+        }, 200);
     }
     const childrenIds = myChildren.map((c) => c.id);
     // جلب الرحلات لكل طفل
@@ -35,9 +46,11 @@ const getMyChildrenRides = async (req, res) => {
         rideId: schema_1.rides.id,
         rideName: schema_1.rides.name,
         rideType: schema_1.rides.rideType,
+        frequency: schema_1.rides.frequency,
         pickupTime: schema_1.rideStudents.pickupTime,
         pickupPointId: schema_1.pickupPoints.id,
         pickupPointName: schema_1.pickupPoints.name,
+        pickupPointAddress: schema_1.pickupPoints.address,
         pickupPointLat: schema_1.pickupPoints.lat,
         pickupPointLng: schema_1.pickupPoints.lng,
         busId: schema_1.buses.id,
@@ -54,38 +67,193 @@ const getMyChildrenRides = async (req, res) => {
         .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
         .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideStudents.studentId, childrenIds), (0, drizzle_orm_1.eq)(schema_1.rides.isActive, "on")));
-    // تجميع البيانات
+    // تجميع البيانات مع المدرسة
     const childrenWithRides = myChildren.map((child) => ({
-        ...child,
+        id: child.id,
+        name: child.name,
+        avatar: child.avatar,
+        grade: child.grade,
+        classroom: child.classroom,
+        code: child.code,
+        organization: {
+            id: child.organizationId,
+            name: child.organizationName,
+            logo: child.organizationLogo,
+        },
         rides: childrenRides
             .filter((r) => r.studentId === child.id)
             .map((r) => ({
             id: r.rideId,
             name: r.rideName,
             type: r.rideType,
+            frequency: r.frequency,
             pickupTime: r.pickupTime,
-            pickupPoint: {
-                id: r.pickupPointId,
-                name: r.pickupPointName,
-                lat: r.pickupPointLat,
-                lng: r.pickupPointLng,
-            },
-            bus: {
-                id: r.busId,
-                busNumber: r.busNumber,
-                plateNumber: r.plateNumber,
-            },
-            driver: {
-                id: r.driverId,
-                name: r.driverName,
-                phone: r.driverPhone,
-                avatar: r.driverAvatar,
-            },
+            pickupPoint: r.pickupPointId
+                ? {
+                    id: r.pickupPointId,
+                    name: r.pickupPointName,
+                    address: r.pickupPointAddress,
+                    location: {
+                        lat: r.pickupPointLat,
+                        lng: r.pickupPointLng,
+                    },
+                }
+                : null,
+            bus: r.busId
+                ? {
+                    id: r.busId,
+                    busNumber: r.busNumber,
+                    plateNumber: r.plateNumber,
+                }
+                : null,
+            driver: r.driverId
+                ? {
+                    id: r.driverId,
+                    name: r.driverName,
+                    phone: r.driverPhone,
+                    avatar: r.driverAvatar,
+                }
+                : null,
         })),
     }));
-    (0, response_1.SuccessResponse)(res, { children: childrenWithRides }, 200);
+    // تجميع حسب المدرسة
+    const byOrganization = Object.values(childrenWithRides.reduce((acc, child) => {
+        const orgId = child.organization.id;
+        if (!acc[orgId]) {
+            acc[orgId] = {
+                organization: child.organization,
+                children: [],
+            };
+        }
+        acc[orgId].children.push(child);
+        return acc;
+    }, {}));
+    (0, response_1.SuccessResponse)(res, {
+        children: childrenWithRides,
+        byOrganization,
+        totalChildren: childrenWithRides.length,
+    }, 200);
 };
 exports.getMyChildrenRides = getMyChildrenRides;
+// ✅ Get Today's Rides for All Children
+const getTodayRidesForAllChildren = async (req, res) => {
+    const parentId = req.user?.id;
+    if (!parentId) {
+        throw new BadRequest_1.BadRequest("Parent authentication required");
+    }
+    // جلب أولاد الـ Parent
+    const myChildren = await db_1.db
+        .select({
+        id: schema_1.students.id,
+        name: schema_1.students.name,
+        avatar: schema_1.students.avatar,
+        grade: schema_1.students.grade,
+        organizationId: schema_1.students.organizationId,
+        organizationName: schema_1.organizations.name,
+        organizationLogo: schema_1.organizations.logo,
+    })
+        .from(schema_1.students)
+        .leftJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.students.organizationId, schema_1.organizations.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.students.parentId, parentId));
+    if (myChildren.length === 0) {
+        return (0, response_1.SuccessResponse)(res, {
+            date: new Date().toISOString().split("T")[0],
+            children: [],
+            summary: {
+                total: 0,
+                pending: 0,
+                pickedUp: 0,
+                droppedOff: 0,
+                absent: 0,
+                excused: 0,
+            },
+        }, 200);
+    }
+    const childrenIds = myChildren.map((c) => c.id);
+    // جلب رحلات اليوم
+    const todayRides = await db_1.db
+        .select({
+        // Student
+        studentId: schema_1.rideOccurrenceStudents.studentId,
+        studentStatus: schema_1.rideOccurrenceStudents.status,
+        pickedUpAt: schema_1.rideOccurrenceStudents.pickedUpAt,
+        droppedOffAt: schema_1.rideOccurrenceStudents.droppedOffAt,
+        pickupTime: schema_1.rideOccurrenceStudents.pickupTime,
+        excuseReason: schema_1.rideOccurrenceStudents.excuseReason,
+        // Occurrence
+        occurrenceId: schema_1.rideOccurrences.id,
+        occurDate: schema_1.rideOccurrences.occurDate,
+        occurrenceStatus: schema_1.rideOccurrences.status,
+        startedAt: schema_1.rideOccurrences.startedAt,
+        completedAt: schema_1.rideOccurrences.completedAt,
+        currentLat: schema_1.rideOccurrences.currentLat,
+        currentLng: schema_1.rideOccurrences.currentLng,
+        // Ride
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        // Bus
+        busId: schema_1.buses.id,
+        busNumber: schema_1.buses.busNumber,
+        plateNumber: schema_1.buses.plateNumber,
+        // Driver
+        driverId: schema_1.drivers.id,
+        driverName: schema_1.drivers.name,
+        driverPhone: schema_1.drivers.phone,
+        driverAvatar: schema_1.drivers.avatar,
+        // Pickup Point
+        pickupPointId: schema_1.pickupPoints.id,
+        pickupPointName: schema_1.pickupPoints.name,
+        pickupPointAddress: schema_1.pickupPoints.address,
+        pickupPointLat: schema_1.pickupPoints.lat,
+        pickupPointLng: schema_1.pickupPoints.lng,
+    })
+        .from(schema_1.rideOccurrenceStudents)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
+        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.pickupPointId, schema_1.pickupPoints.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, childrenIds), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) = CURDATE()`))
+        .orderBy(schema_1.rides.rideType);
+    // تجميع حسب الطفل
+    const childrenWithTodayRides = myChildren.map((child) => {
+        const childRides = todayRides.filter((r) => r.studentId === child.id);
+        return {
+            id: child.id,
+            name: child.name,
+            avatar: child.avatar,
+            grade: child.grade,
+            organization: {
+                id: child.organizationId,
+                name: child.organizationName,
+                logo: child.organizationLogo,
+            },
+            morning: childRides
+                .filter((r) => r.rideType === "morning")
+                .map(formatTodayRide),
+            afternoon: childRides
+                .filter((r) => r.rideType === "afternoon")
+                .map(formatTodayRide),
+            totalRides: childRides.length,
+        };
+    });
+    // إحصائيات
+    const summary = {
+        total: todayRides.length,
+        pending: todayRides.filter((r) => r.studentStatus === "pending").length,
+        pickedUp: todayRides.filter((r) => r.studentStatus === "picked_up").length,
+        droppedOff: todayRides.filter((r) => r.studentStatus === "dropped_off").length,
+        absent: todayRides.filter((r) => r.studentStatus === "absent").length,
+        excused: todayRides.filter((r) => r.studentStatus === "excused").length,
+    };
+    (0, response_1.SuccessResponse)(res, {
+        date: new Date().toISOString().split("T")[0],
+        children: childrenWithTodayRides,
+        summary,
+    }, 200);
+};
+exports.getTodayRidesForAllChildren = getTodayRidesForAllChildren;
 // ✅ Get Child Rides (today / upcoming / history)
 const getChildRides = async (req, res) => {
     const { childId } = req.params;
@@ -95,18 +263,21 @@ const getChildRides = async (req, res) => {
         throw new BadRequest_1.BadRequest("Parent authentication required");
     }
     // تحقق إن الطالب ابن الـ Parent
-    const child = await db_1.db
+    const [child] = await db_1.db
         .select({
         id: schema_1.students.id,
         name: schema_1.students.name,
         avatar: schema_1.students.avatar,
         grade: schema_1.students.grade,
         classroom: schema_1.students.classroom,
+        organizationId: schema_1.students.organizationId,
+        organizationName: schema_1.organizations.name,
     })
         .from(schema_1.students)
+        .leftJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.students.organizationId, schema_1.organizations.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.id, childId), (0, drizzle_orm_1.eq)(schema_1.students.parentId, parentId)))
         .limit(1);
-    if (!child[0]) {
+    if (!child) {
         throw new NotFound_1.NotFound("Child not found");
     }
     const today = new Date();
@@ -126,7 +297,6 @@ const getChildRides = async (req, res) => {
             break;
         case "history":
             dateCondition = (0, drizzle_orm_1.lte)(schema_1.rideOccurrences.occurDate, today);
-            // إضافة فلترة بالتاريخ إذا موجودة
             if (from) {
                 dateCondition = (0, drizzle_orm_1.and)(dateCondition, (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, new Date(from)));
             }
@@ -172,6 +342,7 @@ const getChildRides = async (req, res) => {
         // Pickup Point
         pickupPointId: schema_1.pickupPoints.id,
         pickupPointName: schema_1.pickupPoints.name,
+        pickupPointAddress: schema_1.pickupPoints.address,
         pickupPointLat: schema_1.pickupPoints.lat,
         pickupPointLng: schema_1.pickupPoints.lng,
     })
@@ -192,10 +363,12 @@ const getChildRides = async (req, res) => {
         status: r.occurrenceStatus,
         startedAt: r.startedAt,
         completedAt: r.completedAt,
-        busLocation: r.occurrenceStatus === "in_progress" ? {
-            lat: r.currentLat,
-            lng: r.currentLng,
-        } : null,
+        busLocation: r.occurrenceStatus === "in_progress"
+            ? {
+                lat: r.currentLat,
+                lng: r.currentLng,
+            }
+            : null,
         ride: {
             id: r.rideId,
             name: r.rideName,
@@ -209,27 +382,44 @@ const getChildRides = async (req, res) => {
             pickupTime: r.pickupTime,
             excuseReason: r.excuseReason,
         },
-        bus: {
-            id: r.busId,
-            busNumber: r.busNumber,
-            plateNumber: r.plateNumber,
-        },
-        driver: {
-            id: r.driverId,
-            name: r.driverName,
-            phone: r.driverPhone,
-            avatar: r.driverAvatar,
-        },
-        pickupPoint: {
-            id: r.pickupPointId,
-            name: r.pickupPointName,
-            lat: r.pickupPointLat,
-            lng: r.pickupPointLng,
-        },
+        bus: r.busId
+            ? {
+                id: r.busId,
+                busNumber: r.busNumber,
+                plateNumber: r.plateNumber,
+            }
+            : null,
+        driver: r.driverId
+            ? {
+                id: r.driverId,
+                name: r.driverName,
+                phone: r.driverPhone,
+                avatar: r.driverAvatar,
+            }
+            : null,
+        pickupPoint: r.pickupPointId
+            ? {
+                id: r.pickupPointId,
+                name: r.pickupPointName,
+                address: r.pickupPointAddress,
+                lat: r.pickupPointLat,
+                lng: r.pickupPointLng,
+            }
+            : null,
     }));
-    // تقسيم حسب النوع (للـ today فقط)
+    // بناء الـ Response
     let response = {
-        child: child[0],
+        child: {
+            id: child.id,
+            name: child.name,
+            avatar: child.avatar,
+            grade: child.grade,
+            classroom: child.classroom,
+            organization: {
+                id: child.organizationId,
+                name: child.organizationName,
+            },
+        },
         type,
         rides: formattedRides,
         pagination: {
@@ -241,7 +431,7 @@ const getChildRides = async (req, res) => {
     // إذا كان today، نقسم morning و afternoon
     if (type === "today") {
         response = {
-            child: child[0],
+            child: response.child,
             type,
             date: today.toISOString().split("T")[0],
             morning: formattedRides.filter((r) => r.ride.type === "morning"),
@@ -259,37 +449,51 @@ const getLiveTracking = async (req, res) => {
     if (!parentId) {
         throw new BadRequest_1.BadRequest("Parent authentication required");
     }
-    // تحقق إن الـ Parent عنده طفل في هذه الرحلة
+    // جلب أولاد الـ Parent
     const myChildren = await db_1.db
-        .select({ id: schema_1.students.id })
+        .select({ id: schema_1.students.id, name: schema_1.students.name })
         .from(schema_1.students)
         .where((0, drizzle_orm_1.eq)(schema_1.students.parentId, parentId));
     if (myChildren.length === 0) {
         throw new NotFound_1.NotFound("No children found");
     }
     const childrenIds = myChildren.map((c) => c.id);
-    const occurrence = await db_1.db
+    // تحقق إن الـ Parent عنده طفل في هذه الرحلة
+    const [occurrence] = await db_1.db
         .select({
         occurrenceId: schema_1.rideOccurrences.id,
+        occurDate: schema_1.rideOccurrences.occurDate,
         status: schema_1.rideOccurrences.status,
         currentLat: schema_1.rideOccurrences.currentLat,
         currentLng: schema_1.rideOccurrences.currentLng,
         startedAt: schema_1.rideOccurrences.startedAt,
+        completedAt: schema_1.rideOccurrences.completedAt,
+        // Ride
+        rideId: schema_1.rides.id,
         rideName: schema_1.rides.name,
         rideType: schema_1.rides.rideType,
+        // Bus
+        busId: schema_1.buses.id,
         busNumber: schema_1.buses.busNumber,
         plateNumber: schema_1.buses.plateNumber,
+        // Driver
+        driverId: schema_1.drivers.id,
         driverName: schema_1.drivers.name,
         driverPhone: schema_1.drivers.phone,
+        driverAvatar: schema_1.drivers.avatar,
+        // Route
+        routeId: schema_1.Rout.id,
+        routeName: schema_1.Rout.name,
     })
         .from(schema_1.rideOccurrences)
         .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
         .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
         .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
         .innerJoin(schema_1.rideOccurrenceStudents, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrences.id, occurrenceId), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, childrenIds)))
         .limit(1);
-    if (!occurrence[0]) {
+    if (!occurrence) {
         throw new NotFound_1.NotFound("Ride not found or access denied");
     }
     // جلب حالة أطفال الـ Parent في هذه الرحلة
@@ -299,10 +503,17 @@ const getLiveTracking = async (req, res) => {
         status: schema_1.rideOccurrenceStudents.status,
         pickedUpAt: schema_1.rideOccurrenceStudents.pickedUpAt,
         droppedOffAt: schema_1.rideOccurrenceStudents.droppedOffAt,
+        pickupTime: schema_1.rideOccurrenceStudents.pickupTime,
+        excuseReason: schema_1.rideOccurrenceStudents.excuseReason,
+        // Child
         childId: schema_1.students.id,
         childName: schema_1.students.name,
         childAvatar: schema_1.students.avatar,
+        childGrade: schema_1.students.grade,
+        // Pickup Point
+        pickupPointId: schema_1.pickupPoints.id,
         pickupPointName: schema_1.pickupPoints.name,
+        pickupPointAddress: schema_1.pickupPoints.address,
         pickupPointLat: schema_1.pickupPoints.lat,
         pickupPointLng: schema_1.pickupPoints.lng,
     })
@@ -310,42 +521,86 @@ const getLiveTracking = async (req, res) => {
         .innerJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, schema_1.students.id))
         .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.pickupPointId, schema_1.pickupPoints.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, occurrenceId), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, childrenIds)));
-    const occ = occurrence[0];
+    // جلب نقاط المسار لو موجود
+    let routeStops = [];
+    if (occurrence.routeId) {
+        routeStops = await db_1.db
+            .select({
+            id: schema_1.pickupPoints.id,
+            name: schema_1.pickupPoints.name,
+            address: schema_1.pickupPoints.address,
+            lat: schema_1.pickupPoints.lat,
+            lng: schema_1.pickupPoints.lng,
+            stopOrder: schema_1.routePickupPoints.stopOrder,
+        })
+            .from(schema_1.routePickupPoints)
+            .innerJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.routePickupPoints.pickupPointId, schema_1.pickupPoints.id))
+            .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, occurrence.routeId))
+            .orderBy((0, drizzle_orm_1.asc)(schema_1.routePickupPoints.stopOrder));
+    }
     (0, response_1.SuccessResponse)(res, {
+        occurrence: {
+            id: occurrence.occurrenceId,
+            date: occurrence.occurDate,
+            status: occurrence.status,
+            startedAt: occurrence.startedAt,
+            completedAt: occurrence.completedAt,
+        },
         ride: {
-            id: occ.occurrenceId,
-            name: occ.rideName,
-            type: occ.rideType,
-            status: occ.status,
-            startedAt: occ.startedAt,
+            id: occurrence.rideId,
+            name: occurrence.rideName,
+            type: occurrence.rideType,
         },
-        bus: {
-            busNumber: occ.busNumber,
-            plateNumber: occ.plateNumber,
-            currentLocation: occ.status === "in_progress" ? {
-                lat: occ.currentLat,
-                lng: occ.currentLng,
-            } : null,
-        },
-        driver: {
-            name: occ.driverName,
-            phone: occ.driverPhone,
-        },
+        bus: occurrence.busId
+            ? {
+                id: occurrence.busId,
+                busNumber: occurrence.busNumber,
+                plateNumber: occurrence.plateNumber,
+                currentLocation: occurrence.status === "in_progress"
+                    ? {
+                        lat: occurrence.currentLat,
+                        lng: occurrence.currentLng,
+                    }
+                    : null,
+            }
+            : null,
+        driver: occurrence.driverId
+            ? {
+                id: occurrence.driverId,
+                name: occurrence.driverName,
+                phone: occurrence.driverPhone,
+                avatar: occurrence.driverAvatar,
+            }
+            : null,
+        route: occurrence.routeId
+            ? {
+                id: occurrence.routeId,
+                name: occurrence.routeName,
+                stops: routeStops,
+            }
+            : null,
         children: childrenStatus.map((c) => ({
             id: c.id,
             status: c.status,
             pickedUpAt: c.pickedUpAt,
             droppedOffAt: c.droppedOffAt,
+            pickupTime: c.pickupTime,
+            excuseReason: c.excuseReason,
             child: {
                 id: c.childId,
                 name: c.childName,
                 avatar: c.childAvatar,
+                grade: c.childGrade,
             },
-            pickupPoint: {
-                name: c.pickupPointName,
-                lat: c.pickupPointLat,
-                lng: c.pickupPointLng,
-            },
+            pickupPoint: c.pickupPointId
+                ? {
+                    id: c.pickupPointId,
+                    name: c.pickupPointName,
+                    address: c.pickupPointAddress,
+                    lat: c.pickupPointLat,
+                    lng: c.pickupPointLng,
+                }
+                : null,
         })),
     }, 200);
 };
@@ -358,80 +613,182 @@ const submitExcuse = async (req, res) => {
     if (!parentId) {
         throw new BadRequest_1.BadRequest("Parent authentication required");
     }
-    if (!reason) {
+    if (!reason || reason.trim() === "") {
         throw new BadRequest_1.BadRequest("Excuse reason is required");
     }
     // تحقق إن الطالب ابن الـ Parent
-    const child = await db_1.db
-        .select()
+    const [child] = await db_1.db
+        .select({ id: schema_1.students.id, name: schema_1.students.name })
         .from(schema_1.students)
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.id, studentId), (0, drizzle_orm_1.eq)(schema_1.students.parentId, parentId)))
         .limit(1);
-    if (!child[0]) {
+    if (!child) {
         throw new NotFound_1.NotFound("Child not found");
     }
     // تحقق من وجود الطالب في الرحلة
-    const studentOccurrence = await db_1.db
-        .select()
+    const [studentOccurrence] = await db_1.db
+        .select({
+        id: schema_1.rideOccurrenceStudents.id,
+        status: schema_1.rideOccurrenceStudents.status,
+        occurDate: schema_1.rideOccurrences.occurDate,
+        occurrenceStatus: schema_1.rideOccurrences.status,
+    })
         .from(schema_1.rideOccurrenceStudents)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, occurrenceId), (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, studentId)))
         .limit(1);
-    if (!studentOccurrence[0]) {
+    if (!studentOccurrence) {
         throw new NotFound_1.NotFound("Student not in this ride");
     }
-    if (studentOccurrence[0].status !== "pending") {
-        throw new BadRequest_1.BadRequest("Cannot submit excuse - student already processed");
+    // تحقق من حالة الرحلة
+    if (studentOccurrence.occurrenceStatus === "completed") {
+        throw new BadRequest_1.BadRequest("Cannot submit excuse - ride already completed");
+    }
+    if (studentOccurrence.occurrenceStatus === "cancelled") {
+        throw new BadRequest_1.BadRequest("Cannot submit excuse - ride is cancelled");
+    }
+    // تحقق من حالة الطالب
+    if (studentOccurrence.status !== "pending") {
+        throw new BadRequest_1.BadRequest(`Cannot submit excuse - student status is: ${studentOccurrence.status}`);
     }
     // تحديث حالة الطالب
-    await db_1.db.update(schema_1.rideOccurrenceStudents).set({
+    await db_1.db
+        .update(schema_1.rideOccurrenceStudents)
+        .set({
         status: "excused",
-        excuseReason: reason,
-    }).where((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.id, studentOccurrence[0].id));
-    (0, response_1.SuccessResponse)(res, { message: "Excuse submitted successfully" }, 200);
+        excuseReason: reason.trim(),
+    })
+        .where((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.id, studentOccurrence.id));
+    (0, response_1.SuccessResponse)(res, {
+        message: "تم تقديم العذر بنجاح",
+        excuse: {
+            childId: child.id,
+            childName: child.name,
+            occurrenceId,
+            reason: reason.trim(),
+            status: "excused",
+        },
+    }, 200);
 };
 exports.submitExcuse = submitExcuse;
-// ✅ Helper Function
-function formatRideResponse(r) {
+// ✅ Get Ride History Summary (ملخص سجل الرحلات)
+const getRideHistorySummary = async (req, res) => {
+    const { childId } = req.params;
+    const { month, year } = req.query;
+    const parentId = req.user?.id;
+    if (!parentId) {
+        throw new BadRequest_1.BadRequest("Parent authentication required");
+    }
+    // تحقق إن الطالب ابن الـ Parent
+    const [child] = await db_1.db
+        .select({
+        id: schema_1.students.id,
+        name: schema_1.students.name,
+        avatar: schema_1.students.avatar,
+        organizationName: schema_1.organizations.name,
+    })
+        .from(schema_1.students)
+        .leftJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.students.organizationId, schema_1.organizations.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.id, childId), (0, drizzle_orm_1.eq)(schema_1.students.parentId, parentId)))
+        .limit(1);
+    if (!child) {
+        throw new NotFound_1.NotFound("Child not found");
+    }
+    // تحديد الفترة
+    const targetYear = year ? Number(year) : new Date().getFullYear();
+    const targetMonth = month ? Number(month) - 1 : new Date().getMonth();
+    const startDate = new Date(targetYear, targetMonth, 1);
+    const endDate = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59);
+    // جلب الإحصائيات
+    const ridesData = await db_1.db
+        .select({
+        status: schema_1.rideOccurrenceStudents.status,
+        rideType: schema_1.rides.rideType,
+    })
+        .from(schema_1.rideOccurrenceStudents)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, childId), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, startDate), (0, drizzle_orm_1.lte)(schema_1.rideOccurrences.occurDate, endDate)));
+    const summary = {
+        total: ridesData.length,
+        morning: ridesData.filter((r) => r.rideType === "morning").length,
+        afternoon: ridesData.filter((r) => r.rideType === "afternoon").length,
+        byStatus: {
+            completed: ridesData.filter((r) => r.status === "picked_up" || r.status === "dropped_off").length,
+            absent: ridesData.filter((r) => r.status === "absent").length,
+            excused: ridesData.filter((r) => r.status === "excused").length,
+            pending: ridesData.filter((r) => r.status === "pending").length,
+        },
+        attendanceRate: ridesData.length > 0
+            ? Math.round(((ridesData.filter((r) => r.status === "picked_up" || r.status === "dropped_off").length /
+                ridesData.length) *
+                100))
+            : 0,
+    };
+    (0, response_1.SuccessResponse)(res, {
+        child: {
+            id: child.id,
+            name: child.name,
+            avatar: child.avatar,
+            organization: child.organizationName,
+        },
+        period: {
+            month: targetMonth + 1,
+            year: targetYear,
+            monthName: new Date(targetYear, targetMonth).toLocaleDateString("ar-EG", {
+                month: "long",
+            }),
+        },
+        summary,
+    }, 200);
+};
+exports.getRideHistorySummary = getRideHistorySummary;
+// ============ Helper Functions ============
+function formatTodayRide(r) {
     return {
         occurrenceId: r.occurrenceId,
-        date: r.occurDate,
         status: r.occurrenceStatus,
         startedAt: r.startedAt,
         completedAt: r.completedAt,
-        busLocation: r.occurrenceStatus === "in_progress" ? {
-            lat: r.currentLat,
-            lng: r.currentLng,
-        } : null,
+        studentStatus: r.studentStatus,
+        pickupTime: r.pickupTime,
+        pickedUpAt: r.pickedUpAt,
+        droppedOffAt: r.droppedOffAt,
+        excuseReason: r.excuseReason,
         ride: {
             id: r.rideId,
             name: r.rideName,
             type: r.rideType,
         },
-        child: {
-            id: r.childId,
-            name: r.childName,
-            avatar: r.childAvatar,
-            status: r.studentStatus,
-            pickedUpAt: r.pickedUpAt,
-            droppedOffAt: r.droppedOffAt,
-            pickupTime: r.pickupTime,
-            excuseReason: r.excuseReason,
-        },
-        pickupPoint: {
-            id: r.pickupPointId,
-            name: r.pickupPointName,
-            lat: r.pickupPointLat,
-            lng: r.pickupPointLng,
-        },
-        bus: {
-            id: r.busId,
-            busNumber: r.busNumber,
-            plateNumber: r.plateNumber,
-        },
-        driver: {
-            id: r.driverId,
-            name: r.driverName,
-            phone: r.driverPhone,
-        },
+        bus: r.busId
+            ? {
+                id: r.busId,
+                busNumber: r.busNumber,
+                plateNumber: r.plateNumber,
+                location: r.occurrenceStatus === "in_progress"
+                    ? {
+                        lat: r.currentLat,
+                        lng: r.currentLng,
+                    }
+                    : null,
+            }
+            : null,
+        driver: r.driverId
+            ? {
+                id: r.driverId,
+                name: r.driverName,
+                phone: r.driverPhone,
+                avatar: r.driverAvatar,
+            }
+            : null,
+        pickupPoint: r.pickupPointId
+            ? {
+                id: r.pickupPointId,
+                name: r.pickupPointName,
+                address: r.pickupPointAddress,
+                lat: r.pickupPointLat,
+                lng: r.pickupPointLng,
+            }
+            : null,
     };
 }

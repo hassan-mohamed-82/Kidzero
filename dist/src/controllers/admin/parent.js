@@ -17,7 +17,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const uuid_1 = require("uuid");
 // ✅ Create Parent
 const createParent = async (req, res) => {
-    const { name, phone, password, avatar, address, nationalId } = req.body;
+    const { name, phone, password, avatar, email, address, nationalId } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -39,9 +39,9 @@ const createParent = async (req, res) => {
     }
     await db_1.db.insert(schema_1.parents).values({
         id: parentId,
-        organizationId,
         name,
         phone,
+        email,
         password: hashedPassword,
         avatar: avatarUrl,
         address: address || null,
@@ -60,6 +60,7 @@ const getAllParents = async (req, res) => {
         .select({
         id: schema_1.parents.id,
         name: schema_1.parents.name,
+        email: schema_1.parents.email,
         phone: schema_1.parents.phone,
         avatar: schema_1.parents.avatar,
         address: schema_1.parents.address,
@@ -68,8 +69,7 @@ const getAllParents = async (req, res) => {
         createdAt: schema_1.parents.createdAt,
         updatedAt: schema_1.parents.updatedAt,
     })
-        .from(schema_1.parents)
-        .where((0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId));
+        .from(schema_1.parents);
     (0, response_1.SuccessResponse)(res, { parents: allParents }, 200);
 };
 exports.getAllParents = getAllParents;
@@ -85,6 +85,7 @@ const getParentById = async (req, res) => {
         id: schema_1.parents.id,
         name: schema_1.parents.name,
         phone: schema_1.parents.phone,
+        email: schema_1.parents.email,
         avatar: schema_1.parents.avatar,
         address: schema_1.parents.address,
         nationalId: schema_1.parents.nationalId,
@@ -93,7 +94,7 @@ const getParentById = async (req, res) => {
         updatedAt: schema_1.parents.updatedAt,
     })
         .from(schema_1.parents)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parents.id, id), (0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId)))
+        .where((0, drizzle_orm_1.eq)(schema_1.parents.id, id))
         .limit(1);
     if (!parent[0]) {
         throw new NotFound_1.NotFound("Parent not found");
@@ -115,7 +116,7 @@ exports.getParentById = getParentById;
 // ✅ Update Parent
 const updateParent = async (req, res) => {
     const { id } = req.params;
-    const { name, phone, password, avatar, address, nationalId, status } = req.body;
+    const { name, phone, password, avatar, email, address, nationalId, status } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -123,7 +124,7 @@ const updateParent = async (req, res) => {
     const existingParent = await db_1.db
         .select()
         .from(schema_1.parents)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parents.id, id), (0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId)))
+        .where((0, drizzle_orm_1.eq)(schema_1.parents.id, id))
         .limit(1);
     if (!existingParent[0]) {
         throw new NotFound_1.NotFound("Parent not found");
@@ -160,6 +161,7 @@ const updateParent = async (req, res) => {
         phone: phone ?? existingParent[0].phone,
         password: hashedPassword,
         avatar: avatarUrl,
+        email: email ?? existingParent[0].email,
         address: address !== undefined ? address : existingParent[0].address,
         nationalId: nationalId !== undefined ? nationalId : existingParent[0].nationalId,
         status: status ?? existingParent[0].status,
@@ -183,7 +185,7 @@ const deleteParent = async (req, res) => {
     const existingParent = await db_1.db
         .select()
         .from(schema_1.parents)
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parents.id, id), (0, drizzle_orm_1.eq)(schema_1.parents.organizationId, organizationId)))
+        .where((0, drizzle_orm_1.eq)(schema_1.parents.id, id))
         .limit(1);
     if (!existingParent[0]) {
         throw new NotFound_1.NotFound("Parent not found");

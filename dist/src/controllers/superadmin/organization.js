@@ -108,36 +108,70 @@ exports.deleteOrganizationType = deleteOrganizationType;
 // };
 const getAllOrganizations = async (req, res) => {
     try {
-        const orgs = await db_1.db.query.organizations.findMany({
-            // Select specific columns from the main table
-            columns: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                status: true, // Item 8: Status (active, blocked, subscribed)
-            },
-            // "Populate" related tables
-            with: {
-                // Item 2: Organization Type
-                organizationType: {
-                    columns: {
-                        name: true, // Only get the name of the type
-                    }
-                },
-                // Item 5: Buses
-                buses: true, // specific columns not needed? 'true' returns all
-                // Item 7: Rides
-                rides: true,
-                // Item 6: Students
-                students: {
-                    columns: { id: true, name: true }
-                }
-            },
+        const orgs = await db_1.db
+            .select({
+            id: schema_1.organizations.id,
+            name: schema_1.organizations.name,
+            email: schema_1.organizations.email,
+            phone: schema_1.organizations.phone,
+            status: schema_1.organizations.status,
+            organizationTypeId: schema_1.organizations.organizationTypeId,
+            organizationTypeName: schema_1.organizationTypes.name,
+        })
+            .from(schema_1.organizations)
+            .leftJoin(schema_1.organizationTypes, (0, drizzle_orm_1.eq)(schema_1.organizations.organizationTypeId, schema_1.organizationTypes.id));
+        if (orgs.length === 0) {
+            return (0, response_1.SuccessResponse)(res, { orgs: [] }, 200);
+        }
+        const orgIds = orgs.map(o => o.id);
+        // Fetch all related data in parallel
+        const [allBuses, allRides, allStudents] = await Promise.all([
+            db_1.db.query.buses.findMany({
+                where: (0, drizzle_orm_1.inArray)(schema_1.buses.organizationId, orgIds),
+            }),
+            db_1.db.query.rides.findMany({
+                where: (0, drizzle_orm_1.inArray)(schema_1.rides.organizationId, orgIds),
+            }),
+            db_1.db.query.students.findMany({
+                where: (0, drizzle_orm_1.inArray)(schema_1.students.organizationId, orgIds),
+                columns: { id: true, name: true, organizationId: true },
+            }),
+        ]);
+        // Group related data by organization ID
+        const busesMap = new Map();
+        const ridesMap = new Map();
+        const studentsMap = new Map();
+        allBuses.forEach(bus => {
+            if (!busesMap.has(bus.organizationId)) {
+                busesMap.set(bus.organizationId, []);
+            }
+            busesMap.get(bus.organizationId).push(bus);
         });
+        allRides.forEach(ride => {
+            if (!ridesMap.has(ride.organizationId)) {
+                ridesMap.set(ride.organizationId, []);
+            }
+            ridesMap.get(ride.organizationId).push(ride);
+        });
+        allStudents.forEach(student => {
+            if (!studentsMap.has(student.organizationId)) {
+                studentsMap.set(student.organizationId, []);
+            }
+            studentsMap.get(student.organizationId).push(student);
+        });
+        // Format the response
         const formattedOrgs = orgs.map(org => ({
-            ...org,
-            organizationType: org.organizationType,
+            id: org.id,
+            name: org.name,
+            email: org.email,
+            phone: org.phone,
+            status: org.status,
+            organizationType: {
+                name: org.organizationTypeName,
+            },
+            buses: busesMap.get(org.id) || [],
+            rides: ridesMap.get(org.id) || [],
+            students: studentsMap.get(org.id) || [],
         }));
         return (0, response_1.SuccessResponse)(res, { orgs: formattedOrgs }, 200);
     }

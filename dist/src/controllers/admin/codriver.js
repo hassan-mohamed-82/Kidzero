@@ -17,7 +17,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const uuid_1 = require("uuid");
 // ✅ Create Codriver
 const createCodriver = async (req, res) => {
-    const { name, phone, password, avatar, nationalId, nationalIdImage } = req.body;
+    const { name, phone, email, password, avatar, nationalId, nationalIdImage } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -45,6 +45,7 @@ const createCodriver = async (req, res) => {
     await db_1.db.insert(schema_1.codrivers).values({
         id: codriverId,
         organizationId,
+        email,
         name,
         phone,
         password: hashedPassword,
@@ -109,7 +110,7 @@ exports.getCodriverById = getCodriverById;
 // ✅ Update Codriver
 const updateCodriver = async (req, res) => {
     const { id } = req.params;
-    const { name, phone, password, avatar, nationalId, nationalIdImage, status } = req.body;
+    const { name, phone, email, password, avatar, nationalId, nationalIdImage, status } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -165,6 +166,7 @@ const updateCodriver = async (req, res) => {
     await db_1.db.update(schema_1.codrivers).set({
         name: name ?? existingCodriver[0].name,
         phone: phone ?? existingCodriver[0].phone,
+        email: email ?? existingCodriver[0].email,
         password: hashedPassword,
         avatar: avatarUrl,
         nationalId: nationalId !== undefined ? nationalId : existingCodriver[0].nationalId,

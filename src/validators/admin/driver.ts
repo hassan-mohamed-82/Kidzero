@@ -7,7 +7,7 @@ const BASE64_IMAGE_REGEX = /^data:image\/(jpeg|jpg|png|gif|webp);base64,/;
 export const createDriverSchema = z.object({
     body: z.object({
                 fcm_tokens: z.string().optional(),
-
+          email: z.string().email("Invalid email format"),
         name: z
             .string({ required_error: "Driver name is required" })
             .min(1, "Driver name cannot be empty")
@@ -48,7 +48,7 @@ export const updateDriverSchema = z.object({
     }),
     body: z.object({
                 fcm_tokens: z.string().optional(),
-
+          email: z.string().email("Invalid email format").optional(),
         name: z
             .string()
             .min(1, "Driver name cannot be empty")

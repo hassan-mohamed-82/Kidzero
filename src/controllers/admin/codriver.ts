@@ -14,7 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // ✅ Create Codriver
 export const createCodriver = async (req: Request, res: Response) => {
-    const { name, phone, password, avatar, nationalId, nationalIdImage } = req.body;
+    const { name, phone,email, password, avatar, nationalId, nationalIdImage } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -50,6 +50,7 @@ export const createCodriver = async (req: Request, res: Response) => {
     await db.insert(codrivers).values({
         id: codriverId,
         organizationId,
+        email,
         name,
         phone,
         password: hashedPassword,
@@ -122,7 +123,7 @@ export const getCodriverById = async (req: Request, res: Response) => {
 // ✅ Update Codriver
 export const updateCodriver = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, phone, password, avatar, nationalId, nationalIdImage, status } = req.body;
+    const { name, phone,email, password, avatar, nationalId, nationalIdImage, status } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -185,6 +186,7 @@ export const updateCodriver = async (req: Request, res: Response) => {
     await db.update(codrivers).set({
         name: name ?? existingCodriver[0].name,
         phone: phone ?? existingCodriver[0].phone,
+        email: email ?? existingCodriver[0].email,
         password: hashedPassword,
         avatar: avatarUrl,
         nationalId: nationalId !== undefined ? nationalId : existingCodriver[0].nationalId,

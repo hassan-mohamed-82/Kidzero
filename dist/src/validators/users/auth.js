@@ -3,15 +3,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateProfileSchema = exports.changePasswordSchema = exports.mobileLoginSchema = void 0;
 const zod_1 = require("zod");
-// Login موحد
+// Login موحد - يدعم الدخول بالهاتف أو الإيميل
 exports.mobileLoginSchema = zod_1.z.object({
     body: zod_1.z.object({
-        phone: zod_1.z
-            .string()
-            .min(10, "Phone number must be at least 10 digits")
-            .max(20, "Phone number must be at most 20 digits")
-            .regex(/^[0-9+]+$/, "Phone number must contain only digits"),
-        password: zod_1.z.string().min(6, "Password must be at least 6 characters"),
+        identifier: zod_1.z
+            .string({ required_error: "البريد الإلكتروني أو رقم الهاتف مطلوب" })
+            .min(1, "البريد الإلكتروني أو رقم الهاتف مطلوب"),
+        password: zod_1.z
+            .string({ required_error: "كلمة المرور مطلوبة" })
+            .min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
     }),
 });
 // Change Password

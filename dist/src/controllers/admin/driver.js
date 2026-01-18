@@ -17,7 +17,7 @@ const bcrypt_1 = __importDefault(require("bcrypt"));
 const uuid_1 = require("uuid");
 // ✅ Create Driver
 const createDriver = async (req, res) => {
-    const { name, phone, password, avatar, licenseExpiry, licenseImage, nationalId, nationalIdImage } = req.body;
+    const { name, phone, password, email, avatar, licenseExpiry, licenseImage, nationalId, nationalIdImage } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -54,6 +54,7 @@ const createDriver = async (req, res) => {
     await db_1.db.insert(schema_1.drivers).values({
         id: driverId,
         organizationId,
+        email,
         name,
         phone,
         password: hashedPassword,
@@ -124,7 +125,7 @@ exports.getDriverById = getDriverById;
 // ✅ Update Driver
 const updateDriver = async (req, res) => {
     const { id } = req.params;
-    const { name, phone, password, avatar, licenseExpiry, licenseImage, nationalId, nationalIdImage, status } = req.body;
+    const { name, phone, password, email, avatar, licenseExpiry, licenseImage, nationalId, nationalIdImage, status } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -199,6 +200,7 @@ const updateDriver = async (req, res) => {
         name: name ?? existingDriver[0].name,
         phone: phone ?? existingDriver[0].phone,
         password: hashedPassword,
+        email: email ?? existingDriver[0].email,
         avatar: avatarUrl,
         licenseExpiry: licenseExpiry !== undefined
             ? (licenseExpiry ? new Date(licenseExpiry) : null)

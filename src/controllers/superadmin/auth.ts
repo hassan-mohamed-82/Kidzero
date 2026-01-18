@@ -25,6 +25,7 @@ export async function login(req: Request, res: Response) {
 
   const token = generateSuperAdminToken({
     id: SuperAdmin.id,
+    email: SuperAdmin.email,
     name: SuperAdmin.name,
   });
 

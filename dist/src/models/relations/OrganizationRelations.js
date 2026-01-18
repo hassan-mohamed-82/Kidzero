@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.feeInstallmentRelations = exports.subscriptionRelations = exports.studentRelations = exports.rideRelations = exports.busRelations = exports.organizationTypeRelations = exports.organizationRelations = void 0;
+exports.organizationServiceRelations = exports.feeInstallmentRelations = exports.subscriptionRelations = exports.studentRelations = exports.rideRelations = exports.busRelations = exports.organizationTypeRelations = exports.organizationRelations = void 0;
 const drizzle_orm_1 = require("drizzle-orm");
 const schema_1 = require("../schema");
 // 1. Organization Relations
@@ -20,6 +20,8 @@ exports.organizationRelations = (0, drizzle_orm_1.relations)(schema_1.organizati
     subscriptions: many(schema_1.subscriptions),
     // An organization "has many" fee installments
     feeInstallments: many(schema_1.feeInstallments),
+    // An organization "has many" organization services
+    organizationServices: many(schema_1.organizationServices),
 }));
 // 2. Organization Type Relations (Inverse)
 exports.organizationTypeRelations = (0, drizzle_orm_1.relations)(schema_1.organizationTypes, ({ many }) => ({
@@ -62,5 +64,16 @@ exports.feeInstallmentRelations = (0, drizzle_orm_1.relations)(schema_1.feeInsta
     subscription: one(schema_1.subscriptions, {
         fields: [schema_1.feeInstallments.subscriptionId],
         references: [schema_1.subscriptions.id],
+    }),
+    paymentMethod: one(schema_1.paymentMethod, {
+        fields: [schema_1.feeInstallments.paymentMethodId],
+        references: [schema_1.paymentMethod.id],
+    }),
+}));
+// 7. Organization Service Relations
+exports.organizationServiceRelations = (0, drizzle_orm_1.relations)(schema_1.organizationServices, ({ one }) => ({
+    organization: one(schema_1.organizations, {
+        fields: [schema_1.organizationServices.organizationId],
+        references: [schema_1.organizations.id],
     }),
 }));

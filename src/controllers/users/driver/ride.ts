@@ -305,7 +305,7 @@ export const startRide = async (req: Request, res: Response) => {
   const studentsParents = await db
     .select({
       parentId: parents.id,
-      fcmTokens: parents.fcmTokens,
+      fcmTokens: parents.fcmToken,
       studentName: students.name,
     })
     .from(rideOccurrenceStudents)
@@ -449,7 +449,7 @@ export const pickUpStudent = async (req: Request, res: Response) => {
     .select({
       studentName: students.name,
       parentId: parents.id,
-      fcmTokens: parents.fcmTokens,
+      fcmTokens: parents.fcmToken,
     })
     .from(students)
     .innerJoin(parents, eq(students.parentId, parents.id))
@@ -543,7 +543,7 @@ export const dropOffStudent = async (req: Request, res: Response) => {
     .select({
       studentName: students.name,
       parentId: parents.id,
-      fcmTokens: parents.fcmTokens,
+      fcmTokens: parents.fcmToken,
     })
     .from(students)
     .innerJoin(parents, eq(students.parentId, parents.id))
@@ -692,7 +692,7 @@ export const completeRide = async (req: Request, res: Response) => {
   const studentsParents = await db
     .select({
       parentId: parents.id,
-      fcmTokens: parents.fcmTokens,
+      fcmTokens: parents.fcmToken,
     })
     .from(rideOccurrenceStudents)
     .innerJoin(students, eq(rideOccurrenceStudents.studentId, students.id))

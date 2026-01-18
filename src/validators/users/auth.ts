@@ -2,15 +2,15 @@
 
 import { z } from "zod";
 
-// Login موحد
+// Login موحد - يدعم الدخول بالهاتف أو الإيميل
 export const mobileLoginSchema = z.object({
   body: z.object({
-    phone: z
-      .string()
-      .min(10, "Phone number must be at least 10 digits")
-      .max(20, "Phone number must be at most 20 digits")
-      .regex(/^[0-9+]+$/, "Phone number must contain only digits"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    identifier: z
+      .string({ required_error: "البريد الإلكتروني أو رقم الهاتف مطلوب" })
+      .min(1, "البريد الإلكتروني أو رقم الهاتف مطلوب"),
+    password: z
+      .string({ required_error: "كلمة المرور مطلوبة" })
+      .min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل"),
   }),
 });
 

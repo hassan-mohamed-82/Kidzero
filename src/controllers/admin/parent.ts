@@ -14,7 +14,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // ✅ Create Parent
 export const createParent = async (req: Request, res: Response) => {
-    const { name, phone, password, avatar, address, nationalId } = req.body;
+    const { name, phone, password, avatar,email, address, nationalId } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -42,9 +42,9 @@ export const createParent = async (req: Request, res: Response) => {
 
     await db.insert(parents).values({
         id: parentId,
-        organizationId,
         name,
         phone,
+        email,
         password: hashedPassword,
         avatar: avatarUrl,
         address: address || null,
@@ -66,6 +66,7 @@ export const getAllParents = async (req: Request, res: Response) => {
         .select({
             id: parents.id,
             name: parents.name,
+            email: parents.email,
             phone: parents.phone,
             avatar: parents.avatar,
             address: parents.address,
@@ -74,8 +75,7 @@ export const getAllParents = async (req: Request, res: Response) => {
             createdAt: parents.createdAt,
             updatedAt: parents.updatedAt,
         })
-        .from(parents)
-        .where(eq(parents.organizationId, organizationId));
+        .from(parents);
 
     SuccessResponse(res, { parents: allParents }, 200);
 };
@@ -94,6 +94,7 @@ export const getParentById = async (req: Request, res: Response) => {
             id: parents.id,
             name: parents.name,
             phone: parents.phone,
+            email: parents.email,
             avatar: parents.avatar,
             address: parents.address,
             nationalId: parents.nationalId,
@@ -102,7 +103,7 @@ export const getParentById = async (req: Request, res: Response) => {
             updatedAt: parents.updatedAt,
         })
         .from(parents)
-        .where(and(eq(parents.id, id), eq(parents.organizationId, organizationId)))
+        .where(eq(parents.id, id))
         .limit(1);
 
     if (!parent[0]) {
@@ -127,7 +128,7 @@ export const getParentById = async (req: Request, res: Response) => {
 // ✅ Update Parent
 export const updateParent = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, phone, password, avatar, address, nationalId, status } = req.body;
+    const { name, phone, password, avatar, email,address, nationalId, status } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -137,7 +138,7 @@ export const updateParent = async (req: Request, res: Response) => {
     const existingParent = await db
         .select()
         .from(parents)
-        .where(and(eq(parents.id, id), eq(parents.organizationId, organizationId)))
+        .where(eq(parents.id, id))
         .limit(1);
 
     if (!existingParent[0]) {
@@ -179,6 +180,7 @@ export const updateParent = async (req: Request, res: Response) => {
         phone: phone ?? existingParent[0].phone,
         password: hashedPassword,
         avatar: avatarUrl,
+        email: email ?? existingParent[0].email,
         address: address !== undefined ? address : existingParent[0].address,
         nationalId: nationalId !== undefined ? nationalId : existingParent[0].nationalId,
         status: status ?? existingParent[0].status,
@@ -207,7 +209,7 @@ export const deleteParent = async (req: Request, res: Response) => {
     const existingParent = await db
         .select()
         .from(parents)
-        .where(and(eq(parents.id, id), eq(parents.organizationId, organizationId)))
+        .where(eq(parents.id, id))
         .limit(1);
 
     if (!existingParent[0]) {

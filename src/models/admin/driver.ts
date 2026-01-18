@@ -14,8 +14,8 @@ import { sql } from "drizzle-orm";
 export const drivers = mysqlTable("drivers", {
   id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
   organizationId: char("organization_id", { length: 36 }).notNull(),
-fcmTokens: text("fcm_tokens"), // JSON array of FCM tokens
-
+  fcmTokens: text("fcm_tokens"), // JSON array of FCM tokens
+  email: varchar("email", { length: 255 }).unique(),
   name: varchar("name", { length: 255 }).notNull(),
   phone: varchar("phone", { length: 20 }).notNull().unique(), // للـ Login
   password: varchar("password", { length: 255 }).notNull(),

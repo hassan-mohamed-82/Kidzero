@@ -132,26 +132,82 @@ const ReplyToPayment = async (req, res) => {
         rejectedReason: status === "rejected" ? rejectedReason : null,
     })
         .where((0, drizzle_orm_1.eq)(schema_1.payment.id, id));
-    // Create Subscription for the organization if accepted
+    // Handle approved payments based on paymentType
     if (status === "completed") {
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setFullYear(endDate.getFullYear() + 1); // Assuming yearly subscription for simplicity
-        await db_1.db.insert(schema_1.subscriptions).values({
-            organizationId: paymentRecord.organizationId,
-            planId: paymentRecord.planId,
-            startDate,
-            endDate,
-            paymentId: paymentRecord.id,
-            isActive: true,
-        });
-        await db_1.db.update(schema_1.organizations)
-            .set({
-            status: "subscribed",
-        })
-            .where((0, drizzle_orm_1.eq)(schema_1.organizations.id, paymentRecord.organizationId));
+        const paymentType = paymentRecord.paymentType || "subscription";
+        if (paymentType === "renewal") {
+            // Renewal: Extend existing subscription's end date by 1 year
+            const existingSubscription = await db_1.db.query.subscriptions.findFirst({
+                where: (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.subscriptions.organizationId, paymentRecord.organizationId), (0, drizzle_orm_1.eq)(schema_1.subscriptions.isActive, true)),
+            });
+            if (existingSubscription) {
+                // Extend end date by 1 year from current end date
+                const newEndDate = new Date(existingSubscription.endDate);
+                newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+                await db_1.db.update(schema_1.subscriptions)
+                    .set({
+                    endDate: newEndDate,
+                    paymentId: paymentRecord.id,
+                })
+                    .where((0, drizzle_orm_1.eq)(schema_1.subscriptions.id, existingSubscription.id));
+                return (0, response_1.SuccessResponse)(res, {
+                    message: "Renewal approved. Subscription extended successfully.",
+                    subscriptionId: existingSubscription.id,
+                    newEndDate,
+                }, 200);
+            }
+            else {
+                // No active subscription found, create new one
+                const startDate = new Date();
+                const endDate = new Date();
+                endDate.setFullYear(endDate.getFullYear() + 1);
+                await db_1.db.insert(schema_1.subscriptions).values({
+                    organizationId: paymentRecord.organizationId,
+                    planId: paymentRecord.planId,
+                    startDate,
+                    endDate,
+                    paymentId: paymentRecord.id,
+                    isActive: true,
+                });
+                await db_1.db.update(schema_1.organizations)
+                    .set({ status: "subscribed" })
+                    .where((0, drizzle_orm_1.eq)(schema_1.organizations.id, paymentRecord.organizationId));
+                return (0, response_1.SuccessResponse)(res, {
+                    message: "Renewal approved. New subscription created.",
+                    endDate,
+                }, 200);
+            }
+        }
+        else if (paymentType === "plan_price") {
+            // Plan price payment: Just mark as completed, no subscription changes
+            return (0, response_1.SuccessResponse)(res, {
+                message: "Plan price payment approved successfully.",
+            }, 200);
+        }
+        else {
+            // Default: subscription type - create new subscription
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setFullYear(endDate.getFullYear() + 1);
+            await db_1.db.insert(schema_1.subscriptions).values({
+                organizationId: paymentRecord.organizationId,
+                planId: paymentRecord.planId,
+                startDate,
+                endDate,
+                paymentId: paymentRecord.id,
+                isActive: true,
+            });
+            await db_1.db.update(schema_1.organizations)
+                .set({ status: "subscribed" })
+                .where((0, drizzle_orm_1.eq)(schema_1.organizations.id, paymentRecord.organizationId));
+            return (0, response_1.SuccessResponse)(res, {
+                message: "Payment approved. Subscription created successfully.",
+                endDate,
+            }, 200);
+        }
     }
-    return (0, response_1.SuccessResponse)(res, { message: `Payment ${status} successfully` }, 200);
+    // Rejected payment
+    return (0, response_1.SuccessResponse)(res, { message: "Payment rejected successfully" }, 200);
 };
 exports.ReplyToPayment = ReplyToPayment;
 // =====================================================
@@ -162,20 +218,51 @@ exports.ReplyToPayment = ReplyToPayment;
  */
 const getAllInstallments = async (req, res) => {
     const { status } = req.query;
-    let allInstallments;
+    let query = db_1.db
+        .select({
+        id: schema_1.feeInstallments.id,
+        subscriptionId: schema_1.feeInstallments.subscriptionId,
+        organizationId: schema_1.feeInstallments.organizationId,
+        paymentMethodId: schema_1.feeInstallments.paymentMethodId,
+        totalFeeAmount: schema_1.feeInstallments.totalFeeAmount,
+        paidAmount: schema_1.feeInstallments.paidAmount,
+        remainingAmount: schema_1.feeInstallments.remainingAmount,
+        installmentAmount: schema_1.feeInstallments.installmentAmount,
+        dueDate: schema_1.feeInstallments.dueDate,
+        status: schema_1.feeInstallments.status,
+        rejectedReason: schema_1.feeInstallments.rejectedReason,
+        receiptImage: schema_1.feeInstallments.receiptImage,
+        installmentNumber: schema_1.feeInstallments.installmentNumber,
+        createdAt: schema_1.feeInstallments.createdAt,
+        updatedAt: schema_1.feeInstallments.updatedAt,
+        organization: {
+            id: schema_1.organizations.id,
+            name: schema_1.organizations.name,
+        },
+        paymentMethod: {
+            id: schema_1.paymentMethod.id,
+            name: schema_1.paymentMethod.name,
+        },
+        subscription: {
+            id: schema_1.subscriptions.id,
+            planId: schema_1.subscriptions.planId,
+        },
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+            subscriptionFees: schema_1.plans.subscriptionFees,
+        }
+    })
+        .from(schema_1.feeInstallments)
+        .leftJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.feeInstallments.organizationId, schema_1.organizations.id))
+        .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.feeInstallments.paymentMethodId, schema_1.paymentMethod.id))
+        .leftJoin(schema_1.subscriptions, (0, drizzle_orm_1.eq)(schema_1.feeInstallments.subscriptionId, schema_1.subscriptions.id))
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_1.plans.id))
+        .$dynamic();
     if (status && ["pending", "approved", "rejected", "overdue"].includes(status)) {
-        allInstallments = await db_1.db
-            .select()
-            .from(schema_1.feeInstallments)
-            .where((0, drizzle_orm_1.eq)(schema_1.feeInstallments.status, status))
-            .orderBy((0, drizzle_orm_1.desc)(schema_1.feeInstallments.createdAt));
+        query = query.where((0, drizzle_orm_1.eq)(schema_1.feeInstallments.status, status));
     }
-    else {
-        allInstallments = await db_1.db
-            .select()
-            .from(schema_1.feeInstallments)
-            .orderBy((0, drizzle_orm_1.desc)(schema_1.feeInstallments.createdAt));
-    }
+    const allInstallments = await query.orderBy((0, drizzle_orm_1.desc)(schema_1.feeInstallments.createdAt));
     // Group by status for summary
     const pendingCount = allInstallments.filter(i => i.status === "pending").length;
     const approvedCount = allInstallments.filter(i => i.status === "approved").length;
@@ -202,27 +289,55 @@ const getInstallmentById = async (req, res) => {
     if (!id) {
         throw new BadRequest_1.BadRequest("Installment ID is required");
     }
-    const installment = await db_1.db.query.feeInstallments.findFirst({
-        where: (0, drizzle_orm_1.eq)(schema_1.feeInstallments.id, id),
-    });
-    if (!installment) {
+    const result = await db_1.db
+        .select({
+        id: schema_1.feeInstallments.id,
+        subscriptionId: schema_1.feeInstallments.subscriptionId,
+        organizationId: schema_1.feeInstallments.organizationId,
+        paymentMethodId: schema_1.feeInstallments.paymentMethodId,
+        totalFeeAmount: schema_1.feeInstallments.totalFeeAmount,
+        paidAmount: schema_1.feeInstallments.paidAmount,
+        remainingAmount: schema_1.feeInstallments.remainingAmount,
+        installmentAmount: schema_1.feeInstallments.installmentAmount,
+        dueDate: schema_1.feeInstallments.dueDate,
+        status: schema_1.feeInstallments.status,
+        rejectedReason: schema_1.feeInstallments.rejectedReason,
+        receiptImage: schema_1.feeInstallments.receiptImage,
+        installmentNumber: schema_1.feeInstallments.installmentNumber,
+        createdAt: schema_1.feeInstallments.createdAt,
+        updatedAt: schema_1.feeInstallments.updatedAt,
+        organization: {
+            id: schema_1.organizations.id,
+            name: schema_1.organizations.name,
+        },
+        paymentMethod: {
+            id: schema_1.paymentMethod.id,
+            name: schema_1.paymentMethod.name,
+        },
+        subscription: {
+            id: schema_1.subscriptions.id,
+            planId: schema_1.subscriptions.planId,
+        },
+        plan: {
+            id: schema_1.plans.id,
+            name: schema_1.plans.name,
+            subscriptionFees: schema_1.plans.subscriptionFees,
+        }
+    })
+        .from(schema_1.feeInstallments)
+        .leftJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.feeInstallments.organizationId, schema_1.organizations.id))
+        .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.feeInstallments.paymentMethodId, schema_1.paymentMethod.id))
+        .leftJoin(schema_1.subscriptions, (0, drizzle_orm_1.eq)(schema_1.feeInstallments.subscriptionId, schema_1.subscriptions.id))
+        .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.subscriptions.planId, schema_1.plans.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.feeInstallments.id, id))
+        .limit(1);
+    if (!result || result.length === 0) {
         throw new BadRequest_1.BadRequest("Installment not found");
     }
-    // Get organization and subscription details
-    const subscription = await db_1.db.query.subscriptions.findFirst({
-        where: (0, drizzle_orm_1.eq)(schema_1.subscriptions.id, installment.subscriptionId),
-    });
-    const organization = await db_1.db.query.organizations.findFirst({
-        where: (0, drizzle_orm_1.eq)(schema_1.organizations.id, installment.organizationId),
-    });
-    const plan = subscription ? await db_1.db.query.plans.findFirst({
-        where: (0, drizzle_orm_1.eq)(schema_1.plans.id, subscription.planId),
-    }) : null;
+    const installment = result[0];
     return (0, response_1.SuccessResponse)(res, {
         message: "Installment retrieved successfully",
         installment,
-        organization: organization ? { id: organization.id, name: organization.name } : null,
-        plan: plan ? { id: plan.id, name: plan.name, subscriptionFees: plan.subscriptionFees } : null,
     });
 };
 exports.getInstallmentById = getInstallmentById;

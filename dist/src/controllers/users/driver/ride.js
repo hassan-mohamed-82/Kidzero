@@ -245,7 +245,7 @@ const startRide = async (req, res) => {
     const studentsParents = await db_1.db
         .select({
         parentId: schema_1.parents.id,
-        fcmTokens: schema_1.parents.fcmTokens,
+        fcmTokens: schema_1.parents.fcmToken,
         studentName: schema_1.students.name,
     })
         .from(schema_1.rideOccurrenceStudents)
@@ -347,7 +347,7 @@ const pickUpStudent = async (req, res) => {
         .select({
         studentName: schema_1.students.name,
         parentId: schema_1.parents.id,
-        fcmTokens: schema_1.parents.fcmTokens,
+        fcmTokens: schema_1.parents.fcmToken,
     })
         .from(schema_1.students)
         .innerJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
@@ -412,7 +412,7 @@ const dropOffStudent = async (req, res) => {
         .select({
         studentName: schema_1.students.name,
         parentId: schema_1.parents.id,
-        fcmTokens: schema_1.parents.fcmTokens,
+        fcmTokens: schema_1.parents.fcmToken,
     })
         .from(schema_1.students)
         .innerJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
@@ -513,7 +513,7 @@ const completeRide = async (req, res) => {
     const studentsParents = await db_1.db
         .select({
         parentId: schema_1.parents.id,
-        fcmTokens: schema_1.parents.fcmTokens,
+        fcmTokens: schema_1.parents.fcmToken,
     })
         .from(schema_1.rideOccurrenceStudents)
         .innerJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, schema_1.students.id))

@@ -49,5 +49,6 @@ __exportStar(require("./admin/zone"), exports);
 __exportStar(require("./admin/notifications"), exports);
 __exportStar(require("./admin/rideOccurrenceStudent"), exports);
 __exportStar(require("./admin/rideOccurrence"), exports);
+__exportStar(require("./admin/organizationServices"), exports);
 // Relations
 __exportStar(require("./relations/OrganizationRelations"), exports);
