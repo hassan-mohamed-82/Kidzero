@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions } from "../../models/schema";
+import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions, paymentMethod } from "../../models/schema";
 import { db } from "../../models/db";
 import { eq, desc, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
@@ -148,26 +148,93 @@ export const ReplyToPayment = async (req: Request, res: Response) => {
         })
         .where(eq(payment.id, id));
 
-    // Create Subscription for the organization if accepted
+    // Handle approved payments based on paymentType
     if (status === "completed") {
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setFullYear(endDate.getFullYear() + 1); // Assuming yearly subscription for simplicity
-        await db.insert(subscriptions).values({
-            organizationId: paymentRecord.organizationId,
-            planId: paymentRecord.planId,
-            startDate,
-            endDate,
-            paymentId: paymentRecord.id,
-            isActive: true,
-        });
-        await db.update(organizations)
-            .set({
-                status: "subscribed",
-            })
-            .where(eq(organizations.id, paymentRecord.organizationId));
+        const paymentType = paymentRecord.paymentType || "subscription";
+
+        if (paymentType === "renewal") {
+            // Renewal: Extend existing subscription's end date by 1 year
+            const existingSubscription = await db.query.subscriptions.findFirst({
+                where: and(
+                    eq(subscriptions.organizationId, paymentRecord.organizationId),
+                    eq(subscriptions.isActive, true)
+                ),
+            });
+
+            if (existingSubscription) {
+                // Extend end date by 1 year from current end date
+                const newEndDate = new Date(existingSubscription.endDate);
+                newEndDate.setFullYear(newEndDate.getFullYear() + 1);
+
+                await db.update(subscriptions)
+                    .set({
+                        endDate: newEndDate,
+                        paymentId: paymentRecord.id,
+                    })
+                    .where(eq(subscriptions.id, existingSubscription.id));
+
+                return SuccessResponse(res, {
+                    message: "Renewal approved. Subscription extended successfully.",
+                    subscriptionId: existingSubscription.id,
+                    newEndDate,
+                }, 200);
+            } else {
+                // No active subscription found, create new one
+                const startDate = new Date();
+                const endDate = new Date();
+                endDate.setFullYear(endDate.getFullYear() + 1);
+
+                await db.insert(subscriptions).values({
+                    organizationId: paymentRecord.organizationId,
+                    planId: paymentRecord.planId,
+                    startDate,
+                    endDate,
+                    paymentId: paymentRecord.id,
+                    isActive: true,
+                });
+
+                await db.update(organizations)
+                    .set({ status: "subscribed" })
+                    .where(eq(organizations.id, paymentRecord.organizationId));
+
+                return SuccessResponse(res, {
+                    message: "Renewal approved. New subscription created.",
+                    endDate,
+                }, 200);
+            }
+        } else if (paymentType === "plan_price") {
+            // Plan price payment: Just mark as completed, no subscription changes
+            return SuccessResponse(res, {
+                message: "Plan price payment approved successfully.",
+            }, 200);
+        } else {
+            // Default: subscription type - create new subscription
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setFullYear(endDate.getFullYear() + 1);
+
+            await db.insert(subscriptions).values({
+                organizationId: paymentRecord.organizationId,
+                planId: paymentRecord.planId,
+                startDate,
+                endDate,
+                paymentId: paymentRecord.id,
+                isActive: true,
+            });
+
+            await db.update(organizations)
+                .set({ status: "subscribed" })
+                .where(eq(organizations.id, paymentRecord.organizationId));
+
+            return SuccessResponse(res, {
+                message: "Payment approved. Subscription created successfully.",
+                endDate,
+            }, 200);
+        }
     }
-    return SuccessResponse(res, { message: `Payment ${status} successfully` },200);
+
+    // Rejected payment
+    return SuccessResponse(res, { message: "Payment rejected successfully" }, 200);
 };
 
 // =====================================================
@@ -180,20 +247,61 @@ export const ReplyToPayment = async (req: Request, res: Response) => {
 export const getAllInstallments = async (req: Request, res: Response) => {
     const { status } = req.query;
 
-    let allInstallments;
+    let query = db
+        .select({
+
+            id: feeInstallments.id,
+            subscriptionId: feeInstallments.subscriptionId,
+            organizationId: feeInstallments.organizationId,
+            paymentMethodId: feeInstallments.paymentMethodId,
+            totalFeeAmount: feeInstallments.totalFeeAmount,
+            paidAmount: feeInstallments.paidAmount,
+            remainingAmount: feeInstallments.remainingAmount,
+            installmentAmount: feeInstallments.installmentAmount,
+            dueDate: feeInstallments.dueDate,
+            status: feeInstallments.status,
+            rejectedReason: feeInstallments.rejectedReason,
+            receiptImage: feeInstallments.receiptImage,
+            installmentNumber: feeInstallments.installmentNumber,
+            createdAt: feeInstallments.createdAt,
+            updatedAt: feeInstallments.updatedAt,
+
+            organization: {
+                id: organizations.id,
+                name: organizations.name,
+            },
+
+            paymentMethod: {
+                id: paymentMethod.id,
+                name: paymentMethod.name,
+
+            },
+
+            subscription: {
+                id: subscriptions.id,
+                planId: subscriptions.planId,
+            },
+
+            plan: {
+                id: plans.id,
+                name: plans.name,
+                subscriptionFees: plans.subscriptionFees,
+            }
+        })
+        .from(feeInstallments)
+        .leftJoin(organizations, eq(feeInstallments.organizationId, organizations.id))
+        .leftJoin(paymentMethod, eq(feeInstallments.paymentMethodId, paymentMethod.id))
+        .leftJoin(subscriptions, eq(feeInstallments.subscriptionId, subscriptions.id))
+        .leftJoin(plans, eq(subscriptions.planId, plans.id))
+        .$dynamic();
 
     if (status && ["pending", "approved", "rejected", "overdue"].includes(status as string)) {
-        allInstallments = await db
-            .select()
-            .from(feeInstallments)
-            .where(eq(feeInstallments.status, status as "pending" | "approved" | "rejected" | "overdue"))
-            .orderBy(desc(feeInstallments.createdAt));
-    } else {
-        allInstallments = await db
-            .select()
-            .from(feeInstallments)
-            .orderBy(desc(feeInstallments.createdAt));
+        query = query.where(
+            eq(feeInstallments.status, status as "pending" | "approved" | "rejected" | "overdue")
+        );
     }
+
+    const allInstallments = await query.orderBy(desc(feeInstallments.createdAt));
 
     // Group by status for summary
     const pendingCount = allInstallments.filter(i => i.status === "pending").length;
@@ -213,7 +321,6 @@ export const getAllInstallments = async (req: Request, res: Response) => {
         }
     });
 };
-
 /**
  * Get a specific installment by ID
  */
@@ -224,35 +331,65 @@ export const getInstallmentById = async (req: Request, res: Response) => {
         throw new BadRequest("Installment ID is required");
     }
 
-    const installment = await db.query.feeInstallments.findFirst({
-        where: eq(feeInstallments.id, id),
-    });
+    const result = await db
+        .select({
 
-    if (!installment) {
+            id: feeInstallments.id,
+            subscriptionId: feeInstallments.subscriptionId,
+            organizationId: feeInstallments.organizationId,
+            paymentMethodId: feeInstallments.paymentMethodId,
+            totalFeeAmount: feeInstallments.totalFeeAmount,
+            paidAmount: feeInstallments.paidAmount,
+            remainingAmount: feeInstallments.remainingAmount,
+            installmentAmount: feeInstallments.installmentAmount,
+            dueDate: feeInstallments.dueDate,
+            status: feeInstallments.status,
+            rejectedReason: feeInstallments.rejectedReason,
+            receiptImage: feeInstallments.receiptImage,
+            installmentNumber: feeInstallments.installmentNumber,
+            createdAt: feeInstallments.createdAt,
+            updatedAt: feeInstallments.updatedAt,
+
+            organization: {
+                id: organizations.id,
+                name: organizations.name,
+            },
+
+            paymentMethod: {
+                id: paymentMethod.id,
+                name: paymentMethod.name,
+            },
+
+            subscription: {
+                id: subscriptions.id,
+                planId: subscriptions.planId,
+            },
+
+            plan: {
+                id: plans.id,
+                name: plans.name,
+                subscriptionFees: plans.subscriptionFees,
+            }
+        })
+        .from(feeInstallments)
+        .leftJoin(organizations, eq(feeInstallments.organizationId, organizations.id))
+        .leftJoin(paymentMethod, eq(feeInstallments.paymentMethodId, paymentMethod.id))
+        .leftJoin(subscriptions, eq(feeInstallments.subscriptionId, subscriptions.id))
+        .leftJoin(plans, eq(subscriptions.planId, plans.id))
+        .where(eq(feeInstallments.id, id))
+        .limit(1);
+
+    if (!result || result.length === 0) {
         throw new BadRequest("Installment not found");
     }
 
-    // Get organization and subscription details
-    const subscription = await db.query.subscriptions.findFirst({
-        where: eq(subscriptions.id, installment.subscriptionId),
-    });
-
-    const organization = await db.query.organizations.findFirst({
-        where: eq(organizations.id, installment.organizationId),
-    });
-
-    const plan = subscription ? await db.query.plans.findFirst({
-        where: eq(plans.id, subscription.planId),
-    }) : null;
+    const installment = result[0];
 
     return SuccessResponse(res, {
         message: "Installment retrieved successfully",
         installment,
-        organization: organization ? { id: organization.id, name: organization.name } : null,
-        plan: plan ? { id: plan.id, name: plan.name, subscriptionFees: plan.subscriptionFees } : null,
     });
 };
-
 /**
  * Approve an installment payment
  */
@@ -412,5 +549,5 @@ export const ReplyToPaymentParent = async (req: Request, res: Response) => {
             isActive: true,
         });
     }
-    return SuccessResponse(res, { message: `Payment ${status} successfully` },200);
+    return SuccessResponse(res, { message: `Payment ${status} successfully` }, 200);
 };

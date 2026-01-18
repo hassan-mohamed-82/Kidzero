@@ -363,3 +363,211 @@ export const createPayment = async (req: Request, res: Response) => {
     );
 };
 
+/**
+ * Request subscription renewal - Admin pays plan price to extend subscription
+ */
+export const requestRenewal = async (req: Request, res: Response) => {
+    const { paymentMethodId, receiptImage } = req.body;
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+
+    if (!paymentMethodId) {
+        throw new BadRequest("Payment method ID is required");
+    }
+
+    // Get active subscription
+    const activeSubscription = await db.query.subscriptions.findFirst({
+        where: and(
+            eq(subscriptions.organizationId, organizationId),
+            eq(subscriptions.isActive, true)
+        ),
+    });
+
+    if (!activeSubscription) {
+        throw new NotFound("No active subscription found to renew");
+    }
+
+    // Get plan details
+    const plan = await db.query.plans.findFirst({
+        where: eq(plans.id, activeSubscription.planId),
+    });
+
+    if (!plan) {
+        throw new NotFound("Plan not found");
+    }
+
+    // Check if there's already a pending renewal
+    const existingRenewal = await db
+        .select()
+        .from(payment)
+        .where(
+            and(
+                eq(payment.organizationId, organizationId),
+                eq(payment.status, "pending"),
+                eq(payment.paymentType, "renewal")
+            )
+        )
+        .limit(1);
+
+    if (existingRenewal.length > 0) {
+        throw new BadRequest("You already have a pending renewal request. Please wait for Super Admin review.");
+    }
+
+    // Validate payment method exists and is active
+    const payMethodResult = await db
+        .select()
+        .from(paymentMethod)
+        .where(
+            and(eq(paymentMethod.id, paymentMethodId), eq(paymentMethod.isActive, true))
+        )
+        .limit(1);
+
+    if (!payMethodResult[0]) {
+        throw new NotFound("Payment method not found or inactive");
+    }
+
+    // Save receipt image if provided
+    let receiptImageUrl: string | null = null;
+    if (receiptImage) {
+        const savedImage = await saveBase64Image(req, receiptImage, "payments/renewals");
+        receiptImageUrl = savedImage.url;
+    }
+
+    // Create renewal payment - amount is the plan price
+    const newPaymentId = crypto.randomUUID();
+
+    await db.insert(payment).values({
+        id: newPaymentId,
+        organizationId,
+        planId: activeSubscription.planId,
+        paymentMethodId,
+        amount: plan.price,
+        receiptImage: receiptImageUrl || "",
+        status: "pending",
+        paymentType: "renewal",
+    });
+
+    // Fetch created payment
+    const createdPayment = await db
+        .select({
+            id: payment.id,
+            amount: payment.amount,
+            status: payment.status,
+            paymentType: payment.paymentType,
+            createdAt: payment.createdAt,
+            plan: {
+                id: plans.id,
+                name: plans.name,
+                price: plans.price,
+            },
+        })
+        .from(payment)
+        .leftJoin(plans, eq(payment.planId, plans.id))
+        .where(eq(payment.id, newPaymentId))
+        .limit(1);
+
+    return SuccessResponse(
+        res,
+        {
+            message: "Renewal request submitted successfully. Awaiting super admin approval.",
+            payment: createdPayment[0],
+            subscription: {
+                currentEndDate: activeSubscription.endDate,
+                newEndDateIfApproved: new Date(new Date(activeSubscription.endDate).setFullYear(
+                    new Date(activeSubscription.endDate).getFullYear() + 1
+                )),
+            },
+        },
+        201
+    );
+};
+
+/**
+ * Pay plan price - Admin pays for the plan's price (separate from subscription fees)
+ */
+export const payPlanPrice = async (req: Request, res: Response) => {
+    const { planId, paymentMethodId, receiptImage } = req.body;
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+
+    if (!planId || !paymentMethodId) {
+        throw new BadRequest("Plan ID and Payment method ID are required");
+    }
+
+    // Get plan details
+    const plan = await db.query.plans.findFirst({
+        where: eq(plans.id, planId),
+    });
+
+    if (!plan) {
+        throw new NotFound("Plan not found");
+    }
+
+    // Validate payment method exists and is active
+    const payMethodResult = await db
+        .select()
+        .from(paymentMethod)
+        .where(
+            and(eq(paymentMethod.id, paymentMethodId), eq(paymentMethod.isActive, true))
+        )
+        .limit(1);
+
+    if (!payMethodResult[0]) {
+        throw new NotFound("Payment method not found or inactive");
+    }
+
+    // Save receipt image if provided
+    let receiptImageUrl: string | null = null;
+    if (receiptImage) {
+        const savedImage = await saveBase64Image(req, receiptImage, "payments/plan-price");
+        receiptImageUrl = savedImage.url;
+    }
+
+    // Create plan price payment
+    const newPaymentId = crypto.randomUUID();
+
+    await db.insert(payment).values({
+        id: newPaymentId,
+        organizationId,
+        planId,
+        paymentMethodId,
+        amount: plan.price,
+        receiptImage: receiptImageUrl || "",
+        status: "pending",
+        paymentType: "plan_price",
+    });
+
+    // Fetch created payment
+    const createdPayment = await db
+        .select({
+            id: payment.id,
+            amount: payment.amount,
+            status: payment.status,
+            paymentType: payment.paymentType,
+            createdAt: payment.createdAt,
+            plan: {
+                id: plans.id,
+                name: plans.name,
+                price: plans.price,
+            },
+        })
+        .from(payment)
+        .leftJoin(plans, eq(payment.planId, plans.id))
+        .where(eq(payment.id, newPaymentId))
+        .limit(1);
+
+    return SuccessResponse(
+        res,
+        {
+            message: "Plan price payment submitted successfully. Awaiting super admin approval.",
+            payment: createdPayment[0],
+        },
+        201
+    );
+};

@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { organizations, organizationTypes, buses, rides, students, subscriptions, feeInstallments } from "../schema";
+import { organizations, organizationTypes, buses, rides, students, subscriptions, feeInstallments, organizationServices, paymentMethod } from "../schema";
 
 
 // 1. Organization Relations
@@ -19,6 +19,8 @@ export const organizationRelations = relations(organizations, ({ one, many }) =>
   subscriptions: many(subscriptions),
   // An organization "has many" fee installments
   feeInstallments: many(feeInstallments),
+  // An organization "has many" organization services
+  organizationServices: many(organizationServices),
 }));
 
 // 2. Organization Type Relations (Inverse)
@@ -67,5 +69,17 @@ export const feeInstallmentRelations = relations(feeInstallments, ({ one }) => (
   subscription: one(subscriptions, {
     fields: [feeInstallments.subscriptionId],
     references: [subscriptions.id],
+  }),
+  paymentMethod: one(paymentMethod, {
+    fields: [feeInstallments.paymentMethodId],
+    references: [paymentMethod.id],
+  }),
+}));
+
+// 7. Organization Service Relations
+export const organizationServiceRelations = relations(organizationServices, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationServices.organizationId],
+    references: [organizations.id],
   }),
 }));
