@@ -128,6 +128,9 @@ export const createPayment = async (req: Request, res: Response) => {
 
     const plan = planResult[0];
 
+    if (plan.minSubscriptionFeesPay > amount) {
+        throw new BadRequest(`Minimum subscription fees pay is ${plan.minSubscriptionFeesPay}`);
+    }
     // Validate payment method exists and is active
     const payMethodResult = await db
         .select()
@@ -140,7 +143,6 @@ export const createPayment = async (req: Request, res: Response) => {
     if (!payMethodResult[0]) {
         throw new NotFound("Payment method not found or inactive");
     }
-
     // Save receipt image if provided
     let receiptImageUrl: string | null = null;
     if (receiptImage) {
@@ -151,10 +153,10 @@ export const createPayment = async (req: Request, res: Response) => {
     // Generate new payment ID
     const newPaymentId = crypto.randomUUID();
     // Calculate total amount with fee if applicable
-    let totalAmount = amount;
+    let totalAmount = plan.subscriptionFees;
     if (payMethodResult[0].feeStatus === true) {
         if (payMethodResult[0].feeAmount > 0) {
-            totalAmount = amount + payMethodResult[0].feeAmount;
+            totalAmount = totalAmount + payMethodResult[0].feeAmount;
         } else {
             throw new BadRequest("Invalid fee amount in payment method");
         }
@@ -197,7 +199,7 @@ export const createPayment = async (req: Request, res: Response) => {
     // Check if payment is less than subscription fees - route to installment path
     const subscriptionFees = plan.subscriptionFees;
     const minPayment = plan.minSubscriptionFeesPay;
-    const isPartialPayment = totalAmount < subscriptionFees;
+    const isPartialPayment = amount < totalAmount;
 
     if (isPartialPayment) {
         // Validate minimum payment requirement
@@ -228,7 +230,7 @@ export const createPayment = async (req: Request, res: Response) => {
             organizationId,
             planId,
             paymentMethodId,
-            amount: totalAmount,
+            amount: amount,
             receiptImage: receiptImageUrl || "",
             promocodeId: promoResultId,
             status: "pending",
@@ -271,9 +273,9 @@ export const createPayment = async (req: Request, res: Response) => {
             subscriptionId,
             organizationId,
             paymentMethodId,
-            totalFeeAmount: subscriptionFees,
+            totalFeeAmount: totalAmount,
             paidAmount: 0, // Will be updated when approved
-            remainingAmount: subscriptionFees - totalAmount, // Will be this after approval
+            remainingAmount: totalAmount - amount, // Will be this after approval
             installmentAmount: totalAmount,
             dueDate: new Date(nextDueDate),
             status: "pending",
@@ -317,9 +319,9 @@ export const createPayment = async (req: Request, res: Response) => {
                 installmentDetails: {
                     installmentId: newInstallmentId,
                     subscriptionId,
-                    totalFeeAmount: subscriptionFees,
-                    paidAmount: totalAmount,
-                    remainingAmount: subscriptionFees - totalAmount,
+                    totalFeeAmount: totalAmount,
+                    paidAmount: amount,
+                    remainingAmount: totalAmount - amount,
                     nextDueDate,
                     isInstallment: true,
                 },
