@@ -164,10 +164,18 @@ export const createPayment = async (req: Request, res: Response) => {
     if (promocode) {
         const promoResult = await verifyPromocodeAvailable(promocode);
         promoResultId = promoResult.id;
-        totalAmount = totalAmount - promoResult.amount;
-        if (totalAmount < 0) {
-            totalAmount = 0;
+        if (promoResult.promocodeType === "amount") {
+            totalAmount = totalAmount - promoResult.amount;
+            if (totalAmount < 0) {
+                totalAmount = 0;
+            }
+        } else {
+            totalAmount = totalAmount - (totalAmount * promoResult.amount / 100);
+            if (totalAmount < 0) {
+                totalAmount = 0;
+            }
         }
+
     }
 
     // Check if payment is less than subscription fees - route to installment path
