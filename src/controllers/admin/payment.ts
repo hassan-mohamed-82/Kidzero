@@ -8,7 +8,7 @@ import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
 import { saveBase64Image } from "../../utils/handleImages";
-
+import { verifyPromocodeAvailable } from "./promocodes";
 
 export const getAllPayments = async (req: Request, res: Response) => {
     const organizationId = req.user?.organizationId;
@@ -104,7 +104,7 @@ export const getPaymentById = async (req: Request, res: Response) => {
 };
 
 export const createPayment = async (req: Request, res: Response) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocodeId, nextDueDate } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocode, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -160,19 +160,11 @@ export const createPayment = async (req: Request, res: Response) => {
         }
     }
     // Apply promocode if provided
-    if (promocodeId) {
-        const promoResult = await db
-            .select()
-            .from(promocode)
-            .where(and(eq(promocode.id, promocodeId)))
-            .limit(1);
-        if (!promoResult[0]) {
-            throw new NotFound("Promocode not found");
-        }
-        if (promoResult[0].isActive === false) {
-            throw new BadRequest("Promocode is not active");
-        }
-        totalAmount = totalAmount - promoResult[0].amount;
+    let promoResultId: string | null = null;
+    if (promocode) {
+        const promoResult = await verifyPromocodeAvailable(promocode);
+        promoResultId = promoResult.id;
+        totalAmount = totalAmount - promoResult.amount;
         if (totalAmount < 0) {
             totalAmount = 0;
         }
@@ -214,7 +206,7 @@ export const createPayment = async (req: Request, res: Response) => {
             paymentMethodId,
             amount: totalAmount,
             receiptImage: receiptImageUrl || "",
-            promocodeId: promocodeId || null,
+            promocodeId: promoResultId,
             status: "pending",
         });
 
@@ -321,7 +313,7 @@ export const createPayment = async (req: Request, res: Response) => {
         paymentMethodId,
         amount: totalAmount,
         receiptImage: receiptImageUrl || "",
-        promocodeId: promocodeId || null,
+        promocodeId: promoResultId,
         status: "pending",
     });
 
