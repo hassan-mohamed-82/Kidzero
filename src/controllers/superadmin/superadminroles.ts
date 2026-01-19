@@ -31,7 +31,7 @@ const addIdsToPermissions = (
 // ✅ Helper: Check if permissions need IDs
 const permissionsNeedIds = (permissions: SuperAdminPermission[]): boolean => {
   if (!permissions || !Array.isArray(permissions)) return false;
-  
+
   for (const perm of permissions) {
     for (const act of perm.actions || []) {
       if (!act.id) return true;
@@ -88,14 +88,14 @@ export const getRoleById = async (req: Request, res: Response) => {
 
   let permissions = role.permissions || [];
 
-  // ✅ لو فيه Actions بدون IDs، أضفها واحفظها
+  // لو فيه Actions بدون IDs، أضفها واحفظها
   if (permissionsNeedIds(permissions)) {
     permissions = addIdsToPermissions(permissions);
 
     await db
       .update(superAdminRoles)
       .set({ permissions })
-      .where(eq(superAdminRoles.id, id));
+      .where(eq(superAdminRoles.id, role.id));
   }
 
   SuccessResponse(
@@ -113,7 +113,6 @@ export const getRoleById = async (req: Request, res: Response) => {
     200
   );
 };
-
 // ✅ Create Role
 export const createRole = async (req: Request, res: Response) => {
   const { name, permissions } = req.body;
