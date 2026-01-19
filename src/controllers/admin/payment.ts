@@ -104,7 +104,7 @@ export const getPaymentById = async (req: Request, res: Response) => {
 };
 
 export const createPayment = async (req: Request, res: Response) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocode, nextDueDate } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocode: promocodeCode, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -161,8 +161,8 @@ export const createPayment = async (req: Request, res: Response) => {
     }
     // Apply promocode if provided
     let promoResultId: string | null = null;
-    if (promocode) {
-        const promoResult = await verifyPromocodeAvailable(promocode);
+    if (promocodeCode) {
+        const promoResult = await verifyPromocodeAvailable(promocodeCode, organizationId);
         promoResultId = promoResult.id;
         if (promoResult.promocodeType === "amount") {
             totalAmount = totalAmount - promoResult.amount;
