@@ -22,7 +22,7 @@ exports.walletRechargeRequests = (0, mysql_core_1.mysqlTable)("wallet_recharge_r
         .references(() => student_1.students.id),
     // تفاصيل الطلب
     amount: (0, mysql_core_1.decimal)("amount", { precision: 10, scale: 2 }).notNull(),
-    paymentMethodId: (0, mysql_core_1.char)("payment_method_id", { length: 36 })
+    paymentMethodId: (0, mysql_core_1.char)("payment_methods_id", { length: 36 })
         .notNull()
         .references(() => paymentMethod_1.paymentMethod.id),
     // إثبات الدفع
