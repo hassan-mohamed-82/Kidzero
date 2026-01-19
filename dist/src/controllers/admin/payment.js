@@ -9,6 +9,7 @@ const response_1 = require("../../utils/response");
 const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
 const handleImages_1 = require("../../utils/handleImages");
+const promocodes_1 = require("./promocodes");
 const getAllPayments = async (req, res) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
@@ -94,7 +95,7 @@ const getPaymentById = async (req, res) => {
 };
 exports.getPaymentById = getPaymentById;
 const createPayment = async (req, res) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocodeId, nextDueDate } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocode, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -140,21 +141,33 @@ const createPayment = async (req, res) => {
         }
     }
     // Apply promocode if provided
-    if (promocodeId) {
-        const promoResult = await db_1.db
-            .select()
-            .from(schema_1.promocode)
-            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.promocode.id, promocodeId)))
-            .limit(1);
-        if (!promoResult[0]) {
-            throw new NotFound_1.NotFound("Promocode not found");
+    let promoResultId = null;
+    if (promocode) {
+        const promoResult = await (0, promocodes_1.verifyPromocodeAvailable)(promocode);
+        promoResultId = promoResult.id;
+        if (promoResult.promocodeType === "amount") {
+            totalAmount = totalAmount - promoResult.amount;
+            // Add it to the Used Promocodes Table 
+            await db_1.db.insert(schema_1.adminUsedPromocodes).values({
+                id: crypto.randomUUID(),
+                promocodeId: promoResult.id,
+                organizationId,
+            });
+            if (totalAmount < 0) {
+                totalAmount = 0;
+            }
         }
-        if (promoResult[0].isActive === false) {
-            throw new BadRequest_1.BadRequest("Promocode is not active");
-        }
-        totalAmount = totalAmount - promoResult[0].amount;
-        if (totalAmount < 0) {
-            totalAmount = 0;
+        else {
+            totalAmount = totalAmount - (totalAmount * promoResult.amount / 100);
+            // Add it to the Used Promocodes Table 
+            await db_1.db.insert(schema_1.adminUsedPromocodes).values({
+                id: crypto.randomUUID(),
+                promocodeId: promoResult.id,
+                organizationId,
+            });
+            if (totalAmount < 0) {
+                totalAmount = 0;
+            }
         }
     }
     // Check if payment is less than subscription fees - route to installment path
@@ -185,7 +198,7 @@ const createPayment = async (req, res) => {
             paymentMethodId,
             amount: totalAmount,
             receiptImage: receiptImageUrl || "",
-            promocodeId: promocodeId || null,
+            promocodeId: promoResultId,
             status: "pending",
         });
         // Check for existing active subscription or create new one
@@ -246,14 +259,14 @@ const createPayment = async (req, res) => {
                 name: schema_1.paymentMethod.name,
             },
             promocode: {
-                id: schema_1.promocode.id,
-                code: schema_1.promocode.code,
+                id: promocode.id,
+                code: promocode.code,
             },
         })
             .from(schema_1.payment)
             .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.payment.planId, schema_1.plans.id))
             .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.payment.paymentMethodId, schema_1.paymentMethod.id))
-            .leftJoin(schema_1.promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, schema_1.promocode.id))
+            .leftJoin(promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, promocode.id))
             .where((0, drizzle_orm_1.eq)(schema_1.payment.id, newPaymentId))
             .limit(1);
         return (0, response_1.SuccessResponse)(res, {
@@ -279,7 +292,7 @@ const createPayment = async (req, res) => {
         paymentMethodId,
         amount: totalAmount,
         receiptImage: receiptImageUrl || "",
-        promocodeId: promocodeId || null,
+        promocodeId: promoResultId,
         status: "pending",
     });
     // Fetch created payment with details
@@ -299,14 +312,14 @@ const createPayment = async (req, res) => {
             name: schema_1.paymentMethod.name,
         },
         promocode: {
-            id: schema_1.promocode.id,
-            code: schema_1.promocode.code,
+            id: promocode.id,
+            code: promocode.code,
         },
     })
         .from(schema_1.payment)
         .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.payment.planId, schema_1.plans.id))
         .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.payment.paymentMethodId, schema_1.paymentMethod.id))
-        .leftJoin(schema_1.promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, schema_1.promocode.id))
+        .leftJoin(promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, promocode.id))
         .where((0, drizzle_orm_1.eq)(schema_1.payment.id, newPaymentId))
         .limit(1);
     (0, response_1.SuccessResponse)(res, {
