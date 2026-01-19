@@ -8,7 +8,7 @@ const response_1 = require("../../utils/response");
 const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
 const schema_1 = require("../../models/schema");
-const verifyPromocodeAvailable = async (code) => {
+const verifyPromocodeAvailable = async (code, organizationId) => {
     const promocodeResult = await db_1.db
         .select()
         .from(schema_1.promocode)
@@ -21,10 +21,10 @@ const verifyPromocodeAvailable = async (code) => {
         throw new BadRequest_1.BadRequest("Promocode is not active");
     }
     const usedPromocodeResult = await db_1.db.select().from(adminUsedPromocodes_1.adminUsedPromocodes)
-        .where((0, drizzle_orm_1.eq)(adminUsedPromocodes_1.adminUsedPromocodes.promocodeId, promocodeResult[0].id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(adminUsedPromocodes_1.adminUsedPromocodes.promocodeId, promocodeResult[0].id), (0, drizzle_orm_1.eq)(adminUsedPromocodes_1.adminUsedPromocodes.organizationId, organizationId)))
         .limit(1);
     if (usedPromocodeResult[0]) {
-        throw new BadRequest_1.BadRequest("Promocode already used");
+        throw new BadRequest_1.BadRequest("Promocode already used by this Organization");
     }
     return promocodeResult[0];
 };
@@ -35,7 +35,7 @@ const verifyPromocode = async (req, res) => {
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const promocodeResult = await (0, exports.verifyPromocodeAvailable)(code);
+    const promocodeResult = await (0, exports.verifyPromocodeAvailable)(code, organizationId);
     if (!promocodeResult) {
         throw new BadRequest_1.BadRequest("Promocode is not available");
     }

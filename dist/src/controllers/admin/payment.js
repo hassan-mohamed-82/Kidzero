@@ -95,7 +95,7 @@ const getPaymentById = async (req, res) => {
 };
 exports.getPaymentById = getPaymentById;
 const createPayment = async (req, res) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocode: promocodeCode, nextDueDate } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocodeCode, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -143,7 +143,7 @@ const createPayment = async (req, res) => {
     // Apply promocode if provided
     let promoResultId = null;
     if (promocodeCode) {
-        const promoResult = await (0, promocodes_1.verifyPromocodeAvailable)(promocodeCode);
+        const promoResult = await (0, promocodes_1.verifyPromocodeAvailable)(promocodeCode, organizationId);
         promoResultId = promoResult.id;
         if (promoResult.promocodeType === "amount") {
             totalAmount = totalAmount - promoResult.amount;
