@@ -133,10 +133,12 @@ export const getAllRechargeRequests = async (req: Request, res: Response) => {
 };
 
 // ✅ جلب طلب شحن بالتفصيل
+// src/controllers/superAdmin/walletController.ts
+
 export const getRechargeRequestById = async (req: Request, res: Response) => {
   const { requestId } = req.params;
 
-  const [request] = await db
+  const result = await db
     .select({
       id: walletRechargeRequests.id,
       amount: walletRechargeRequests.amount,
@@ -145,18 +147,15 @@ export const getRechargeRequestById = async (req: Request, res: Response) => {
       notes: walletRechargeRequests.notes,
       createdAt: walletRechargeRequests.createdAt,
       reviewedAt: walletRechargeRequests.reviewedAt,
-      // Student
+      // Student - بدون grade و classroom لو مش موجودين
       studentId: students.id,
       studentName: students.name,
       studentAvatar: students.avatar,
-      studentBalance: students.walletBalance,
-      studentGrade: students.grade,
-      studentClassroom: students.classroom,
-      // Parent
+      studentWalletBalance: students.walletBalance,
+      // Parent - بدون email لو مش موجود
       parentId: parents.id,
       parentName: parents.name,
       parentPhone: parents.phone,
-      parentEmail: parents.email,
       // Payment Method
       paymentMethodId: paymentMethod.id,
       paymentMethodName: paymentMethod.name,
@@ -167,50 +166,38 @@ export const getRechargeRequestById = async (req: Request, res: Response) => {
       organizationLogo: organizations.logo,
     })
     .from(walletRechargeRequests)
-    .innerJoin(students, eq(walletRechargeRequests.studentId, students.id))
-    .innerJoin(parents, eq(walletRechargeRequests.parentId, parents.id))
-    .innerJoin(paymentMethod, eq(walletRechargeRequests.paymentMethodId, paymentMethod.id))
-    .innerJoin(organizations, eq(walletRechargeRequests.organizationId, organizations.id))
+    .leftJoin(students, eq(walletRechargeRequests.studentId, students.id))
+    .leftJoin(parents, eq(walletRechargeRequests.parentId, parents.id))
+    .leftJoin(paymentMethod, eq(walletRechargeRequests.paymentMethodId, paymentMethod.id))
+    .leftJoin(organizations, eq(walletRechargeRequests.organizationId, organizations.id))
     .where(eq(walletRechargeRequests.id, requestId))
     .limit(1);
 
-  if (!request) {
-    throw new NotFound("Request not found");
+  if (!result.length) {
+    throw new NotFound("Recharge request not found");
   }
 
-  // جلب آخر معاملات الطالب
-  const recentTransactions = await db
-    .select()
-    .from(walletTransactions)
-    .where(eq(walletTransactions.studentId, request.studentId))
-    .orderBy(desc(walletTransactions.createdAt))
-    .limit(10);
+  const request = result[0];
 
-  SuccessResponse(
-    res,
-    {
-      request: {
-        id: request.id,
-        amount: Number(request.amount),
-        proofImage: request.proofImage,
-        status: request.status,
-        notes: request.notes,
-        createdAt: request.createdAt,
-        reviewedAt: request.reviewedAt,
-      },
+  SuccessResponse(res, {
+    request: {
+      id: request.id,
+      amount: request.amount,
+      proofImage: request.proofImage,
+      status: request.status,
+      notes: request.notes,
+      createdAt: request.createdAt,
+      reviewedAt: request.reviewedAt,
       student: {
         id: request.studentId,
         name: request.studentName,
         avatar: request.studentAvatar,
-        grade: request.studentGrade,
-        classroom: request.studentClassroom,
-        currentBalance: Number(request.studentBalance) || 0,
+        walletBalance: request.studentWalletBalance,
       },
       parent: {
         id: request.parentId,
         name: request.parentName,
         phone: request.parentPhone,
-        email: request.parentEmail,
       },
       paymentMethod: {
         id: request.paymentMethodId,
@@ -222,19 +209,10 @@ export const getRechargeRequestById = async (req: Request, res: Response) => {
         name: request.organizationName,
         logo: request.organizationLogo,
       },
-      recentTransactions: recentTransactions.map((t) => ({
-        id: t.id,
-        type: t.type,
-        amount: Number(t.amount),
-        balanceBefore: Number(t.balanceBefore),
-        balanceAfter: Number(t.balanceAfter),
-        description: t.description,
-        createdAt: t.createdAt,
-      })),
     },
-    200
-  );
+  }, 200);
 };
+
 
 // ✅ الموافقة على طلب الشحن
 export const approveRechargeRequest = async (req: Request, res: Response) => {

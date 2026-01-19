@@ -32,7 +32,7 @@ export const walletRechargeRequests = mysqlTable("wallet_recharge_requests", {
   
   // تفاصيل الطلب
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethodId: char("payment_method_id", { length: 36 })
+  paymentMethodId: char("payment_methods_id", { length: 36 })
     .notNull()
     .references(() => paymentMethod.id),
   
