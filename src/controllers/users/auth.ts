@@ -576,7 +576,7 @@ export const updateFcmToken = async (req: Request, res: Response) => {
 
   await db
     .update(parents)
-    .set({ fcmToken: fcmToken })
+    .set({ fcmTokens: fcmToken })
     .where(eq(parents.id, parentId));
 
   return SuccessResponse(res, { message: "تم تحديث FCM Token" }, 200);

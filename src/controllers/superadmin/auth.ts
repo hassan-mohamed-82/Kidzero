@@ -10,6 +10,26 @@ import { superAdmins } from "../../models/superadmin/superadmin";
 import { superAdminRoles } from "../../models/schema";
 import bcrypt from "bcrypt";
 
+// ✅ Parse permissions من string لـ array
+const parsePermissions = (permissions: any): any[] => {
+  if (!permissions) return [];
+  if (Array.isArray(permissions)) return permissions;
+
+  if (typeof permissions === "string") {
+    try {
+      let parsed = JSON.parse(permissions);
+      while (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+};
+
 export async function login(req: Request, res: Response) {
   const { email, password } = req.body;
 
@@ -55,19 +75,22 @@ export async function login(req: Request, res: Response) {
     throw new UnauthorizedError("Your role is inactive");
   }
 
-  // توليد التوكن بناءً على نوع المستخدم
+  // ✅ Parse الـ permissions
+  const permissions = parsePermissions(admin.rolePermissions);
+
+  // توليد التوكن
   const token =
     admin.role === "superadmin"
       ? generateSuperAdminToken({
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-      })
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+        })
       : generateSubAdminToken({
-        id: admin.id,
-        email: admin.email,
-        name: admin.name,
-      });
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+        });
 
   SuccessResponse(
     res,
@@ -79,12 +102,12 @@ export async function login(req: Request, res: Response) {
         name: admin.name,
         email: admin.email,
         role: admin.role,
-        roleId: admin.roleId
+        roleDetails: admin.roleId
           ? {
-            id: admin.roleId,
-            name: admin.roleName,
-            permissions: admin.rolePermissions || [],
-          }
+              id: admin.roleId,
+              name: admin.roleName,
+              permissions, // ✅ هترجع كـ array
+            }
           : null,
       },
     },

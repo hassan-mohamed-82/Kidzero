@@ -431,7 +431,7 @@ const updateFcmToken = async (req, res) => {
     }
     await db_1.db
         .update(schema_1.parents)
-        .set({ fcmToken: fcmToken })
+        .set({ fcmTokens: fcmToken })
         .where((0, drizzle_orm_1.eq)(schema_1.parents.id, parentId));
     return (0, response_1.SuccessResponse)(res, { message: "تم تحديث FCM Token" }, 200);
 };

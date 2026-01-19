@@ -13,6 +13,26 @@ const auth_1 = require("../../utils/auth");
 const superadmin_1 = require("../../models/superadmin/superadmin");
 const schema_1 = require("../../models/schema");
 const bcrypt_1 = __importDefault(require("bcrypt"));
+// ✅ Parse permissions من string لـ array
+const parsePermissions = (permissions) => {
+    if (!permissions)
+        return [];
+    if (Array.isArray(permissions))
+        return permissions;
+    if (typeof permissions === "string") {
+        try {
+            let parsed = JSON.parse(permissions);
+            while (typeof parsed === "string") {
+                parsed = JSON.parse(parsed);
+            }
+            return Array.isArray(parsed) ? parsed : [];
+        }
+        catch {
+            return [];
+        }
+    }
+    return [];
+};
 async function login(req, res) {
     const { email, password } = req.body;
     // جلب الـ Super Admin مع الـ Role
@@ -51,7 +71,9 @@ async function login(req, res) {
     if (admin.roleId && admin.roleStatus === "inactive") {
         throw new Errors_1.UnauthorizedError("Your role is inactive");
     }
-    // توليد التوكن بناءً على نوع المستخدم
+    // ✅ Parse الـ permissions
+    const permissions = parsePermissions(admin.rolePermissions);
+    // توليد التوكن
     const token = admin.role === "superadmin"
         ? (0, auth_1.generateSuperAdminToken)({
             id: admin.id,
@@ -71,11 +93,11 @@ async function login(req, res) {
             name: admin.name,
             email: admin.email,
             role: admin.role,
-            roleId: admin.roleId
+            roleDetails: admin.roleId
                 ? {
                     id: admin.roleId,
                     name: admin.roleName,
-                    permissions: admin.rolePermissions || [],
+                    permissions, // ✅ هترجع كـ array
                 }
                 : null,
         },

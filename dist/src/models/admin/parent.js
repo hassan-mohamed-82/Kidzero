@@ -13,7 +13,7 @@ exports.parents = (0, mysql_core_1.mysqlTable)("parents", {
     phone: (0, mysql_core_1.varchar)("phone", { length: 20 }).notNull().unique(),
     password: (0, mysql_core_1.varchar)("password", { length: 255 }).notNull(),
     avatar: (0, mysql_core_1.varchar)("avatar", { length: 500 }),
-    fcmToken: (0, mysql_core_1.text)("fcm_token"),
+    fcmTokens: (0, mysql_core_1.text)("fcm_tokens"),
     isVerified: (0, mysql_core_1.boolean)("is_verified").default(false),
     address: (0, mysql_core_1.varchar)("address", { length: 500 }),
     nationalId: (0, mysql_core_1.varchar)("national_id", { length: 20 }),

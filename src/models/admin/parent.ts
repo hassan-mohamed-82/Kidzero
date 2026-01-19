@@ -23,7 +23,7 @@ export const parents = mysqlTable("parents", {
   password: varchar("password", { length: 255 }).notNull(),
   avatar: varchar("avatar", { length: 500 }),
   
-  fcmToken: text("fcm_token"),
+  fcmTokens: text("fcm_tokens"),
   isVerified: boolean("is_verified").default(false),
 
   address: varchar("address", { length: 500 }),
