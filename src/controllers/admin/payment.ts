@@ -2,13 +2,13 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions } from "../../models/schema";
+import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions, adminUsedPromocodes } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
 import { saveBase64Image } from "../../utils/handleImages";
-
+import { verifyPromocodeAvailable } from "./promocodes";
 
 export const getAllPayments = async (req: Request, res: Response) => {
     const organizationId = req.user?.organizationId;
@@ -104,7 +104,7 @@ export const getPaymentById = async (req: Request, res: Response) => {
 };
 
 export const createPayment = async (req: Request, res: Response) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocodeId, nextDueDate } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocode, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
@@ -160,22 +160,38 @@ export const createPayment = async (req: Request, res: Response) => {
         }
     }
     // Apply promocode if provided
-    if (promocodeId) {
-        const promoResult = await db
-            .select()
-            .from(promocode)
-            .where(and(eq(promocode.id, promocodeId)))
-            .limit(1);
-        if (!promoResult[0]) {
-            throw new NotFound("Promocode not found");
+    let promoResultId: string | null = null;
+    if (promocode) {
+        const promoResult = await verifyPromocodeAvailable(promocode);
+        promoResultId = promoResult.id;
+        if (promoResult.promocodeType === "amount") {
+            totalAmount = totalAmount - promoResult.amount;
+
+            // Add it to the Used Promocodes Table 
+            await db.insert(adminUsedPromocodes).values({
+                id: crypto.randomUUID(),
+                promocodeId: promoResult.id,
+                organizationId,
+            });
+
+            if (totalAmount < 0) {
+                totalAmount = 0;
+            }
+        } else {
+            totalAmount = totalAmount - (totalAmount * promoResult.amount / 100);
+
+            // Add it to the Used Promocodes Table 
+            await db.insert(adminUsedPromocodes).values({
+                id: crypto.randomUUID(),
+                promocodeId: promoResult.id,
+                organizationId,
+            });
+
+            if (totalAmount < 0) {
+                totalAmount = 0;
+            }
         }
-        if (promoResult[0].isActive === false) {
-            throw new BadRequest("Promocode is not active");
-        }
-        totalAmount = totalAmount - promoResult[0].amount;
-        if (totalAmount < 0) {
-            totalAmount = 0;
-        }
+
     }
 
     // Check if payment is less than subscription fees - route to installment path
@@ -214,7 +230,7 @@ export const createPayment = async (req: Request, res: Response) => {
             paymentMethodId,
             amount: totalAmount,
             receiptImage: receiptImageUrl || "",
-            promocodeId: promocodeId || null,
+            promocodeId: promoResultId,
             status: "pending",
         });
 
@@ -321,7 +337,7 @@ export const createPayment = async (req: Request, res: Response) => {
         paymentMethodId,
         amount: totalAmount,
         receiptImage: receiptImageUrl || "",
-        promocodeId: promocodeId || null,
+        promocodeId: promoResultId,
         status: "pending",
     });
 

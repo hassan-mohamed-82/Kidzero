@@ -36,7 +36,7 @@ export * from "./admin/notifications";
 export * from "./admin/rideOccurrenceStudent";
 export * from "./admin/rideOccurrence";
 export * from "./admin/organizationServices";
-
+export * from "./admin/adminUsedPromocodes";
 
 
 export * from "./user/walletRechargeRequest";
