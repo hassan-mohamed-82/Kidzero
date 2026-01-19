@@ -10,12 +10,33 @@ import { BadRequest } from "../../Errors/BadRequest";
 import { SUPER_ADMIN_MODULES, SUPER_ADMIN_ACTIONS } from "../../types/constant";
 import { v4 as uuidv4 } from "uuid";
 
-// Generate ID للـ Action
+// ✅ Generate ID للـ Action
 const generateActionId = (): string => {
   return uuidv4().replace(/-/g, "").substring(0, 24);
 };
 
-// إضافة IDs للـ Actions
+// ✅ Parse permissions من string لـ array
+const parsePermissions = (permissions: any): SuperAdminPermission[] => {
+  if (!permissions) return [];
+  if (Array.isArray(permissions)) return permissions;
+
+  if (typeof permissions === "string") {
+    try {
+      let parsed = JSON.parse(permissions);
+      // لو لسه string (double-stringified)
+      while (typeof parsed === "string") {
+        parsed = JSON.parse(parsed);
+      }
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+};
+
+// ✅ إضافة IDs للـ Actions
 const addIdsToPermissions = (
   permissions: SuperAdminPermission[]
 ): SuperAdminPermission[] => {
@@ -28,7 +49,7 @@ const addIdsToPermissions = (
   }));
 };
 
-// ✅ Helper: Check if permissions need IDs
+// ✅ Check if permissions need IDs
 const permissionsNeedIds = (permissions: SuperAdminPermission[]): boolean => {
   if (!permissions || !Array.isArray(permissions)) return false;
 
@@ -47,7 +68,8 @@ export const getAllRoles = async (req: Request, res: Response) => {
   const rolesWithFixedPermissions = [];
 
   for (const role of allRoles) {
-    let permissions = role.permissions || [];
+    // ✅ Parse permissions من string لـ array
+    let permissions = parsePermissions(role.permissions);
 
     // ✅ لو فيه Actions بدون IDs، أضفها واحفظها
     if (permissionsNeedIds(permissions)) {
@@ -62,7 +84,7 @@ export const getAllRoles = async (req: Request, res: Response) => {
     rolesWithFixedPermissions.push({
       id: role.id,
       name: role.name,
-      permissions,
+      permissions, // ✅ هترجع كـ array مش string
       status: role.status,
       createdAt: role.createdAt,
       updatedAt: role.updatedAt,
@@ -86,7 +108,8 @@ export const getRoleById = async (req: Request, res: Response) => {
     throw new NotFound("Role not found");
   }
 
-  let permissions = role.permissions || [];
+  // ✅ Parse permissions من string لـ array
+  let permissions = parsePermissions(role.permissions);
 
   // لو فيه Actions بدون IDs، أضفها واحفظها
   if (permissionsNeedIds(permissions)) {
@@ -104,7 +127,7 @@ export const getRoleById = async (req: Request, res: Response) => {
       role: {
         id: role.id,
         name: role.name,
-        permissions,
+        permissions, // ✅ هترجع كـ array مش string
         status: role.status,
         createdAt: role.createdAt,
         updatedAt: role.updatedAt,
@@ -113,6 +136,7 @@ export const getRoleById = async (req: Request, res: Response) => {
     200
   );
 };
+
 // ✅ Create Role
 export const createRole = async (req: Request, res: Response) => {
   const { name, permissions } = req.body;
@@ -131,7 +155,8 @@ export const createRole = async (req: Request, res: Response) => {
     throw new BadRequest("Role with this name already exists");
   }
 
-  const permissionsWithIds = addIdsToPermissions(permissions || []);
+  const parsedPermissions = parsePermissions(permissions);
+  const permissionsWithIds = addIdsToPermissions(parsedPermissions);
   const roleId = uuidv4();
 
   await db.insert(superAdminRoles).values({
@@ -192,7 +217,8 @@ export const updateRole = async (req: Request, res: Response) => {
   }
 
   if (permissions !== undefined) {
-    updateData.permissions = addIdsToPermissions(permissions);
+    const parsedPermissions = parsePermissions(permissions);
+    updateData.permissions = addIdsToPermissions(parsedPermissions);
   }
 
   await db
@@ -213,7 +239,7 @@ export const updateRole = async (req: Request, res: Response) => {
       role: {
         id: updatedRole.id,
         name: updatedRole.name,
-        permissions: updatedRole.permissions,
+        permissions: parsePermissions(updatedRole.permissions), // ✅ Parse هنا كمان
         status: updatedRole.status,
         createdAt: updatedRole.createdAt,
         updatedAt: updatedRole.updatedAt,

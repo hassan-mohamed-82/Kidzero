@@ -10,11 +10,32 @@ const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
 const constant_1 = require("../../types/constant");
 const uuid_1 = require("uuid");
-// Generate ID للـ Action
+// ✅ Generate ID للـ Action
 const generateActionId = () => {
     return (0, uuid_1.v4)().replace(/-/g, "").substring(0, 24);
 };
-// إضافة IDs للـ Actions
+// ✅ Parse permissions من string لـ array
+const parsePermissions = (permissions) => {
+    if (!permissions)
+        return [];
+    if (Array.isArray(permissions))
+        return permissions;
+    if (typeof permissions === "string") {
+        try {
+            let parsed = JSON.parse(permissions);
+            // لو لسه string (double-stringified)
+            while (typeof parsed === "string") {
+                parsed = JSON.parse(parsed);
+            }
+            return Array.isArray(parsed) ? parsed : [];
+        }
+        catch {
+            return [];
+        }
+    }
+    return [];
+};
+// ✅ إضافة IDs للـ Actions
 const addIdsToPermissions = (permissions) => {
     return permissions.map((perm) => ({
         module: perm.module,
@@ -24,7 +45,7 @@ const addIdsToPermissions = (permissions) => {
         })),
     }));
 };
-// ✅ Helper: Check if permissions need IDs
+// ✅ Check if permissions need IDs
 const permissionsNeedIds = (permissions) => {
     if (!permissions || !Array.isArray(permissions))
         return false;
@@ -41,7 +62,8 @@ const getAllRoles = async (req, res) => {
     const allRoles = await db_1.db.select().from(schema_1.superAdminRoles);
     const rolesWithFixedPermissions = [];
     for (const role of allRoles) {
-        let permissions = role.permissions || [];
+        // ✅ Parse permissions من string لـ array
+        let permissions = parsePermissions(role.permissions);
         // ✅ لو فيه Actions بدون IDs، أضفها واحفظها
         if (permissionsNeedIds(permissions)) {
             permissions = addIdsToPermissions(permissions);
@@ -53,7 +75,7 @@ const getAllRoles = async (req, res) => {
         rolesWithFixedPermissions.push({
             id: role.id,
             name: role.name,
-            permissions,
+            permissions, // ✅ هترجع كـ array مش string
             status: role.status,
             createdAt: role.createdAt,
             updatedAt: role.updatedAt,
@@ -73,7 +95,8 @@ const getRoleById = async (req, res) => {
     if (!role) {
         throw new NotFound_1.NotFound("Role not found");
     }
-    let permissions = role.permissions || [];
+    // ✅ Parse permissions من string لـ array
+    let permissions = parsePermissions(role.permissions);
     // لو فيه Actions بدون IDs، أضفها واحفظها
     if (permissionsNeedIds(permissions)) {
         permissions = addIdsToPermissions(permissions);
@@ -86,7 +109,7 @@ const getRoleById = async (req, res) => {
         role: {
             id: role.id,
             name: role.name,
-            permissions,
+            permissions, // ✅ هترجع كـ array مش string
             status: role.status,
             createdAt: role.createdAt,
             updatedAt: role.updatedAt,
@@ -108,7 +131,8 @@ const createRole = async (req, res) => {
     if (existingRole) {
         throw new BadRequest_1.BadRequest("Role with this name already exists");
     }
-    const permissionsWithIds = addIdsToPermissions(permissions || []);
+    const parsedPermissions = parsePermissions(permissions);
+    const permissionsWithIds = addIdsToPermissions(parsedPermissions);
     const roleId = (0, uuid_1.v4)();
     await db_1.db.insert(schema_1.superAdminRoles).values({
         id: roleId,
@@ -155,7 +179,8 @@ const updateRole = async (req, res) => {
         updateData.status = status;
     }
     if (permissions !== undefined) {
-        updateData.permissions = addIdsToPermissions(permissions);
+        const parsedPermissions = parsePermissions(permissions);
+        updateData.permissions = addIdsToPermissions(parsedPermissions);
     }
     await db_1.db
         .update(schema_1.superAdminRoles)
@@ -171,7 +196,7 @@ const updateRole = async (req, res) => {
         role: {
             id: updatedRole.id,
             name: updatedRole.name,
-            permissions: updatedRole.permissions,
+            permissions: parsePermissions(updatedRole.permissions), // ✅ Parse هنا كمان
             status: updatedRole.status,
             createdAt: updatedRole.createdAt,
             updatedAt: updatedRole.updatedAt,
