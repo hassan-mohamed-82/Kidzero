@@ -214,7 +214,7 @@ export const createPayment = async (req: Request, res: Response) => {
         if (!nextDueDate) {
             throw new BadRequest(
                 "Next payment due date is required for partial/installment payments. " +
-                `You are paying ${totalAmount} out of ${subscriptionFees} total fees.`
+                `You are paying ${amount} out of ${totalAmount} total fees.`
             );
         }
 
