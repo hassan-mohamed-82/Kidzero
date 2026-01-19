@@ -74,13 +74,13 @@ const getRoleById = async (req, res) => {
         throw new NotFound_1.NotFound("Role not found");
     }
     let permissions = role.permissions || [];
-    // ✅ لو فيه Actions بدون IDs، أضفها واحفظها
+    // لو فيه Actions بدون IDs، أضفها واحفظها
     if (permissionsNeedIds(permissions)) {
         permissions = addIdsToPermissions(permissions);
         await db_1.db
             .update(schema_1.superAdminRoles)
             .set({ permissions })
-            .where((0, drizzle_orm_1.eq)(schema_1.superAdminRoles.id, id));
+            .where((0, drizzle_orm_1.eq)(schema_1.superAdminRoles.id, role.id));
     }
     (0, response_1.SuccessResponse)(res, {
         role: {

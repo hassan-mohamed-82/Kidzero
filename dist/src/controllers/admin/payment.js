@@ -95,7 +95,7 @@ const getPaymentById = async (req, res) => {
 };
 exports.getPaymentById = getPaymentById;
 const createPayment = async (req, res) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocode, nextDueDate } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocode: promocodeCode, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -142,8 +142,8 @@ const createPayment = async (req, res) => {
     }
     // Apply promocode if provided
     let promoResultId = null;
-    if (promocode) {
-        const promoResult = await (0, promocodes_1.verifyPromocodeAvailable)(promocode);
+    if (promocodeCode) {
+        const promoResult = await (0, promocodes_1.verifyPromocodeAvailable)(promocodeCode);
         promoResultId = promoResult.id;
         if (promoResult.promocodeType === "amount") {
             totalAmount = totalAmount - promoResult.amount;
@@ -259,14 +259,14 @@ const createPayment = async (req, res) => {
                 name: schema_1.paymentMethod.name,
             },
             promocode: {
-                id: promocode.id,
-                code: promocode.code,
+                id: schema_1.promocode.id,
+                code: schema_1.promocode.code,
             },
         })
             .from(schema_1.payment)
             .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.payment.planId, schema_1.plans.id))
             .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.payment.paymentMethodId, schema_1.paymentMethod.id))
-            .leftJoin(promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, promocode.id))
+            .leftJoin(schema_1.promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, schema_1.promocode.id))
             .where((0, drizzle_orm_1.eq)(schema_1.payment.id, newPaymentId))
             .limit(1);
         return (0, response_1.SuccessResponse)(res, {
@@ -312,14 +312,14 @@ const createPayment = async (req, res) => {
             name: schema_1.paymentMethod.name,
         },
         promocode: {
-            id: promocode.id,
-            code: promocode.code,
+            id: schema_1.promocode.id,
+            code: schema_1.promocode.code,
         },
     })
         .from(schema_1.payment)
         .leftJoin(schema_1.plans, (0, drizzle_orm_1.eq)(schema_1.payment.planId, schema_1.plans.id))
         .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.payment.paymentMethodId, schema_1.paymentMethod.id))
-        .leftJoin(promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, promocode.id))
+        .leftJoin(schema_1.promocode, (0, drizzle_orm_1.eq)(schema_1.payment.promocodeId, schema_1.promocode.id))
         .where((0, drizzle_orm_1.eq)(schema_1.payment.id, newPaymentId))
         .limit(1);
     (0, response_1.SuccessResponse)(res, {

@@ -111,9 +111,10 @@ const getAllRechargeRequests = async (req, res) => {
 };
 exports.getAllRechargeRequests = getAllRechargeRequests;
 // ✅ جلب طلب شحن بالتفصيل
+// src/controllers/superAdmin/walletController.ts
 const getRechargeRequestById = async (req, res) => {
     const { requestId } = req.params;
-    const [request] = await db_1.db
+    const result = await db_1.db
         .select({
         id: schema_1.walletRechargeRequests.id,
         amount: schema_1.walletRechargeRequests.amount,
@@ -122,18 +123,15 @@ const getRechargeRequestById = async (req, res) => {
         notes: schema_1.walletRechargeRequests.notes,
         createdAt: schema_1.walletRechargeRequests.createdAt,
         reviewedAt: schema_1.walletRechargeRequests.reviewedAt,
-        // Student
+        // Student - بدون grade و classroom لو مش موجودين
         studentId: schema_1.students.id,
         studentName: schema_1.students.name,
         studentAvatar: schema_1.students.avatar,
-        studentBalance: schema_1.students.walletBalance,
-        studentGrade: schema_1.students.grade,
-        studentClassroom: schema_1.students.classroom,
-        // Parent
+        studentWalletBalance: schema_1.students.walletBalance,
+        // Parent - بدون email لو مش موجود
         parentId: schema_1.parents.id,
         parentName: schema_1.parents.name,
         parentPhone: schema_1.parents.phone,
-        parentEmail: schema_1.parents.email,
         // Payment Method
         paymentMethodId: schema_1.paymentMethod.id,
         paymentMethodName: schema_1.paymentMethod.name,
@@ -144,65 +142,47 @@ const getRechargeRequestById = async (req, res) => {
         organizationLogo: schema_1.organizations.logo,
     })
         .from(schema_1.walletRechargeRequests)
-        .innerJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.studentId, schema_1.students.id))
-        .innerJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.parentId, schema_1.parents.id))
-        .innerJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.paymentMethodId, schema_1.paymentMethod.id))
-        .innerJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.organizationId, schema_1.organizations.id))
+        .leftJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.studentId, schema_1.students.id))
+        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.parentId, schema_1.parents.id))
+        .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.paymentMethodId, schema_1.paymentMethod.id))
+        .leftJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.organizationId, schema_1.organizations.id))
         .where((0, drizzle_orm_1.eq)(schema_1.walletRechargeRequests.id, requestId))
         .limit(1);
-    if (!request) {
-        throw new NotFound_1.NotFound("Request not found");
+    if (!result.length) {
+        throw new NotFound_1.NotFound("Recharge request not found");
     }
-    // جلب آخر معاملات الطالب
-    const recentTransactions = await db_1.db
-        .select()
-        .from(schema_1.walletTransactions)
-        .where((0, drizzle_orm_1.eq)(schema_1.walletTransactions.studentId, request.studentId))
-        .orderBy((0, drizzle_orm_1.desc)(schema_1.walletTransactions.createdAt))
-        .limit(10);
+    const request = result[0];
     (0, response_1.SuccessResponse)(res, {
         request: {
             id: request.id,
-            amount: Number(request.amount),
+            amount: request.amount,
             proofImage: request.proofImage,
             status: request.status,
             notes: request.notes,
             createdAt: request.createdAt,
             reviewedAt: request.reviewedAt,
+            student: {
+                id: request.studentId,
+                name: request.studentName,
+                avatar: request.studentAvatar,
+                walletBalance: request.studentWalletBalance,
+            },
+            parent: {
+                id: request.parentId,
+                name: request.parentName,
+                phone: request.parentPhone,
+            },
+            paymentMethod: {
+                id: request.paymentMethodId,
+                name: request.paymentMethodName,
+                logo: request.paymentMethodLogo,
+            },
+            organization: {
+                id: request.organizationId,
+                name: request.organizationName,
+                logo: request.organizationLogo,
+            },
         },
-        student: {
-            id: request.studentId,
-            name: request.studentName,
-            avatar: request.studentAvatar,
-            grade: request.studentGrade,
-            classroom: request.studentClassroom,
-            currentBalance: Number(request.studentBalance) || 0,
-        },
-        parent: {
-            id: request.parentId,
-            name: request.parentName,
-            phone: request.parentPhone,
-            email: request.parentEmail,
-        },
-        paymentMethod: {
-            id: request.paymentMethodId,
-            name: request.paymentMethodName,
-            logo: request.paymentMethodLogo,
-        },
-        organization: {
-            id: request.organizationId,
-            name: request.organizationName,
-            logo: request.organizationLogo,
-        },
-        recentTransactions: recentTransactions.map((t) => ({
-            id: t.id,
-            type: t.type,
-            amount: Number(t.amount),
-            balanceBefore: Number(t.balanceBefore),
-            balanceAfter: Number(t.balanceAfter),
-            description: t.description,
-            createdAt: t.createdAt,
-        })),
     }, 200);
 };
 exports.getRechargeRequestById = getRechargeRequestById;

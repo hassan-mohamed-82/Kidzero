@@ -162,7 +162,7 @@ export const createPayment = async (req: Request, res: Response) => {
     // Apply promocode if provided
     let promoResultId: string | null = null;
     if (promocodeCode) {
-        const promoResult = await verifyPromocodeAvailable(promocodeCode, organizationId);
+        const promoResult = await verifyPromocodeAvailable(promocodeCode);
         promoResultId = promoResult.id;
         if (promoResult.promocodeType === "amount") {
             totalAmount = totalAmount - promoResult.amount;
