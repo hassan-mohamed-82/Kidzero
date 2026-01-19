@@ -203,9 +203,9 @@ export const createPayment = async (req: Request, res: Response) => {
 
     if (isPartialPayment) {
         // Validate minimum payment requirement
-        if (totalAmount < minPayment) {
+        if (amount < minPayment) {
             throw new BadRequest(
-                `Payment amount (${totalAmount}) is less than the minimum required payment (${minPayment}). ` +
+                `Payment amount (${amount}) is less than the minimum required payment (${minPayment}). ` +
                 `You must pay at least ${minPayment} to start a subscription with installments.`
             );
         }
