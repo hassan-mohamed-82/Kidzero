@@ -3,7 +3,7 @@ import { mysqlTable, varchar, mysqlEnum, boolean } from "drizzle-orm/mysql-core"
 import { sql } from "drizzle-orm";
 import { double } from "drizzle-orm/mysql-core";
 
-export const paymentMethod = mysqlTable("payment_methods", {
+export const paymentMethod = mysqlTable("payment_method", {
     id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
     name: varchar("name", { length: 100 }).notNull(),
     description: varchar("description", { length: 255 }),
