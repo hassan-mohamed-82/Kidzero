@@ -14,8 +14,6 @@ exports.MODULES = [
     "departments",
     "rides",
     "notes",
-    "reports",
-    "settings",
     "students",
     "parents",
     "City",

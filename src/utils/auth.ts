@@ -22,6 +22,20 @@ export const generateSuperAdminToken = (data: {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 
+export const generateSubAdminToken = (data: {
+  id: string;
+  name: string;
+  email: string;
+}): string => {
+  const payload: TokenPayload = {
+    id: data.id,
+    email: data.email,
+    name: data.name,
+    role: "subadmin",
+  };
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+};
+
 // للـ Organizer (صاحب المؤسسة)
 export const generateOrganizerToken = (data: {
   id: string;

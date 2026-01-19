@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyToken = exports.generateParentToken = exports.generateCoDriverToken = exports.generateDriverToken = exports.generateAdminToken = exports.generateOrganizerToken = exports.generateSuperAdminToken = void 0;
+exports.verifyToken = exports.generateParentToken = exports.generateCoDriverToken = exports.generateDriverToken = exports.generateAdminToken = exports.generateOrganizerToken = exports.generateSubAdminToken = exports.generateSuperAdminToken = void 0;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const Errors_1 = require("../Errors");
 require("dotenv/config");
@@ -20,6 +20,16 @@ const generateSuperAdminToken = (data) => {
     return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 };
 exports.generateSuperAdminToken = generateSuperAdminToken;
+const generateSubAdminToken = (data) => {
+    const payload = {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: "subadmin",
+    };
+    return jsonwebtoken_1.default.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+};
+exports.generateSubAdminToken = generateSubAdminToken;
 // للـ Organizer (صاحب المؤسسة)
 const generateOrganizerToken = (data) => {
     const payload = {

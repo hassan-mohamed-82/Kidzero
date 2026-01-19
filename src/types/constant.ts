@@ -12,8 +12,6 @@ export const MODULES = [
   "departments",
   "rides",
   "notes",
-  "reports",
-  "settings",
   "students",
   "parents",
   "City",
