@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions } from "../../models/schema";
+import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions, adminUsedPromocodes } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -166,11 +166,27 @@ export const createPayment = async (req: Request, res: Response) => {
         promoResultId = promoResult.id;
         if (promoResult.promocodeType === "amount") {
             totalAmount = totalAmount - promoResult.amount;
+
+            // Add it to the Used Promocodes Table 
+            await db.insert(adminUsedPromocodes).values({
+                id: crypto.randomUUID(),
+                promocodeId: promoResult.id,
+                organizationId,
+            });
+
             if (totalAmount < 0) {
                 totalAmount = 0;
             }
         } else {
             totalAmount = totalAmount - (totalAmount * promoResult.amount / 100);
+
+            // Add it to the Used Promocodes Table 
+            await db.insert(adminUsedPromocodes).values({
+                id: crypto.randomUUID(),
+                promocodeId: promoResult.id,
+                organizationId,
+            });
+
             if (totalAmount < 0) {
                 totalAmount = 0;
             }
