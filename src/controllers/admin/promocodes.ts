@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { db } from "../../models/db";
 import { adminUsedPromocodes } from "../../models/admin/adminUsedPromocodes";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
@@ -9,7 +9,7 @@ import { promocode } from "../../models/schema";
 
 type Promocode = typeof promocode.$inferSelect;
 
-export const verifyPromocodeAvailable = async (code: string): Promise<Promocode> => {
+export const verifyPromocodeAvailable = async (code: string, organizationId: any): Promise<Promocode> => {
 
     const promocodeResult = await db
         .select()
@@ -24,11 +24,11 @@ export const verifyPromocodeAvailable = async (code: string): Promise<Promocode>
     }
 
     const usedPromocodeResult = await db.select().from(adminUsedPromocodes)
-        .where(eq(adminUsedPromocodes.promocodeId, promocodeResult[0].id))
+        .where(and(eq(adminUsedPromocodes.promocodeId, promocodeResult[0].id), eq(adminUsedPromocodes.organizationId, organizationId)))
         .limit(1);
 
     if (usedPromocodeResult[0]) {
-        throw new BadRequest("Promocode already used");
+        throw new BadRequest("Promocode already used by this Organization");
     }
     return promocodeResult[0];
 };
@@ -40,7 +40,7 @@ export const verifyPromocode = async (req: Request, res: Response) => {
     if (!organizationId) {
         throw new BadRequest("Organization ID is required");
     }
-    const promocodeResult = await verifyPromocodeAvailable(code);
+    const promocodeResult = await verifyPromocodeAvailable(code, organizationId);
 
     if (!promocodeResult) {
         throw new BadRequest("Promocode is not available");

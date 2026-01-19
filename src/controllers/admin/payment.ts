@@ -104,7 +104,7 @@ export const getPaymentById = async (req: Request, res: Response) => {
 };
 
 export const createPayment = async (req: Request, res: Response) => {
-    const { planId, paymentMethodId, amount, receiptImage, promocode: promocodeCode, nextDueDate } = req.body;
+    const { planId, paymentMethodId, amount, receiptImage, promocodeCode, nextDueDate } = req.body;
     const organizationId = req.user?.organizationId;
 
     if (!organizationId) {
