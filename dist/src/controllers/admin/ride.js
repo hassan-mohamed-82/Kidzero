@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.searchStudentsForRide = exports.selection = exports.updateOccurrenceStatus = exports.deleteRide = exports.updateRide = exports.getOccurrenceDetails = exports.getUpcomingRides = exports.getRidesByDate = exports.getRideById = exports.getAllRides = exports.createRide = void 0;
+exports.getRidesDashboard = exports.getCurrentRides = exports.searchStudentsForRide = exports.selection = exports.updateOccurrenceStatus = exports.deleteRide = exports.updateRide = exports.getOccurrenceDetails = exports.getUpcomingRides = exports.getRidesByDate = exports.getRideById = exports.getAllRides = exports.createRide = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -1217,3 +1217,192 @@ const searchStudentsForRide = async (req, res) => {
     (0, response_1.SuccessResponse)(res, { students: results, count: results.length }, 200);
 };
 exports.searchStudentsForRide = searchStudentsForRide;
+// ✅ Get Current Live Rides (للمتابعة اللحظية)
+const getCurrentRides = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const today = new Date().toISOString().split("T")[0];
+    const liveRides = await db_1.db
+        .select({
+        occurrenceId: schema_1.rideOccurrences.id,
+        occurDate: schema_1.rideOccurrences.occurDate,
+        status: schema_1.rideOccurrences.status,
+        startedAt: schema_1.rideOccurrences.startedAt,
+        currentLat: schema_1.rideOccurrences.currentLat,
+        currentLng: schema_1.rideOccurrences.currentLng,
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        busId: schema_1.buses.id,
+        busNumber: schema_1.buses.busNumber,
+        plateNumber: schema_1.buses.plateNumber,
+        driverId: schema_1.drivers.id,
+        driverName: schema_1.drivers.name,
+        driverPhone: schema_1.drivers.phone,
+        driverAvatar: schema_1.drivers.avatar,
+        codriverId: schema_1.codrivers.id,
+        codriverName: schema_1.codrivers.name,
+        routeId: schema_1.Rout.id,
+        routeName: schema_1.Rout.name,
+    })
+        .from(schema_1.rideOccurrences)
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
+        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .leftJoin(schema_1.codrivers, (0, drizzle_orm_1.eq)(schema_1.rides.codriverId, schema_1.codrivers.id))
+        .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "in_progress"), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) = ${today}`))
+        .orderBy(schema_1.rideOccurrences.startedAt);
+    // جلب إحصائيات الطلاب لكل رحلة
+    const result = await Promise.all(liveRides.map(async (ride) => {
+        const studentsStats = await db_1.db
+            .select({
+            total: (0, drizzle_orm_1.sql) `COUNT(*)`,
+            pending: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
+            pickedUp: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
+            droppedOff: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
+            absent: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} IN ('absent', 'excused') THEN 1 ELSE 0 END)`,
+        })
+            .from(schema_1.rideOccurrenceStudents)
+            .where((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, ride.occurrenceId));
+        const stats = studentsStats[0] || { total: 0, pending: 0, pickedUp: 0, droppedOff: 0, absent: 0 };
+        // حساب مدة الرحلة
+        let duration = null;
+        if (ride.startedAt) {
+            const diffMs = Date.now() - new Date(ride.startedAt).getTime();
+            const diffMins = Math.round(diffMs / 60000);
+            duration = {
+                minutes: diffMins,
+                formatted: `${Math.floor(diffMins / 60)}h ${diffMins % 60}m`,
+            };
+        }
+        return {
+            occurrence: {
+                id: ride.occurrenceId,
+                date: ride.occurDate,
+                status: ride.status,
+                startedAt: ride.startedAt,
+                duration,
+                currentLocation: ride.currentLat && ride.currentLng
+                    ? { lat: Number(ride.currentLat), lng: Number(ride.currentLng) }
+                    : null,
+            },
+            ride: {
+                id: ride.rideId,
+                name: ride.rideName,
+                type: ride.rideType,
+            },
+            bus: ride.busId
+                ? { id: ride.busId, busNumber: ride.busNumber, plateNumber: ride.plateNumber }
+                : null,
+            driver: ride.driverId
+                ? { id: ride.driverId, name: ride.driverName, phone: ride.driverPhone, avatar: ride.driverAvatar }
+                : null,
+            codriver: ride.codriverId
+                ? { id: ride.codriverId, name: ride.codriverName }
+                : null,
+            route: ride.routeId
+                ? { id: ride.routeId, name: ride.routeName }
+                : null,
+            students: {
+                total: Number(stats.total) || 0,
+                pending: Number(stats.pending) || 0,
+                pickedUp: Number(stats.pickedUp) || 0,
+                droppedOff: Number(stats.droppedOff) || 0,
+                absent: Number(stats.absent) || 0,
+                onBus: Number(stats.pickedUp) || 0,
+                progress: stats.total > 0
+                    ? Math.round(((Number(stats.pickedUp) + Number(stats.droppedOff) + Number(stats.absent)) / Number(stats.total)) * 100)
+                    : 0,
+            },
+        };
+    }));
+    const morning = result.filter((r) => r.ride.type === "morning");
+    const afternoon = result.filter((r) => r.ride.type === "afternoon");
+    (0, response_1.SuccessResponse)(res, {
+        rides: result,
+        byType: { morning, afternoon },
+        summary: {
+            total: result.length,
+            morning: morning.length,
+            afternoon: afternoon.length,
+        },
+    }, 200);
+};
+exports.getCurrentRides = getCurrentRides;
+// ✅ Get Rides Dashboard Stats
+const getRidesDashboard = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const today = new Date().toISOString().split("T")[0];
+    // إحصائيات اليوم
+    const [todayStats] = await db_1.db
+        .select({
+        total: (0, drizzle_orm_1.sql) `COUNT(*)`,
+        scheduled: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrences.status} = 'scheduled' THEN 1 ELSE 0 END)`,
+        inProgress: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrences.status} = 'in_progress' THEN 1 ELSE 0 END)`,
+        completed: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrences.status} = 'completed' THEN 1 ELSE 0 END)`,
+        cancelled: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrences.status} = 'cancelled' THEN 1 ELSE 0 END)`,
+    })
+        .from(schema_1.rideOccurrences)
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) = ${today}`));
+    // إحصائيات الطلاب اليوم
+    const [studentsStats] = await db_1.db
+        .select({
+        total: (0, drizzle_orm_1.sql) `COUNT(*)`,
+        pending: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
+        pickedUp: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
+        droppedOff: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
+        absent: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'absent' THEN 1 ELSE 0 END)`,
+        excused: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'excused' THEN 1 ELSE 0 END)`,
+    })
+        .from(schema_1.rideOccurrenceStudents)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) = ${today}`));
+    // إجمالي الرحلات النشطة
+    const [totalRides] = await db_1.db
+        .select({ count: (0, drizzle_orm_1.count)() })
+        .from(schema_1.rides)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rides.isActive, "on")));
+    // الباصات والسائقين النشطين
+    const [activeBuses] = await db_1.db
+        .select({ count: (0, drizzle_orm_1.count)() })
+        .from(schema_1.buses)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.buses.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.buses.status, "active")));
+    const [activeDrivers] = await db_1.db
+        .select({ count: (0, drizzle_orm_1.count)() })
+        .from(schema_1.drivers)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.drivers.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.drivers.status, "active")));
+    (0, response_1.SuccessResponse)(res, {
+        date: today,
+        today: {
+            rides: {
+                total: Number(todayStats?.total) || 0,
+                scheduled: Number(todayStats?.scheduled) || 0,
+                inProgress: Number(todayStats?.inProgress) || 0,
+                completed: Number(todayStats?.completed) || 0,
+                cancelled: Number(todayStats?.cancelled) || 0,
+            },
+            students: {
+                total: Number(studentsStats?.total) || 0,
+                pending: Number(studentsStats?.pending) || 0,
+                pickedUp: Number(studentsStats?.pickedUp) || 0,
+                droppedOff: Number(studentsStats?.droppedOff) || 0,
+                absent: Number(studentsStats?.absent) || 0,
+                excused: Number(studentsStats?.excused) || 0,
+            },
+        },
+        resources: {
+            totalRides: totalRides?.count || 0,
+            activeBuses: activeBuses?.count || 0,
+            activeDrivers: activeDrivers?.count || 0,
+        },
+    }, 200);
+};
+exports.getRidesDashboard = getRidesDashboard;

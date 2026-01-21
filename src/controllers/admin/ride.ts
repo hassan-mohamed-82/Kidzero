@@ -1451,3 +1451,252 @@ export const searchStudentsForRide = async (req: Request, res: Response) => {
 
   SuccessResponse(res, { students: results, count: results.length }, 200);
 };
+
+// ✅ Get Current Live Rides (للمتابعة اللحظية)
+export const getCurrentRides = async (req: Request, res: Response) => {
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const liveRides = await db
+    .select({
+      occurrenceId: rideOccurrences.id,
+      occurDate: rideOccurrences.occurDate,
+      status: rideOccurrences.status,
+      startedAt: rideOccurrences.startedAt,
+      currentLat: rideOccurrences.currentLat,
+      currentLng: rideOccurrences.currentLng,
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      busId: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      driverId: drivers.id,
+      driverName: drivers.name,
+      driverPhone: drivers.phone,
+      driverAvatar: drivers.avatar,
+      codriverId: codrivers.id,
+      codriverName: codrivers.name,
+      routeId: Rout.id,
+      routeName: Rout.name,
+    })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .leftJoin(buses, eq(rides.busId, buses.id))
+    .leftJoin(drivers, eq(rides.driverId, drivers.id))
+    .leftJoin(codrivers, eq(rides.codriverId, codrivers.id))
+    .leftJoin(Rout, eq(rides.routeId, Rout.id))
+    .where(
+      and(
+        eq(rides.organizationId, organizationId),
+        eq(rideOccurrences.status, "in_progress"),
+        sql`DATE(${rideOccurrences.occurDate}) = ${today}`
+      )
+    )
+    .orderBy(rideOccurrences.startedAt);
+
+  // جلب إحصائيات الطلاب لكل رحلة
+  const result = await Promise.all(
+    liveRides.map(async (ride) => {
+      const studentsStats = await db
+        .select({
+          total: sql<number>`COUNT(*)`,
+          pending: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
+          pickedUp: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
+          droppedOff: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
+          absent: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} IN ('absent', 'excused') THEN 1 ELSE 0 END)`,
+        })
+        .from(rideOccurrenceStudents)
+        .where(eq(rideOccurrenceStudents.occurrenceId, ride.occurrenceId));
+
+      const stats = studentsStats[0] || { total: 0, pending: 0, pickedUp: 0, droppedOff: 0, absent: 0 };
+
+      // حساب مدة الرحلة
+      let duration = null;
+      if (ride.startedAt) {
+        const diffMs = Date.now() - new Date(ride.startedAt).getTime();
+        const diffMins = Math.round(diffMs / 60000);
+        duration = {
+          minutes: diffMins,
+          formatted: `${Math.floor(diffMins / 60)}h ${diffMins % 60}m`,
+        };
+      }
+
+      return {
+        occurrence: {
+          id: ride.occurrenceId,
+          date: ride.occurDate,
+          status: ride.status,
+          startedAt: ride.startedAt,
+          duration,
+          currentLocation:
+            ride.currentLat && ride.currentLng
+              ? { lat: Number(ride.currentLat), lng: Number(ride.currentLng) }
+              : null,
+        },
+        ride: {
+          id: ride.rideId,
+          name: ride.rideName,
+          type: ride.rideType,
+        },
+        bus: ride.busId
+          ? { id: ride.busId, busNumber: ride.busNumber, plateNumber: ride.plateNumber }
+          : null,
+        driver: ride.driverId
+          ? { id: ride.driverId, name: ride.driverName, phone: ride.driverPhone, avatar: ride.driverAvatar }
+          : null,
+        codriver: ride.codriverId
+          ? { id: ride.codriverId, name: ride.codriverName }
+          : null,
+        route: ride.routeId
+          ? { id: ride.routeId, name: ride.routeName }
+          : null,
+        students: {
+          total: Number(stats.total) || 0,
+          pending: Number(stats.pending) || 0,
+          pickedUp: Number(stats.pickedUp) || 0,
+          droppedOff: Number(stats.droppedOff) || 0,
+          absent: Number(stats.absent) || 0,
+          onBus: Number(stats.pickedUp) || 0,
+          progress: stats.total > 0 
+            ? Math.round(((Number(stats.pickedUp) + Number(stats.droppedOff) + Number(stats.absent)) / Number(stats.total)) * 100)
+            : 0,
+        },
+      };
+    })
+  );
+
+  const morning = result.filter((r) => r.ride.type === "morning");
+  const afternoon = result.filter((r) => r.ride.type === "afternoon");
+
+  SuccessResponse(
+    res,
+    {
+      rides: result,
+      byType: { morning, afternoon },
+      summary: {
+        total: result.length,
+        morning: morning.length,
+        afternoon: afternoon.length,
+      },
+    },
+    200
+  );
+};
+
+
+// ✅ Get Rides Dashboard Stats
+export const getRidesDashboard = async (req: Request, res: Response) => {
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+
+  // إحصائيات اليوم
+  const [todayStats] = await db
+    .select({
+      total: sql<number>`COUNT(*)`,
+      scheduled: sql<number>`SUM(CASE WHEN ${rideOccurrences.status} = 'scheduled' THEN 1 ELSE 0 END)`,
+      inProgress: sql<number>`SUM(CASE WHEN ${rideOccurrences.status} = 'in_progress' THEN 1 ELSE 0 END)`,
+      completed: sql<number>`SUM(CASE WHEN ${rideOccurrences.status} = 'completed' THEN 1 ELSE 0 END)`,
+      cancelled: sql<number>`SUM(CASE WHEN ${rideOccurrences.status} = 'cancelled' THEN 1 ELSE 0 END)`,
+    })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .where(
+      and(
+        eq(rides.organizationId, organizationId),
+        sql`DATE(${rideOccurrences.occurDate}) = ${today}`
+      )
+    );
+
+  // إحصائيات الطلاب اليوم
+  const [studentsStats] = await db
+    .select({
+      total: sql<number>`COUNT(*)`,
+      pending: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
+      pickedUp: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
+      droppedOff: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
+      absent: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'absent' THEN 1 ELSE 0 END)`,
+      excused: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'excused' THEN 1 ELSE 0 END)`,
+    })
+    .from(rideOccurrenceStudents)
+    .innerJoin(rideOccurrences, eq(rideOccurrenceStudents.occurrenceId, rideOccurrences.id))
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .where(
+      and(
+        eq(rides.organizationId, organizationId),
+        sql`DATE(${rideOccurrences.occurDate}) = ${today}`
+      )
+    );
+
+  // إجمالي الرحلات النشطة
+  const [totalRides] = await db
+    .select({ count: count() })
+    .from(rides)
+    .where(
+      and(
+        eq(rides.organizationId, organizationId),
+        eq(rides.isActive, "on")
+      )
+    );
+
+  // الباصات والسائقين النشطين
+  const [activeBuses] = await db
+    .select({ count: count() })
+    .from(buses)
+    .where(
+      and(
+        eq(buses.organizationId, organizationId),
+        eq(buses.status, "active")
+      )
+    );
+
+  const [activeDrivers] = await db
+    .select({ count: count() })
+    .from(drivers)
+    .where(
+      and(
+        eq(drivers.organizationId, organizationId),
+        eq(drivers.status, "active")
+      )
+    );
+
+  SuccessResponse(
+    res,
+    {
+      date: today,
+      today: {
+        rides: {
+          total: Number(todayStats?.total) || 0,
+          scheduled: Number(todayStats?.scheduled) || 0,
+          inProgress: Number(todayStats?.inProgress) || 0,
+          completed: Number(todayStats?.completed) || 0,
+          cancelled: Number(todayStats?.cancelled) || 0,
+        },
+        students: {
+          total: Number(studentsStats?.total) || 0,
+          pending: Number(studentsStats?.pending) || 0,
+          pickedUp: Number(studentsStats?.pickedUp) || 0,
+          droppedOff: Number(studentsStats?.droppedOff) || 0,
+          absent: Number(studentsStats?.absent) || 0,
+          excused: Number(studentsStats?.excused) || 0,
+        },
+      },
+      resources: {
+        totalRides: totalRides?.count || 0,
+        activeBuses: activeBuses?.count || 0,
+        activeDrivers: activeDrivers?.count || 0,
+      },
+    },
+    200
+  );
+};
