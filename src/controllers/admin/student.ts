@@ -323,11 +323,10 @@ export const deleteStudent = async (req: Request, res: Response) => {
 // ✅ Selection (للـ Dropdowns)
 export const selection = async (req: Request, res: Response) => {
   const organizationId = req.user?.organizationId;
-
+ 
   if (!organizationId) {
     throw new BadRequest("Organization ID is required");
   }
-
   // ✅ كل الـ zones (مشتركة)
   const allZones = await db
     .select({
@@ -335,7 +334,8 @@ export const selection = async (req: Request, res: Response) => {
       name: zones.name,
       cost: zones.cost,
     })
-    .from(zones);
+    .from(zones)
+    .where(eq(zones.organizationId, organizationId));
 
   SuccessResponse(
     res,

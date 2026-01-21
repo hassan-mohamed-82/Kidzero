@@ -292,7 +292,8 @@ const selection = async (req, res) => {
         name: schema_1.zones.name,
         cost: schema_1.zones.cost,
     })
-        .from(schema_1.zones);
+        .from(schema_1.zones)
+        .where((0, drizzle_orm_1.eq)(schema_1.zones.organizationId, organizationId));
     (0, response_1.SuccessResponse)(res, {
         zones: allZones,
     }, 200);
