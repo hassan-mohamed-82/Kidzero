@@ -2,8 +2,8 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { buses, busTypes, rides } from "../../models/schema";
-import { eq, and, count } from "drizzle-orm";
+import { buses, busTypes, codrivers, drivers, parents, pickupPoints, rideOccurrences, rides, rideStudents, Rout, students } from "../../models/schema";
+import { eq, and, count, desc, gte, lte } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
@@ -565,4 +565,291 @@ export const getBusStatistics = async (req: Request, res: Response) => {
 export const getBusTypes = async (req: Request, res: Response) => {
   const allBusTypes = await db.select().from(busTypes);
   SuccessResponse(res, { busTypes: allBusTypes }, 200);
+};
+
+
+
+// ✅ 2) GET BUS FULL DETAILS
+// ============================================
+export const getBusDetails = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new NotFound("Organization not found");
+  }
+
+  // 1) بيانات الباص الأساسية مع Bus Type
+  const [bus] = await db
+    .select({
+      id: buses.id,
+      plateNumber: buses.plateNumber,
+      busNumber: buses.busNumber,
+      maxSeats: buses.maxSeats,
+      licenseNumber: buses.licenseNumber,
+      licenseExpiryDate: buses.licenseExpiryDate,
+      licenseImage: buses.licenseImage,
+      busImage: buses.busImage,
+      status: buses.status,
+      createdAt: buses.createdAt,
+      updatedAt: buses.updatedAt,
+      // Bus Type
+      busTypeId: busTypes.id,
+      busTypeName: busTypes.name,
+    })
+    .from(buses)
+    .leftJoin(busTypes, eq(buses.busTypeId, busTypes.id))
+    .where(
+      and(
+        eq(buses.id, id),
+        eq(buses.organizationId, organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!bus) {
+    throw new NotFound("Bus not found");
+  }
+
+  // 2) الرحلات المرتبطة بالباص مع السائق والمشرف
+  const busRides = await db
+    .select({
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      rideStatus: rides.status,
+      rideIsActive: rides.isActive,
+      startDate: rides.startDate,
+      endDate: rides.endDate,
+      frequency: rides.frequency,
+      // Driver
+      driverId: drivers.id,
+      driverName: drivers.name,
+      driverPhone: drivers.phone,
+      driverAvatar: drivers.avatar,
+      // Codriver
+      codriverId: codrivers.id,
+      codriverName: codrivers.name,
+      codriverPhone: codrivers.phone,
+      codriverAvatar: codrivers.avatar,
+      // Route
+      routeId: Rout.id,
+      routeName: Rout.name,
+    })
+    .from(rides)
+    .leftJoin(drivers, eq(rides.driverId, drivers.id))
+    .leftJoin(codrivers, eq(rides.codriverId, codrivers.id))
+    .leftJoin(Rout, eq(rides.routeId, Rout.id))
+    .where(eq(rides.busId, id));
+
+  // 3) الطلاب في هذا الباص
+  const busStudents = await db
+    .select({
+      studentId: students.id,
+      studentName: students.name,
+      studentCode: students.code,
+      studentAvatar: students.avatar,
+      studentGrade: students.grade,
+      studentClassroom: students.classroom,
+      studentStatus: students.status,
+      pickupTime: rideStudents.pickupTime,
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      // Pickup Point
+      pickupPointId: pickupPoints.id,
+      pickupPointName: pickupPoints.name,
+      // Parent
+      parentId: parents.id,
+      parentName: parents.name,
+      parentPhone: parents.phone,
+    })
+    .from(rideStudents)
+    .innerJoin(rides, eq(rideStudents.rideId, rides.id))
+    .innerJoin(students, eq(rideStudents.studentId, students.id))
+    .leftJoin(parents, eq(students.parentId, parents.id))
+    .leftJoin(pickupPoints, eq(rideStudents.pickupPointId, pickupPoints.id))
+    .where(eq(rides.busId, id));
+
+  // 4) الرحلات القادمة (7 أيام)
+  const today = new Date(new Date().toISOString().split('T')[0]);
+  const nextWeek = new Date(new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]);
+
+  const upcomingOccurrences = await db
+    .select({
+      occurrenceId: rideOccurrences.id,
+      date: rideOccurrences.occurDate,
+      status: rideOccurrences.status,
+      startedAt: rideOccurrences.startedAt,
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      driverName: drivers.name,
+      driverPhone: drivers.phone,
+    })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .leftJoin(drivers, eq(rides.driverId, drivers.id))
+    .where(
+      and(
+        eq(rides.busId, id),
+        gte(rideOccurrences.occurDate, today),
+        lte(rideOccurrences.occurDate, nextWeek)
+      )
+    )
+    .orderBy(rideOccurrences.occurDate)
+    .limit(20);
+
+  // 5) سجل الرحلات (آخر 30 يوم)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const rideHistory = await db
+    .select({
+      occurrenceId: rideOccurrences.id,
+      date: rideOccurrences.occurDate,
+      status: rideOccurrences.status,
+      startedAt: rideOccurrences.startedAt,
+      completedAt: rideOccurrences.completedAt,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      driverName: drivers.name,
+    })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .leftJoin(drivers, eq(rides.driverId, drivers.id))
+    .where(
+      and(
+        eq(rides.busId, id),
+        gte(rideOccurrences.occurDate, new Date(thirtyDaysAgo.toISOString().split('T')[0]))
+      )
+    )
+    .orderBy(desc(rideOccurrences.occurDate))
+    .limit(50);
+
+  // 6) إحصائيات
+  const uniqueStudents = [...new Set(busStudents.map(s => s.studentId))];
+  const stats = {
+    totalRides: busRides.length,
+    activeRides: busRides.filter(r => r.rideIsActive === 'on').length,
+    totalStudents: uniqueStudents.length,
+    maxSeats: bus.maxSeats,
+    availableSeats: bus.maxSeats - uniqueStudents.length,
+    capacityPercentage: Math.round((uniqueStudents.length / bus.maxSeats) * 100),
+    completedTripsThisMonth: rideHistory.filter(r => r.status === 'completed').length,
+    inProgressTrips: rideHistory.filter(r => r.status === 'in_progress').length,
+    cancelledTrips: rideHistory.filter(r => r.status === 'cancelled').length,
+    // حالة الرخصة
+    licenseStatus: bus.licenseExpiryDate
+      ? new Date(bus.licenseExpiryDate) > new Date()
+        ? 'valid'
+        : 'expired'
+      : 'unknown',
+    daysUntilLicenseExpiry: bus.licenseExpiryDate
+      ? Math.ceil((new Date(bus.licenseExpiryDate).getTime() - Date.now()) / 86400000)
+      : null,
+  };
+
+  SuccessResponse(
+    res,
+    {
+      bus: {
+        id: bus.id,
+        plateNumber: bus.plateNumber,
+        busNumber: bus.busNumber,
+        maxSeats: bus.maxSeats,
+        licenseNumber: bus.licenseNumber,
+        licenseExpiryDate: bus.licenseExpiryDate,
+        licenseImage: bus.licenseImage,
+        busImage: bus.busImage,
+        status: bus.status,
+        createdAt: bus.createdAt,
+        updatedAt: bus.updatedAt,
+        busType: bus.busTypeId ? {
+          id: bus.busTypeId,
+          name: bus.busTypeName,
+          maxSeats: bus.maxSeats,
+        } : null,
+      },
+      rides: busRides.map(r => ({
+        id: r.rideId,
+        name: r.rideName,
+        type: r.rideType,
+        status: r.rideStatus,
+        isActive: r.rideIsActive,
+        frequency: r.frequency,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        route: r.routeId ? {
+          id: r.routeId,
+          name: r.routeName,
+        } : null,
+        driver: r.driverId ? {
+          id: r.driverId,
+          name: r.driverName,
+          phone: r.driverPhone,
+          avatar: r.driverAvatar,
+        } : null,
+        codriver: r.codriverId ? {
+          id: r.codriverId,
+          name: r.codriverName,
+          phone: r.codriverPhone,
+          avatar: r.codriverAvatar,
+        } : null,
+      })),
+      students: busStudents.map(s => ({
+        id: s.studentId,
+        name: s.studentName,
+        code: s.studentCode,
+        avatar: s.studentAvatar,
+        grade: s.studentGrade,
+        classroom: s.studentClassroom,
+        status: s.studentStatus,
+        pickupTime: s.pickupTime,
+        pickupPoint: s.pickupPointId ? {
+          id: s.pickupPointId,
+          name: s.pickupPointName,
+        } : null,
+        ride: {
+          id: s.rideId,
+          name: s.rideName,
+          type: s.rideType,
+        },
+        parent: s.parentId ? {
+          id: s.parentId,
+          name: s.parentName,
+          phone: s.parentPhone,
+        } : null,
+      })),
+      upcomingRides: upcomingOccurrences.map(r => ({
+        occurrenceId: r.occurrenceId,
+        date: r.date,
+        status: r.status,
+        startedAt: r.startedAt,
+        ride: {
+          id: r.rideId,
+          name: r.rideName,
+          type: r.rideType,
+        },
+        driver: {
+          name: r.driverName,
+          phone: r.driverPhone,
+        },
+      })),
+      rideHistory: rideHistory.map(r => ({
+        id: r.occurrenceId,
+        date: r.date,
+        status: r.status,
+        startedAt: r.startedAt,
+        completedAt: r.completedAt,
+        ride: {
+          name: r.rideName,
+          type: r.rideType,
+        },
+        driver: r.driverName,
+      })),
+      stats,
+    },
+    200
+  );
 };

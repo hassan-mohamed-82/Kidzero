@@ -41,10 +41,14 @@ export const SUPER_ADMIN_MODULES = [
   "subscriptions",
   "payment_methods",
   "promocodes",
-  "reports",
+  "parentplans",
   "sub_admins",
   "super_admin_roles",
-  "settings",
+  "type_organizations",
+  "invoices",
+  "installments",
+  "wallets",
+  "profile"
 ] as const;
 
 export const SUPER_ADMIN_ACTIONS = [
@@ -52,9 +56,7 @@ export const SUPER_ADMIN_ACTIONS = [
   "create",
   "update",
   "delete",
-  "approve",
-  "reject",
-  "export",
+  "status"
 ] as const;
 
 export type SuperAdminModule = (typeof SUPER_ADMIN_MODULES)[number];

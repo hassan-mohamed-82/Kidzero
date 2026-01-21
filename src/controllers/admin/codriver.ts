@@ -76,6 +76,7 @@ export const getAllCodrivers = async (req: Request, res: Response) => {
             name: codrivers.name,
             phone: codrivers.phone,
             avatar: codrivers.avatar,
+            email: codrivers.email,
             nationalId: codrivers.nationalId,
             nationalIdImage: codrivers.nationalIdImage,
             status: codrivers.status,
@@ -103,6 +104,7 @@ export const getCodriverById = async (req: Request, res: Response) => {
             name: codrivers.name,
             phone: codrivers.phone,
             avatar: codrivers.avatar,
+            email: codrivers.email,
             nationalId: codrivers.nationalId,
             nationalIdImage: codrivers.nationalIdImage,
             status: codrivers.status,
@@ -227,3 +229,5 @@ export const deleteCodriver = async (req: Request, res: Response) => {
 
     SuccessResponse(res, { message: "Codriver deleted successfully" }, 200);
 };
+
+

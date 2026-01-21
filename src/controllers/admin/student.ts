@@ -2,8 +2,8 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { students, parents, zones } from "../../models/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { students, parents, zones, rides, buses, drivers, codrivers, rideStudents, rideOccurrenceStudents, rideOccurrences } from "../../models/schema";
+import { eq, and, desc, sql, gte, lte, count, isNull } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
@@ -17,7 +17,7 @@ import { generateUniqueStudentCode } from "../../utils/GenerateUniqueCode";
 
 export const createStudent = async (req: Request, res: Response) => {
   const { name, avatar, grade, classroom, zoneId } = req.body;
-  
+
   // ✅ تأكد من استخدام req.admin مش req.user
   const organizationId = req.user?.organizationId;
 
@@ -133,16 +133,16 @@ export const getAllStudents = async (req: Request, res: Response) => {
     },
     parent: s.parentId
       ? {
-          id: s.parentId,
-          name: s.parentName,
-          phone: s.parentPhone,
-        }
+        id: s.parentId,
+        name: s.parentName,
+        phone: s.parentPhone,
+      }
       : null,
     zone: s.zoneId
       ? {
-          id: s.zoneId,
-          name: s.zoneName,
-        }
+        id: s.zoneId,
+        name: s.zoneName,
+      }
       : null,
   }));
 
@@ -210,19 +210,19 @@ export const getStudentById = async (req: Request, res: Response) => {
         },
         parent: student.parentId
           ? {
-              id: student.parentId,
-              name: student.parentName,
-              phone: student.parentPhone,
-              email: student.parentEmail,
-              address: student.parentAddress,
-            }
+            id: student.parentId,
+            name: student.parentName,
+            phone: student.parentPhone,
+            email: student.parentEmail,
+            address: student.parentAddress,
+          }
           : null,
         zone: student.zoneId
           ? {
-              id: student.zoneId,
-              name: student.zoneName,
-              cost: student.zoneCost,
-            }
+            id: student.zoneId,
+            name: student.zoneName,
+            cost: student.zoneCost,
+          }
           : null,
       },
     },
@@ -382,3 +382,221 @@ export const getStudentsWithoutParent = async (req: Request, res: Response) => {
 };
 
 
+
+// ✅ Get Student Full Details
+export const getStudentDetails = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new NotFound("Organization not found");
+  }
+
+  // 1) بيانات الطالب الأساسية مع الـ Parent والـ Zone
+  const [student] = await db
+    .select({
+      id: students.id,
+      name: students.name,
+      code: students.code,
+      avatar: students.avatar,
+      grade: students.grade,
+      classroom: students.classroom,
+      walletBalance: students.walletBalance,
+      nfcId: students.nfcId,
+      status: students.status,
+      createdAt: students.createdAt,
+      // Parent
+      parentId: parents.id,
+      parentName: parents.name,
+      parentPhone: parents.phone,
+      parentEmail: parents.email,
+      parentAvatar: parents.avatar,
+      // Zone
+      zoneId: zones.id,
+      zoneName: zones.name,
+      zoneCost: zones.cost,
+    })
+    .from(students)
+    .leftJoin(parents, eq(students.parentId, parents.id))
+    .leftJoin(zones, eq(students.zoneId, zones.id))
+    .where(
+      and(
+        eq(students.id, id),
+        eq(students.organizationId, organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!student) {
+    throw new NotFound("Student not found");
+  }
+
+  // 2) الرحلات المشترك فيها (مع الباص والسائق)
+  const studentRides = await db
+    .select({
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      // Bus
+      busId: buses.id,
+      busPlateNumber: buses.plateNumber,
+
+      // Driver
+      driverId: drivers.id,
+      driverName: drivers.name,
+      driverPhone: drivers.phone,
+      driverAvatar: drivers.avatar,
+      // Codriver
+      codriverId: codrivers.id,
+      codriverName: codrivers.name,
+      codriverPhone: codrivers.phone,
+      // Pickup
+      pickupTime: rideStudents.pickupTime,
+      pickupPointId: rideStudents.pickupPointId,
+    })
+    .from(rideStudents)
+    .innerJoin(rides, eq(rideStudents.rideId, rides.id))
+    .leftJoin(buses, eq(rides.busId, buses.id))
+    .leftJoin(drivers, eq(rides.driverId, drivers.id))
+    .leftJoin(codrivers, eq(rides.codriverId, codrivers.id))
+    .where(eq(rideStudents.studentId, id));
+
+  // 3) سجل الحضور والغياب (آخر 30 يوم)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const attendanceHistory = await db
+    .select({
+      id: rideOccurrenceStudents.id,
+      date: rideOccurrences.occurDate,
+      status: rideOccurrenceStudents.status,
+      rideType: rides.rideType,
+      rideName: rides.name,
+      pickupTime: rideOccurrenceStudents.pickupTime,
+      excuseReason: rideOccurrenceStudents.excuseReason,
+    })
+    .from(rideOccurrenceStudents)
+    .innerJoin(rideOccurrences, eq(rideOccurrenceStudents.occurrenceId, rideOccurrences.id))
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .where(
+      and(
+        eq(rideOccurrenceStudents.studentId, id),
+        gte(rideOccurrences.occurDate, new Date(thirtyDaysAgo.toISOString().split('T')[0]))
+      )
+    )
+    .orderBy(desc(rideOccurrences.occurDate));
+
+  // 4) إحصائيات الحضور
+  const attendanceStats = {
+    total: attendanceHistory.length,
+    present: attendanceHistory.filter(a => a.status === 'picked_up' || a.status === 'dropped_off').length,
+    absent: attendanceHistory.filter(a => a.status === 'absent').length,
+    excused: attendanceHistory.filter(a => a.status === 'excused').length,
+    pending: attendanceHistory.filter(a => a.status === 'pending').length,
+  };
+
+  // 5) الرحلات القادمة (اليوم وبكرة)
+  const today = new Date(new Date().toISOString().split('T')[0]);
+  const tomorrow = new Date(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
+
+  const upcomingRides = await db
+    .select({
+      occurrenceId: rideOccurrences.id,
+      date: rideOccurrences.occurDate,
+      status: rideOccurrences.status,
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      busPlateNumber: buses.plateNumber,
+      driverName: drivers.name,
+    })
+    .from(rideOccurrences)
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .innerJoin(rideStudents, eq(rides.id, rideStudents.rideId))
+    .leftJoin(buses, eq(rides.busId, buses.id))
+    .leftJoin(drivers, eq(rides.driverId, drivers.id))
+    .where(
+      and(
+        eq(rideStudents.studentId, id),
+        gte(rideOccurrences.occurDate, today),
+        lte(rideOccurrences.occurDate, tomorrow)
+      )
+    )
+    .orderBy(rideOccurrences.occurDate);
+
+  SuccessResponse(
+    res,
+    {
+      student: {
+        id: student.id,
+        name: student.name,
+        code: student.code,
+        avatar: student.avatar,
+        grade: student.grade,
+        classroom: student.classroom,
+        walletBalance: student.walletBalance,
+        nfcId: student.nfcId,
+        status: student.status,
+        createdAt: student.createdAt,
+        parent: student.parentId ? {
+          id: student.parentId,
+          name: student.parentName,
+          phone: student.parentPhone,
+          email: student.parentEmail,
+          avatar: student.parentAvatar,
+        } : null,
+        zone: student.zoneId ? {
+          id: student.zoneId,
+          name: student.zoneName,
+          cost: student.zoneCost,
+        } : null,
+      },
+      rides: studentRides.map(r => ({
+        id: r.rideId,
+        name: r.rideName,
+        type: r.rideType,
+        pickupTime: r.pickupTime,
+        bus: r.busId ? {
+          id: r.busId,
+          plateNumber: r.busPlateNumber,
+        } : null,
+        driver: r.driverId ? {
+          id: r.driverId,
+          name: r.driverName,
+          phone: r.driverPhone,
+          avatar: r.driverAvatar,
+        } : null,
+        codriver: r.codriverId ? {
+          id: r.codriverId,
+          name: r.codriverName,
+          phone: r.codriverPhone,
+        } : null,
+      })),
+      attendance: {
+        stats: attendanceStats,
+        history: attendanceHistory.map(a => ({
+          id: a.id,
+          date: a.date,
+          status: a.status,
+          rideType: a.rideType,
+          rideName: a.rideName,
+          pickupTime: a.pickupTime,
+          excuseReason: a.excuseReason,
+        })),
+      },
+      upcomingRides: upcomingRides.map(r => ({
+        occurrenceId: r.occurrenceId,
+        date: r.date,
+        status: r.status,
+        ride: {
+          id: r.rideId,
+          name: r.rideName,
+          type: r.rideType,
+        },
+        bus: r.busPlateNumber,
+        driver: r.driverName,
+      })),
+    },
+    200
+  );
+};

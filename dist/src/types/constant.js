@@ -35,17 +35,19 @@ exports.SUPER_ADMIN_MODULES = [
     "subscriptions",
     "payment_methods",
     "promocodes",
-    "reports",
+    "parentplans",
     "sub_admins",
     "super_admin_roles",
-    "settings",
+    "type_organizations",
+    "invoices",
+    "installments",
+    "wallets",
+    "profile"
 ];
 exports.SUPER_ADMIN_ACTIONS = [
     "view",
     "create",
     "update",
     "delete",
-    "approve",
-    "reject",
-    "export",
+    "status"
 ];

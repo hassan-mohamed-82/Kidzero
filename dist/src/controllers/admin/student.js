@@ -1,7 +1,7 @@
 "use strict";
 // src/controllers/admin/studentController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStudentsWithoutParent = exports.selection = exports.deleteStudent = exports.updateStudent = exports.getStudentById = exports.getAllStudents = exports.createStudent = void 0;
+exports.getStudentDetails = exports.getStudentsWithoutParent = exports.selection = exports.deleteStudent = exports.updateStudent = exports.getStudentById = exports.getAllStudents = exports.createStudent = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -321,3 +321,190 @@ const getStudentsWithoutParent = async (req, res) => {
     }, 200);
 };
 exports.getStudentsWithoutParent = getStudentsWithoutParent;
+// ✅ Get Student Full Details
+const getStudentDetails = async (req, res) => {
+    const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new NotFound_1.NotFound("Organization not found");
+    }
+    // 1) بيانات الطالب الأساسية مع الـ Parent والـ Zone
+    const [student] = await db_1.db
+        .select({
+        id: schema_1.students.id,
+        name: schema_1.students.name,
+        code: schema_1.students.code,
+        avatar: schema_1.students.avatar,
+        grade: schema_1.students.grade,
+        classroom: schema_1.students.classroom,
+        walletBalance: schema_1.students.walletBalance,
+        nfcId: schema_1.students.nfcId,
+        status: schema_1.students.status,
+        createdAt: schema_1.students.createdAt,
+        // Parent
+        parentId: schema_1.parents.id,
+        parentName: schema_1.parents.name,
+        parentPhone: schema_1.parents.phone,
+        parentEmail: schema_1.parents.email,
+        parentAvatar: schema_1.parents.avatar,
+        // Zone
+        zoneId: schema_1.zones.id,
+        zoneName: schema_1.zones.name,
+        zoneCost: schema_1.zones.cost,
+    })
+        .from(schema_1.students)
+        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
+        .leftJoin(schema_1.zones, (0, drizzle_orm_1.eq)(schema_1.students.zoneId, schema_1.zones.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.id, id), (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)))
+        .limit(1);
+    if (!student) {
+        throw new NotFound_1.NotFound("Student not found");
+    }
+    // 2) الرحلات المشترك فيها (مع الباص والسائق)
+    const studentRides = await db_1.db
+        .select({
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        // Bus
+        busId: schema_1.buses.id,
+        busPlateNumber: schema_1.buses.plateNumber,
+        // Driver
+        driverId: schema_1.drivers.id,
+        driverName: schema_1.drivers.name,
+        driverPhone: schema_1.drivers.phone,
+        driverAvatar: schema_1.drivers.avatar,
+        // Codriver
+        codriverId: schema_1.codrivers.id,
+        codriverName: schema_1.codrivers.name,
+        codriverPhone: schema_1.codrivers.phone,
+        // Pickup
+        pickupTime: schema_1.rideStudents.pickupTime,
+        pickupPointId: schema_1.rideStudents.pickupPointId,
+    })
+        .from(schema_1.rideStudents)
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, schema_1.rides.id))
+        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
+        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .leftJoin(schema_1.codrivers, (0, drizzle_orm_1.eq)(schema_1.rides.codriverId, schema_1.codrivers.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.rideStudents.studentId, id));
+    // 3) سجل الحضور والغياب (آخر 30 يوم)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const attendanceHistory = await db_1.db
+        .select({
+        id: schema_1.rideOccurrenceStudents.id,
+        date: schema_1.rideOccurrences.occurDate,
+        status: schema_1.rideOccurrenceStudents.status,
+        rideType: schema_1.rides.rideType,
+        rideName: schema_1.rides.name,
+        pickupTime: schema_1.rideOccurrenceStudents.pickupTime,
+        excuseReason: schema_1.rideOccurrenceStudents.excuseReason,
+    })
+        .from(schema_1.rideOccurrenceStudents)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, id), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, new Date(thirtyDaysAgo.toISOString().split('T')[0]))))
+        .orderBy((0, drizzle_orm_1.desc)(schema_1.rideOccurrences.occurDate));
+    // 4) إحصائيات الحضور
+    const attendanceStats = {
+        total: attendanceHistory.length,
+        present: attendanceHistory.filter(a => a.status === 'picked_up' || a.status === 'dropped_off').length,
+        absent: attendanceHistory.filter(a => a.status === 'absent').length,
+        excused: attendanceHistory.filter(a => a.status === 'excused').length,
+        pending: attendanceHistory.filter(a => a.status === 'pending').length,
+    };
+    // 5) الرحلات القادمة (اليوم وبكرة)
+    const today = new Date(new Date().toISOString().split('T')[0]);
+    const tomorrow = new Date(new Date(Date.now() + 86400000).toISOString().split('T')[0]);
+    const upcomingRides = await db_1.db
+        .select({
+        occurrenceId: schema_1.rideOccurrences.id,
+        date: schema_1.rideOccurrences.occurDate,
+        status: schema_1.rideOccurrences.status,
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        busPlateNumber: schema_1.buses.plateNumber,
+        driverName: schema_1.drivers.name,
+    })
+        .from(schema_1.rideOccurrences)
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .innerJoin(schema_1.rideStudents, (0, drizzle_orm_1.eq)(schema_1.rides.id, schema_1.rideStudents.rideId))
+        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
+        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideStudents.studentId, id), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, today), (0, drizzle_orm_1.lte)(schema_1.rideOccurrences.occurDate, tomorrow)))
+        .orderBy(schema_1.rideOccurrences.occurDate);
+    (0, response_1.SuccessResponse)(res, {
+        student: {
+            id: student.id,
+            name: student.name,
+            code: student.code,
+            avatar: student.avatar,
+            grade: student.grade,
+            classroom: student.classroom,
+            walletBalance: student.walletBalance,
+            nfcId: student.nfcId,
+            status: student.status,
+            createdAt: student.createdAt,
+            parent: student.parentId ? {
+                id: student.parentId,
+                name: student.parentName,
+                phone: student.parentPhone,
+                email: student.parentEmail,
+                avatar: student.parentAvatar,
+            } : null,
+            zone: student.zoneId ? {
+                id: student.zoneId,
+                name: student.zoneName,
+                cost: student.zoneCost,
+            } : null,
+        },
+        rides: studentRides.map(r => ({
+            id: r.rideId,
+            name: r.rideName,
+            type: r.rideType,
+            pickupTime: r.pickupTime,
+            bus: r.busId ? {
+                id: r.busId,
+                plateNumber: r.busPlateNumber,
+            } : null,
+            driver: r.driverId ? {
+                id: r.driverId,
+                name: r.driverName,
+                phone: r.driverPhone,
+                avatar: r.driverAvatar,
+            } : null,
+            codriver: r.codriverId ? {
+                id: r.codriverId,
+                name: r.codriverName,
+                phone: r.codriverPhone,
+            } : null,
+        })),
+        attendance: {
+            stats: attendanceStats,
+            history: attendanceHistory.map(a => ({
+                id: a.id,
+                date: a.date,
+                status: a.status,
+                rideType: a.rideType,
+                rideName: a.rideName,
+                pickupTime: a.pickupTime,
+                excuseReason: a.excuseReason,
+            })),
+        },
+        upcomingRides: upcomingRides.map(r => ({
+            occurrenceId: r.occurrenceId,
+            date: r.date,
+            status: r.status,
+            ride: {
+                id: r.rideId,
+                name: r.rideName,
+                type: r.rideType,
+            },
+            bus: r.busPlateNumber,
+            driver: r.driverName,
+        })),
+    }, 200);
+};
+exports.getStudentDetails = getStudentDetails;
