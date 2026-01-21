@@ -1224,26 +1224,32 @@ const getCurrentRides = async (req, res) => {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
     const today = new Date().toISOString().split("T")[0];
+    // جلب الرحلات الجارية
     const liveRides = await db_1.db
         .select({
         occurrenceId: schema_1.rideOccurrences.id,
         occurDate: schema_1.rideOccurrences.occurDate,
         status: schema_1.rideOccurrences.status,
         startedAt: schema_1.rideOccurrences.startedAt,
+        completedAt: schema_1.rideOccurrences.completedAt,
         currentLat: schema_1.rideOccurrences.currentLat,
         currentLng: schema_1.rideOccurrences.currentLng,
         rideId: schema_1.rides.id,
         rideName: schema_1.rides.name,
         rideType: schema_1.rides.rideType,
+        frequency: schema_1.rides.frequency,
+        repeatType: schema_1.rides.repeatType,
         busId: schema_1.buses.id,
         busNumber: schema_1.buses.busNumber,
         plateNumber: schema_1.buses.plateNumber,
+        busMaxSeats: schema_1.buses.maxSeats,
         driverId: schema_1.drivers.id,
         driverName: schema_1.drivers.name,
         driverPhone: schema_1.drivers.phone,
         driverAvatar: schema_1.drivers.avatar,
         codriverId: schema_1.codrivers.id,
         codriverName: schema_1.codrivers.name,
+        codriverPhone: schema_1.codrivers.phone,
         routeId: schema_1.Rout.id,
         routeName: schema_1.Rout.name,
     })
@@ -1255,20 +1261,97 @@ const getCurrentRides = async (req, res) => {
         .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "in_progress"), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) = ${today}`))
         .orderBy(schema_1.rideOccurrences.startedAt);
-    // جلب إحصائيات الطلاب لكل رحلة
+    // جلب كل التفاصيل لكل رحلة
     const result = await Promise.all(liveRides.map(async (ride) => {
-        const studentsStats = await db_1.db
+        // ✅ جلب الطلاب مع تفاصيلهم الكاملة
+        const occStudents = await db_1.db
             .select({
-            total: (0, drizzle_orm_1.sql) `COUNT(*)`,
-            pending: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
-            pickedUp: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
-            droppedOff: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
-            absent: (0, drizzle_orm_1.sql) `SUM(CASE WHEN ${schema_1.rideOccurrenceStudents.status} IN ('absent', 'excused') THEN 1 ELSE 0 END)`,
+            id: schema_1.rideOccurrenceStudents.id,
+            status: schema_1.rideOccurrenceStudents.status,
+            pickupTime: schema_1.rideOccurrenceStudents.pickupTime,
+            pickedUpAt: schema_1.rideOccurrenceStudents.pickedUpAt,
+            droppedOffAt: schema_1.rideOccurrenceStudents.droppedOffAt,
+            excuseReason: schema_1.rideOccurrenceStudents.excuseReason,
+            studentId: schema_1.students.id,
+            studentName: schema_1.students.name,
+            studentAvatar: schema_1.students.avatar,
+            studentGrade: schema_1.students.grade,
+            studentClassroom: schema_1.students.classroom,
+            parentId: schema_1.parents.id,
+            parentName: schema_1.parents.name,
+            parentPhone: schema_1.parents.phone,
+            pickupPointId: schema_1.pickupPoints.id,
+            pickupPointName: schema_1.pickupPoints.name,
+            pickupPointAddress: schema_1.pickupPoints.address,
+            pickupPointLat: schema_1.pickupPoints.lat,
+            pickupPointLng: schema_1.pickupPoints.lng,
+            stopOrder: schema_1.routePickupPoints.stopOrder,
         })
             .from(schema_1.rideOccurrenceStudents)
-            .where((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, ride.occurrenceId));
-        const stats = studentsStats[0] || { total: 0, pending: 0, pickedUp: 0, droppedOff: 0, absent: 0 };
-        // حساب مدة الرحلة
+            .innerJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, schema_1.students.id))
+            .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
+            .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.pickupPointId, schema_1.pickupPoints.id))
+            .leftJoin(schema_1.routePickupPoints, (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.pickupPointId, schema_1.rideOccurrenceStudents.pickupPointId), ride.routeId ? (0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, ride.routeId) : (0, drizzle_orm_1.sql) `1=1`))
+            .where((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, ride.occurrenceId))
+            .orderBy((0, drizzle_orm_1.asc)(schema_1.routePickupPoints.stopOrder));
+        // ✅ جلب نقاط التوقف (Route Stops)
+        let routeStops = [];
+        if (ride.routeId) {
+            routeStops = await db_1.db
+                .select({
+                id: schema_1.pickupPoints.id,
+                name: schema_1.pickupPoints.name,
+                address: schema_1.pickupPoints.address,
+                lat: schema_1.pickupPoints.lat,
+                lng: schema_1.pickupPoints.lng,
+                stopOrder: schema_1.routePickupPoints.stopOrder,
+            })
+                .from(schema_1.routePickupPoints)
+                .innerJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.pickupPoints.id, schema_1.routePickupPoints.pickupPointId))
+                .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, ride.routeId))
+                .orderBy((0, drizzle_orm_1.asc)(schema_1.routePickupPoints.stopOrder));
+            // إضافة الطلاب لكل نقطة توقف
+            routeStops = routeStops.map((stop) => {
+                const studentsAtStop = occStudents.filter((s) => s.pickupPointId === stop.id);
+                return {
+                    ...stop,
+                    studentsCount: studentsAtStop.length,
+                    students: studentsAtStop.map((s) => ({
+                        id: s.id,
+                        status: s.status,
+                        pickedUpAt: s.pickedUpAt,
+                        droppedOffAt: s.droppedOffAt,
+                        student: {
+                            id: s.studentId,
+                            name: s.studentName,
+                            avatar: s.studentAvatar,
+                        },
+                        parent: {
+                            id: s.parentId,
+                            name: s.parentName,
+                            phone: s.parentPhone,
+                        },
+                    })),
+                    stats: {
+                        total: studentsAtStop.length,
+                        pending: studentsAtStop.filter((s) => s.status === "pending").length,
+                        pickedUp: studentsAtStop.filter((s) => s.status === "picked_up").length,
+                        droppedOff: studentsAtStop.filter((s) => s.status === "dropped_off").length,
+                        absent: studentsAtStop.filter((s) => s.status === "absent" || s.status === "excused").length,
+                    },
+                };
+            });
+        }
+        // ✅ إحصائيات الطلاب
+        const stats = {
+            total: occStudents.length,
+            pending: occStudents.filter((s) => s.status === "pending").length,
+            pickedUp: occStudents.filter((s) => s.status === "picked_up").length,
+            droppedOff: occStudents.filter((s) => s.status === "dropped_off").length,
+            absent: occStudents.filter((s) => s.status === "absent").length,
+            excused: occStudents.filter((s) => s.status === "excused").length,
+        };
+        // ✅ حساب مدة الرحلة
         let duration = null;
         if (ride.startedAt) {
             const diffMs = Date.now() - new Date(ride.startedAt).getTime();
@@ -1277,6 +1360,22 @@ const getCurrentRides = async (req, res) => {
                 minutes: diffMins,
                 formatted: `${Math.floor(diffMins / 60)}h ${diffMins % 60}m`,
             };
+        }
+        // ✅ حساب التقدم
+        const completedCount = stats.pickedUp + stats.droppedOff + stats.absent + stats.excused;
+        const progress = stats.total > 0 ? Math.round((completedCount / stats.total) * 100) : 0;
+        // ✅ تحديد النقطة الحالية والقادمة
+        let currentStop = null;
+        let nextStop = null;
+        if (routeStops.length > 0) {
+            // النقطة الحالية: أول نقطة فيها طلاب pending
+            currentStop = routeStops.find((stop) => stop.stats.pending > 0) || null;
+            // النقطة القادمة: النقطة اللي بعد الحالية
+            if (currentStop) {
+                const currentStopId = currentStop.id;
+                const currentIndex = routeStops.findIndex((s) => s.id === currentStopId);
+                nextStop = routeStops[currentIndex + 1] || null;
+            }
         }
         return {
             occurrence: {
@@ -1293,41 +1392,138 @@ const getCurrentRides = async (req, res) => {
                 id: ride.rideId,
                 name: ride.rideName,
                 type: ride.rideType,
+                frequency: ride.frequency,
+                repeatType: ride.repeatType,
             },
             bus: ride.busId
-                ? { id: ride.busId, busNumber: ride.busNumber, plateNumber: ride.plateNumber }
+                ? {
+                    id: ride.busId,
+                    busNumber: ride.busNumber,
+                    plateNumber: ride.plateNumber,
+                    maxSeats: ride.busMaxSeats,
+                    occupancy: {
+                        current: stats.pickedUp,
+                        max: ride.busMaxSeats,
+                        percentage: ride.busMaxSeats ? Math.round((stats.pickedUp / ride.busMaxSeats) * 100) : 0,
+                    },
+                }
                 : null,
             driver: ride.driverId
-                ? { id: ride.driverId, name: ride.driverName, phone: ride.driverPhone, avatar: ride.driverAvatar }
+                ? {
+                    id: ride.driverId,
+                    name: ride.driverName,
+                    phone: ride.driverPhone,
+                    avatar: ride.driverAvatar,
+                }
                 : null,
             codriver: ride.codriverId
-                ? { id: ride.codriverId, name: ride.codriverName }
+                ? {
+                    id: ride.codriverId,
+                    name: ride.codriverName,
+                    phone: ride.codriverPhone,
+                }
                 : null,
             route: ride.routeId
-                ? { id: ride.routeId, name: ride.routeName }
+                ? {
+                    id: ride.routeId,
+                    name: ride.routeName,
+                    totalStops: routeStops.length,
+                    completedStops: routeStops.filter((s) => s.stats.pending === 0).length,
+                    currentStop: currentStop
+                        ? { id: currentStop.id, name: currentStop.name, order: currentStop.stopOrder }
+                        : null,
+                    nextStop: nextStop
+                        ? { id: nextStop.id, name: nextStop.name, order: nextStop.stopOrder }
+                        : null,
+                    stops: routeStops,
+                }
                 : null,
             students: {
-                total: Number(stats.total) || 0,
-                pending: Number(stats.pending) || 0,
-                pickedUp: Number(stats.pickedUp) || 0,
-                droppedOff: Number(stats.droppedOff) || 0,
-                absent: Number(stats.absent) || 0,
-                onBus: Number(stats.pickedUp) || 0,
-                progress: stats.total > 0
-                    ? Math.round(((Number(stats.pickedUp) + Number(stats.droppedOff) + Number(stats.absent)) / Number(stats.total)) * 100)
-                    : 0,
+                stats: {
+                    ...stats,
+                    onBus: stats.pickedUp,
+                    completed: completedCount,
+                },
+                progress,
+                list: {
+                    all: occStudents.map((s) => ({
+                        id: s.id,
+                        status: s.status,
+                        pickupTime: s.pickupTime,
+                        pickedUpAt: s.pickedUpAt,
+                        droppedOffAt: s.droppedOffAt,
+                        excuseReason: s.excuseReason,
+                        student: {
+                            id: s.studentId,
+                            name: s.studentName,
+                            avatar: s.studentAvatar,
+                            grade: s.studentGrade,
+                            classroom: s.studentClassroom,
+                        },
+                        parent: {
+                            id: s.parentId,
+                            name: s.parentName,
+                            phone: s.parentPhone,
+                        },
+                        pickupPoint: {
+                            id: s.pickupPointId,
+                            name: s.pickupPointName,
+                            address: s.pickupPointAddress,
+                            lat: s.pickupPointLat,
+                            lng: s.pickupPointLng,
+                            stopOrder: s.stopOrder,
+                        },
+                    })),
+                    pending: occStudents.filter((s) => s.status === "pending").map((s) => ({
+                        id: s.id,
+                        student: { id: s.studentId, name: s.studentName, avatar: s.studentAvatar },
+                        pickupPoint: { id: s.pickupPointId, name: s.pickupPointName },
+                    })),
+                    onBus: occStudents.filter((s) => s.status === "picked_up").map((s) => ({
+                        id: s.id,
+                        pickedUpAt: s.pickedUpAt,
+                        student: { id: s.studentId, name: s.studentName, avatar: s.studentAvatar },
+                    })),
+                    droppedOff: occStudents.filter((s) => s.status === "dropped_off").map((s) => ({
+                        id: s.id,
+                        droppedOffAt: s.droppedOffAt,
+                        student: { id: s.studentId, name: s.studentName, avatar: s.studentAvatar },
+                    })),
+                    absent: occStudents.filter((s) => s.status === "absent" || s.status === "excused").map((s) => ({
+                        id: s.id,
+                        status: s.status,
+                        excuseReason: s.excuseReason,
+                        student: { id: s.studentId, name: s.studentName, avatar: s.studentAvatar },
+                    })),
+                },
             },
         };
     }));
+    // تصنيف حسب النوع
     const morning = result.filter((r) => r.ride.type === "morning");
     const afternoon = result.filter((r) => r.ride.type === "afternoon");
+    // إحصائيات إجمالية
+    const totalStudents = result.reduce((sum, r) => sum + r.students.stats.total, 0);
+    const totalPickedUp = result.reduce((sum, r) => sum + r.students.stats.pickedUp, 0);
+    const totalOnBus = result.reduce((sum, r) => sum + r.students.stats.onBus, 0);
     (0, response_1.SuccessResponse)(res, {
+        date: today,
         rides: result,
         byType: { morning, afternoon },
         summary: {
-            total: result.length,
-            morning: morning.length,
-            afternoon: afternoon.length,
+            rides: {
+                total: result.length,
+                morning: morning.length,
+                afternoon: afternoon.length,
+            },
+            students: {
+                total: totalStudents,
+                pickedUp: totalPickedUp,
+                onBus: totalOnBus,
+                overallProgress: totalStudents > 0
+                    ? Math.round((totalPickedUp / totalStudents) * 100)
+                    : 0,
+            },
         },
     }, 200);
 };

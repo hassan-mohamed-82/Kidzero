@@ -149,7 +149,7 @@ export const createRide = async (req: Request, res: Response) => {
     if (!repeatType) {
       throw new BadRequest("Repeat type is required for repeating rides");
     }
-    
+
     if (repeatType === "limited") {
       if (!endDate) {
         throw new BadRequest("End date is required for limited repeat rides");
@@ -158,7 +158,7 @@ export const createRide = async (req: Request, res: Response) => {
         throw new BadRequest("End date must be after start date");
       }
     }
-    
+
     // ✅ unlimited لا يحتاج endDate
     if (repeatType === "unlimited" && endDate) {
       console.log("Warning: endDate ignored for unlimited rides");
@@ -615,33 +615,33 @@ export const getRideById = async (req: Request, res: Response) => {
     },
     bus: rideData.busId
       ? {
-          id: rideData.busId,
-          busNumber: rideData.busNumber,
-          plateNumber: rideData.plateNumber,
-          maxSeats: rideData.busMaxSeats,
-        }
+        id: rideData.busId,
+        busNumber: rideData.busNumber,
+        plateNumber: rideData.plateNumber,
+        maxSeats: rideData.busMaxSeats,
+      }
       : null,
     driver: rideData.driverId
       ? {
-          id: rideData.driverId,
-          name: rideData.driverName,
-          phone: rideData.driverPhone,
-          avatar: rideData.driverAvatar,
-        }
+        id: rideData.driverId,
+        name: rideData.driverName,
+        phone: rideData.driverPhone,
+        avatar: rideData.driverAvatar,
+      }
       : null,
     codriver: rideData.codriverId
       ? {
-          id: rideData.codriverId,
-          name: rideData.codriverName,
-          phone: rideData.codriverPhone,
-        }
+        id: rideData.codriverId,
+        name: rideData.codriverName,
+        phone: rideData.codriverPhone,
+      }
       : null,
     route: rideData.routeId
       ? {
-          id: rideData.routeId,
-          name: rideData.routeName,
-          stops: routeStops,
-        }
+        id: rideData.routeId,
+        name: rideData.routeName,
+        stops: routeStops,
+      }
       : null,
     students: rideStudentsList.map((s) => ({
       id: s.id,
@@ -1103,13 +1103,13 @@ export const getOccurrenceDetails = async (req: Request, res: Response) => {
 // ✅ Update Ride
 export const updateRide = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { 
-    busId, 
-    driverId, 
-    codriverId, 
-    routeId, 
-    name, 
-    rideType, 
+  const {
+    busId,
+    driverId,
+    codriverId,
+    routeId,
+    name,
+    rideType,
     isActive,
     students: studentsData
   } = req.body;
@@ -1167,7 +1167,7 @@ export const updateRide = async (req: Request, res: Response) => {
     studentsUpdated = true;
   }
 
-  SuccessResponse(res, { 
+  SuccessResponse(res, {
     message: "Ride updated successfully",
     studentsUpdated,
   }, 200);
@@ -1175,7 +1175,7 @@ export const updateRide = async (req: Request, res: Response) => {
 
 // ✅ دالة تحديث الطلاب
 async function updateRideStudents(
-  rideId: string, 
+  rideId: string,
   studentsData: Array<{ studentId: string; pickupPointId: string; pickupTime?: string }>,
   organizationId: string
 ) {
@@ -1206,7 +1206,7 @@ async function updateRideStudents(
 
   if (toRemove.length > 0) {
     const removeIds = toRemove.map(s => s.studentId);
-    
+
     await db.delete(rideStudents)
       .where(and(
         eq(rideStudents.rideId, rideId),
@@ -1462,26 +1462,32 @@ export const getCurrentRides = async (req: Request, res: Response) => {
 
   const today = new Date().toISOString().split("T")[0];
 
+  // جلب الرحلات الجارية
   const liveRides = await db
     .select({
       occurrenceId: rideOccurrences.id,
       occurDate: rideOccurrences.occurDate,
       status: rideOccurrences.status,
       startedAt: rideOccurrences.startedAt,
+      completedAt: rideOccurrences.completedAt,
       currentLat: rideOccurrences.currentLat,
       currentLng: rideOccurrences.currentLng,
       rideId: rides.id,
       rideName: rides.name,
       rideType: rides.rideType,
+      frequency: rides.frequency,
+      repeatType: rides.repeatType,
       busId: buses.id,
       busNumber: buses.busNumber,
       plateNumber: buses.plateNumber,
+      busMaxSeats: buses.maxSeats,
       driverId: drivers.id,
       driverName: drivers.name,
       driverPhone: drivers.phone,
       driverAvatar: drivers.avatar,
       codriverId: codrivers.id,
       codriverName: codrivers.name,
+      codriverPhone: codrivers.phone,
       routeId: Rout.id,
       routeName: Rout.name,
     })
@@ -1500,23 +1506,108 @@ export const getCurrentRides = async (req: Request, res: Response) => {
     )
     .orderBy(rideOccurrences.startedAt);
 
-  // جلب إحصائيات الطلاب لكل رحلة
+  // جلب كل التفاصيل لكل رحلة
   const result = await Promise.all(
     liveRides.map(async (ride) => {
-      const studentsStats = await db
+      // ✅ جلب الطلاب مع تفاصيلهم الكاملة
+      const occStudents = await db
         .select({
-          total: sql<number>`COUNT(*)`,
-          pending: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'pending' THEN 1 ELSE 0 END)`,
-          pickedUp: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'picked_up' THEN 1 ELSE 0 END)`,
-          droppedOff: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} = 'dropped_off' THEN 1 ELSE 0 END)`,
-          absent: sql<number>`SUM(CASE WHEN ${rideOccurrenceStudents.status} IN ('absent', 'excused') THEN 1 ELSE 0 END)`,
+          id: rideOccurrenceStudents.id,
+          status: rideOccurrenceStudents.status,
+          pickupTime: rideOccurrenceStudents.pickupTime,
+          pickedUpAt: rideOccurrenceStudents.pickedUpAt,
+          droppedOffAt: rideOccurrenceStudents.droppedOffAt,
+          excuseReason: rideOccurrenceStudents.excuseReason,
+          studentId: students.id,
+          studentName: students.name,
+          studentAvatar: students.avatar,
+          studentGrade: students.grade,
+          studentClassroom: students.classroom,
+          parentId: parents.id,
+          parentName: parents.name,
+          parentPhone: parents.phone,
+          pickupPointId: pickupPoints.id,
+          pickupPointName: pickupPoints.name,
+          pickupPointAddress: pickupPoints.address,
+          pickupPointLat: pickupPoints.lat,
+          pickupPointLng: pickupPoints.lng,
+          stopOrder: routePickupPoints.stopOrder,
         })
         .from(rideOccurrenceStudents)
-        .where(eq(rideOccurrenceStudents.occurrenceId, ride.occurrenceId));
+        .innerJoin(students, eq(rideOccurrenceStudents.studentId, students.id))
+        .leftJoin(parents, eq(students.parentId, parents.id))
+        .leftJoin(pickupPoints, eq(rideOccurrenceStudents.pickupPointId, pickupPoints.id))
+        .leftJoin(
+          routePickupPoints,
+          and(
+            eq(routePickupPoints.pickupPointId, rideOccurrenceStudents.pickupPointId),
+            ride.routeId ? eq(routePickupPoints.routeId, ride.routeId) : sql`1=1`
+          )
+        )
+        .where(eq(rideOccurrenceStudents.occurrenceId, ride.occurrenceId))
+        .orderBy(asc(routePickupPoints.stopOrder));
 
-      const stats = studentsStats[0] || { total: 0, pending: 0, pickedUp: 0, droppedOff: 0, absent: 0 };
+      // ✅ جلب نقاط التوقف (Route Stops)
+      let routeStops: any[] = [];
+      if (ride.routeId) {
+        routeStops = await db
+          .select({
+            id: pickupPoints.id,
+            name: pickupPoints.name,
+            address: pickupPoints.address,
+            lat: pickupPoints.lat,
+            lng: pickupPoints.lng,
+            stopOrder: routePickupPoints.stopOrder,
+          })
+          .from(routePickupPoints)
+          .innerJoin(pickupPoints, eq(pickupPoints.id, routePickupPoints.pickupPointId))
+          .where(eq(routePickupPoints.routeId, ride.routeId))
+          .orderBy(asc(routePickupPoints.stopOrder));
 
-      // حساب مدة الرحلة
+        // إضافة الطلاب لكل نقطة توقف
+        routeStops = routeStops.map((stop) => {
+          const studentsAtStop = occStudents.filter((s) => s.pickupPointId === stop.id);
+          return {
+            ...stop,
+            studentsCount: studentsAtStop.length,
+            students: studentsAtStop.map((s) => ({
+              id: s.id,
+              status: s.status,
+              pickedUpAt: s.pickedUpAt,
+              droppedOffAt: s.droppedOffAt,
+              student: {
+                id: s.studentId,
+                name: s.studentName,
+                avatar: s.studentAvatar,
+              },
+              parent: {
+                id: s.parentId,
+                name: s.parentName,
+                phone: s.parentPhone,
+              },
+            })),
+            stats: {
+              total: studentsAtStop.length,
+              pending: studentsAtStop.filter((s) => s.status === "pending").length,
+              pickedUp: studentsAtStop.filter((s) => s.status === "picked_up").length,
+              droppedOff: studentsAtStop.filter((s) => s.status === "dropped_off").length,
+              absent: studentsAtStop.filter((s) => s.status === "absent" || s.status === "excused").length,
+            },
+          };
+        });
+      }
+
+      // ✅ إحصائيات الطلاب
+      const stats = {
+        total: occStudents.length,
+        pending: occStudents.filter((s) => s.status === "pending").length,
+        pickedUp: occStudents.filter((s) => s.status === "picked_up").length,
+        droppedOff: occStudents.filter((s) => s.status === "dropped_off").length,
+        absent: occStudents.filter((s) => s.status === "absent").length,
+        excused: occStudents.filter((s) => s.status === "excused").length,
+      };
+
+      // ✅ حساب مدة الرحلة
       let duration = null;
       if (ride.startedAt) {
         const diffMs = Date.now() - new Date(ride.startedAt).getTime();
@@ -1525,6 +1616,26 @@ export const getCurrentRides = async (req: Request, res: Response) => {
           minutes: diffMins,
           formatted: `${Math.floor(diffMins / 60)}h ${diffMins % 60}m`,
         };
+      }
+
+      // ✅ حساب التقدم
+      const completedCount = stats.pickedUp + stats.droppedOff + stats.absent + stats.excused;
+      const progress = stats.total > 0 ? Math.round((completedCount / stats.total) * 100) : 0;
+
+      // ✅ تحديد النقطة الحالية والقادمة
+      let currentStop: { id: any; name: any; stopOrder: any; } | null = null;
+      let nextStop = null;
+
+      if (routeStops.length > 0) {
+        // النقطة الحالية: أول نقطة فيها طلاب pending
+        currentStop = routeStops.find((stop) => stop.stats.pending > 0) || null;
+
+        // النقطة القادمة: النقطة اللي بعد الحالية
+        if (currentStop) {
+          const currentStopId = currentStop.id;
+          const currentIndex = routeStops.findIndex((s) => s.id === currentStopId);
+          nextStop = routeStops[currentIndex + 1] || null;
+        }
       }
 
       return {
@@ -1543,52 +1654,149 @@ export const getCurrentRides = async (req: Request, res: Response) => {
           id: ride.rideId,
           name: ride.rideName,
           type: ride.rideType,
+          frequency: ride.frequency,
+          repeatType: ride.repeatType,
         },
         bus: ride.busId
-          ? { id: ride.busId, busNumber: ride.busNumber, plateNumber: ride.plateNumber }
+          ? {
+            id: ride.busId,
+            busNumber: ride.busNumber,
+            plateNumber: ride.plateNumber,
+            maxSeats: ride.busMaxSeats,
+            occupancy: {
+              current: stats.pickedUp,
+              max: ride.busMaxSeats,
+              percentage: ride.busMaxSeats ? Math.round((stats.pickedUp / ride.busMaxSeats) * 100) : 0,
+            },
+          }
           : null,
         driver: ride.driverId
-          ? { id: ride.driverId, name: ride.driverName, phone: ride.driverPhone, avatar: ride.driverAvatar }
+          ? {
+            id: ride.driverId,
+            name: ride.driverName,
+            phone: ride.driverPhone,
+            avatar: ride.driverAvatar,
+          }
           : null,
         codriver: ride.codriverId
-          ? { id: ride.codriverId, name: ride.codriverName }
+          ? {
+            id: ride.codriverId,
+            name: ride.codriverName,
+            phone: ride.codriverPhone,
+          }
           : null,
         route: ride.routeId
-          ? { id: ride.routeId, name: ride.routeName }
+          ? {
+            id: ride.routeId,
+            name: ride.routeName,
+            totalStops: routeStops.length,
+            completedStops: routeStops.filter((s) => s.stats.pending === 0).length,
+            currentStop: currentStop
+              ? { id: currentStop.id, name: currentStop.name, order: currentStop.stopOrder }
+              : null,
+            nextStop: nextStop
+              ? { id: nextStop.id, name: nextStop.name, order: nextStop.stopOrder }
+              : null,
+            stops: routeStops,
+          }
           : null,
         students: {
-          total: Number(stats.total) || 0,
-          pending: Number(stats.pending) || 0,
-          pickedUp: Number(stats.pickedUp) || 0,
-          droppedOff: Number(stats.droppedOff) || 0,
-          absent: Number(stats.absent) || 0,
-          onBus: Number(stats.pickedUp) || 0,
-          progress: stats.total > 0 
-            ? Math.round(((Number(stats.pickedUp) + Number(stats.droppedOff) + Number(stats.absent)) / Number(stats.total)) * 100)
-            : 0,
+          stats: {
+            ...stats,
+            onBus: stats.pickedUp,
+            completed: completedCount,
+          },
+          progress,
+          list: {
+            all: occStudents.map((s) => ({
+              id: s.id,
+              status: s.status,
+              pickupTime: s.pickupTime,
+              pickedUpAt: s.pickedUpAt,
+              droppedOffAt: s.droppedOffAt,
+              excuseReason: s.excuseReason,
+              student: {
+                id: s.studentId,
+                name: s.studentName,
+                avatar: s.studentAvatar,
+                grade: s.studentGrade,
+                classroom: s.studentClassroom,
+              },
+              parent: {
+                id: s.parentId,
+                name: s.parentName,
+                phone: s.parentPhone,
+              },
+              pickupPoint: {
+                id: s.pickupPointId,
+                name: s.pickupPointName,
+                address: s.pickupPointAddress,
+                lat: s.pickupPointLat,
+                lng: s.pickupPointLng,
+                stopOrder: s.stopOrder,
+              },
+            })),
+            pending: occStudents.filter((s) => s.status === "pending").map((s) => ({
+              id: s.id,
+              student: { id: s.studentId, name: s.studentName, avatar: s.studentAvatar },
+              pickupPoint: { id: s.pickupPointId, name: s.pickupPointName },
+            })),
+            onBus: occStudents.filter((s) => s.status === "picked_up").map((s) => ({
+              id: s.id,
+              pickedUpAt: s.pickedUpAt,
+              student: { id: s.studentId, name: s.studentName, avatar: s.studentAvatar },
+            })),
+            droppedOff: occStudents.filter((s) => s.status === "dropped_off").map((s) => ({
+              id: s.id,
+              droppedOffAt: s.droppedOffAt,
+              student: { id: s.studentId, name: s.studentName, avatar: s.studentAvatar },
+            })),
+            absent: occStudents.filter((s) => s.status === "absent" || s.status === "excused").map((s) => ({
+              id: s.id,
+              status: s.status,
+              excuseReason: s.excuseReason,
+              student: { id: s.studentId, name: s.studentName, avatar: s.studentAvatar },
+            })),
+          },
         },
       };
     })
   );
 
+  // تصنيف حسب النوع
   const morning = result.filter((r) => r.ride.type === "morning");
   const afternoon = result.filter((r) => r.ride.type === "afternoon");
+
+  // إحصائيات إجمالية
+  const totalStudents = result.reduce((sum, r) => sum + r.students.stats.total, 0);
+  const totalPickedUp = result.reduce((sum, r) => sum + r.students.stats.pickedUp, 0);
+  const totalOnBus = result.reduce((sum, r) => sum + r.students.stats.onBus, 0);
 
   SuccessResponse(
     res,
     {
+      date: today,
       rides: result,
       byType: { morning, afternoon },
       summary: {
-        total: result.length,
-        morning: morning.length,
-        afternoon: afternoon.length,
+        rides: {
+          total: result.length,
+          morning: morning.length,
+          afternoon: afternoon.length,
+        },
+        students: {
+          total: totalStudents,
+          pickedUp: totalPickedUp,
+          onBus: totalOnBus,
+          overallProgress: totalStudents > 0
+            ? Math.round((totalPickedUp / totalStudents) * 100)
+            : 0,
+        },
       },
     },
     200
   );
 };
-
 
 // ✅ Get Rides Dashboard Stats
 export const getRidesDashboard = async (req: Request, res: Response) => {
