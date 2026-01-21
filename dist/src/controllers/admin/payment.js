@@ -113,6 +113,9 @@ const createPayment = async (req, res) => {
         throw new NotFound_1.NotFound("Plan not found");
     }
     const plan = planResult[0];
+    if (plan.minSubscriptionFeesPay > amount) {
+        throw new BadRequest_1.BadRequest(`Minimum subscription fees pay is ${plan.minSubscriptionFeesPay}`);
+    }
     // Validate payment method exists and is active
     const payMethodResult = await db_1.db
         .select()
@@ -131,10 +134,10 @@ const createPayment = async (req, res) => {
     // Generate new payment ID
     const newPaymentId = crypto.randomUUID();
     // Calculate total amount with fee if applicable
-    let totalAmount = amount;
+    let totalAmount = plan.subscriptionFees;
     if (payMethodResult[0].feeStatus === true) {
         if (payMethodResult[0].feeAmount > 0) {
-            totalAmount = amount + payMethodResult[0].feeAmount;
+            totalAmount = totalAmount + payMethodResult[0].feeAmount;
         }
         else {
             throw new BadRequest_1.BadRequest("Invalid fee amount in payment method");
@@ -173,17 +176,17 @@ const createPayment = async (req, res) => {
     // Check if payment is less than subscription fees - route to installment path
     const subscriptionFees = plan.subscriptionFees;
     const minPayment = plan.minSubscriptionFeesPay;
-    const isPartialPayment = totalAmount < subscriptionFees;
+    const isPartialPayment = amount < totalAmount;
     if (isPartialPayment) {
         // Validate minimum payment requirement
-        if (totalAmount < minPayment) {
-            throw new BadRequest_1.BadRequest(`Payment amount (${totalAmount}) is less than the minimum required payment (${minPayment}). ` +
+        if (amount < minPayment) {
+            throw new BadRequest_1.BadRequest(`Payment amount (${amount}) is less than the minimum required payment (${minPayment}). ` +
                 `You must pay at least ${minPayment} to start a subscription with installments.`);
         }
         // For partial payments, nextDueDate is required
         if (!nextDueDate) {
             throw new BadRequest_1.BadRequest("Next payment due date is required for partial/installment payments. " +
-                `You are paying ${totalAmount} out of ${subscriptionFees} total fees.`);
+                `You are paying ${amount} out of ${totalAmount} total fees.`);
         }
         // Validate due date is in the future
         const dueDate = new Date(nextDueDate);
@@ -196,7 +199,7 @@ const createPayment = async (req, res) => {
             organizationId,
             planId,
             paymentMethodId,
-            amount: totalAmount,
+            amount: amount,
             receiptImage: receiptImageUrl || "",
             promocodeId: promoResultId,
             status: "pending",
@@ -233,9 +236,9 @@ const createPayment = async (req, res) => {
             subscriptionId,
             organizationId,
             paymentMethodId,
-            totalFeeAmount: subscriptionFees,
+            totalFeeAmount: totalAmount,
             paidAmount: 0, // Will be updated when approved
-            remainingAmount: subscriptionFees - totalAmount, // Will be this after approval
+            remainingAmount: totalAmount - amount, // Will be this after approval
             installmentAmount: totalAmount,
             dueDate: new Date(nextDueDate),
             status: "pending",
@@ -275,9 +278,9 @@ const createPayment = async (req, res) => {
             installmentDetails: {
                 installmentId: newInstallmentId,
                 subscriptionId,
-                totalFeeAmount: subscriptionFees,
-                paidAmount: totalAmount,
-                remainingAmount: subscriptionFees - totalAmount,
+                totalFeeAmount: totalAmount,
+                paidAmount: amount,
+                remainingAmount: totalAmount - amount,
                 nextDueDate,
                 isInstallment: true,
             },
