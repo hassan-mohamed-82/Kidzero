@@ -11,6 +11,10 @@ const BadRequest_1 = require("../../Errors/BadRequest");
 // ✅ Create Zone
 const createZone = async (req, res) => {
     const { name, cityId, cost } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
     if (!name)
         throw new BadRequest_1.BadRequest("name is required");
     if (!cityId)
@@ -21,19 +25,28 @@ const createZone = async (req, res) => {
     const city = await db_1.db
         .select()
         .from(schema_1.cities)
-        .where((0, drizzle_orm_1.eq)(schema_1.cities.id, cityId))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.cities.id, cityId), (0, drizzle_orm_1.eq)(schema_1.cities.organizationId, organizationId)))
         .limit(1);
     if (city.length === 0) {
         throw new NotFound_1.NotFound("City not found");
     }
-    await db_1.db.insert(schema_1.zones).values({ name, cityId, cost });
+    await db_1.db.insert(schema_1.zones).values({ organizationId, name, cityId, cost });
     return (0, response_1.SuccessResponse)(res, { message: "Zone created successfully" }, 201);
 };
 exports.createZone = createZone;
 // ✅ Get All Zones
 const getZones = async (req, res) => {
     const { cityId } = req.query;
-    let query = db_1.db
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    // Build where conditions
+    const conditions = [(0, drizzle_orm_1.eq)(schema_1.zones.organizationId, organizationId)];
+    if (cityId && typeof cityId === "string") {
+        conditions.push((0, drizzle_orm_1.eq)(schema_1.zones.cityId, cityId));
+    }
+    const zoneList = await db_1.db
         .select({
         id: schema_1.zones.id,
         name: schema_1.zones.name,
@@ -46,18 +59,18 @@ const getZones = async (req, res) => {
     })
         .from(schema_1.zones)
         .leftJoin(schema_1.cities, (0, drizzle_orm_1.eq)(schema_1.zones.cityId, schema_1.cities.id))
+        .where((0, drizzle_orm_1.and)(...conditions))
         .orderBy((0, drizzle_orm_1.desc)(schema_1.zones.createdAt));
-    // فلتر حسب المدينة
-    if (cityId && typeof cityId === "string") {
-        query = query.where((0, drizzle_orm_1.eq)(schema_1.zones.cityId, cityId));
-    }
-    const zoneList = await query;
     return (0, response_1.SuccessResponse)(res, { zones: zoneList }, 200);
 };
 exports.getZones = getZones;
 // ✅ Get Zone By ID
 const getZoneById = async (req, res) => {
     const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
     const zone = await db_1.db
         .select({
         id: schema_1.zones.id,
@@ -71,7 +84,7 @@ const getZoneById = async (req, res) => {
     })
         .from(schema_1.zones)
         .leftJoin(schema_1.cities, (0, drizzle_orm_1.eq)(schema_1.zones.cityId, schema_1.cities.id))
-        .where((0, drizzle_orm_1.eq)(schema_1.zones.id, id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.zones.id, id), (0, drizzle_orm_1.eq)(schema_1.zones.organizationId, organizationId)))
         .limit(1);
     if (zone.length === 0) {
         throw new NotFound_1.NotFound("Zone not found");
@@ -83,10 +96,14 @@ exports.getZoneById = getZoneById;
 const updateZone = async (req, res) => {
     const { id } = req.params;
     const { name, cityId, cost } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
     const zone = await db_1.db
         .select()
         .from(schema_1.zones)
-        .where((0, drizzle_orm_1.eq)(schema_1.zones.id, id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.zones.id, id), (0, drizzle_orm_1.eq)(schema_1.zones.organizationId, organizationId)))
         .limit(1);
     if (zone.length === 0) {
         throw new NotFound_1.NotFound("Zone not found");

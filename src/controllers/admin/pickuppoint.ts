@@ -3,25 +3,32 @@
 import { Request, Response } from "express";
 import { db } from "../../models/db";
 import { pickupPoints, zones } from "../../models/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
 
 // ✅ Get All Pickup Points
 export const getAllPickupPoints = async (req: Request, res: Response) => {
-    const allPoints = await db.select().from(pickupPoints);
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+    const allPoints = await db.select().from(pickupPoints).where(eq(pickupPoints.organizationId, organizationId));
     SuccessResponse(res, { pickupPoints: allPoints }, 200);
 };
 
 // ✅ Get Pickup Point By ID
 export const getPickupPointById = async (req: Request, res: Response) => {
     const { id } = req.params;
-
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
     const point = await db
         .select()
         .from(pickupPoints)
-        .where(eq(pickupPoints.id, id))
+        .where(and(eq(pickupPoints.id, id), eq(pickupPoints.organizationId, organizationId)))
         .limit(1);
 
     if (!point[0]) {

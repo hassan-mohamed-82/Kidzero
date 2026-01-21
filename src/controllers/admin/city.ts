@@ -3,7 +3,7 @@
 import { Request, Response } from "express";
 import { db } from "../../models/db";
 import { cities, zones } from "../../models/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
@@ -11,40 +11,53 @@ import { BadRequest } from "../../Errors/BadRequest";
 // ✅ Create City
 export const createCity = async (req: Request, res: Response) => {
   const { name } = req.body;
-  
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
+
   if (!name) {
     throw new BadRequest("name is required");
   }
-  
-  await db.insert(cities).values({ name });
-  
+
+  await db.insert(cities).values({ organizationId, name });
+
   return SuccessResponse(res, { message: "City created successfully" }, 201);
 };
 
 // ✅ Get All Cities
 export const getCities = async (req: Request, res: Response) => {
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
   const cityList = await db
     .select()
     .from(cities)
+    .where(eq(cities.organizationId, organizationId))
     .orderBy(desc(cities.createdAt)); // ✅ desc() كـ function
-  
+
   return SuccessResponse(res, { cities: cityList }, 200);
 };
 
 // ✅ Get City By ID
 export const getCityById = async (req: Request, res: Response) => {
   const { id } = req.params;
-  
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
   const city = await db
     .select()
     .from(cities)
-    .where(eq(cities.id, id))
+    .where(and(eq(cities.id, id), eq(cities.organizationId, organizationId)))
     .limit(1); // ✅ بدل .first()
-  
+
   if (city.length === 0) {
     throw new NotFound("City not found");
   }
-  
+
   return SuccessResponse(res, { city: city[0] }, 200);
 };
 
@@ -52,41 +65,41 @@ export const getCityById = async (req: Request, res: Response) => {
 export const updateCity = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name } = req.body;
-  
+
   const city = await db
     .select()
     .from(cities)
     .where(eq(cities.id, id))
     .limit(1);
-  
+
   if (city.length === 0) {
     throw new NotFound("City not found");
   }
-  
+
   await db
     .update(cities)
     .set({ name: name || city[0].name })
     .where(eq(cities.id, id));
-  
+
   return SuccessResponse(res, { message: "City updated successfully" }, 200);
 };
 
 // ✅ Delete City
 export const deleteCity = async (req: Request, res: Response) => {
   const { id } = req.params;
-  
+
   const city = await db
     .select()
     .from(cities)
     .where(eq(cities.id, id))
     .limit(1);
-  
+
   if (city.length === 0) {
     throw new NotFound("City not found");
   }
-  
+
   await db.delete(cities).where(eq(cities.id, id));
-  
+
   return SuccessResponse(res, { message: "City deleted successfully" }, 200);
 };
 
@@ -96,9 +109,14 @@ export const deleteCity = async (req: Request, res: Response) => {
 // ✅ Get All Cities With Zones
 export const getCitiesWithZones = async (req: Request, res: Response) => {
   // جلب كل المدن
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
   const cityList = await db
     .select()
     .from(cities)
+    .where(eq(cities.organizationId, organizationId))
     .orderBy(desc(cities.createdAt));
 
   // جلب كل المناطق
@@ -110,6 +128,7 @@ export const getCitiesWithZones = async (req: Request, res: Response) => {
       cityId: zones.cityId,
     })
     .from(zones)
+    .where(eq(zones.organizationId, organizationId))
     .orderBy(zones.name);
 
   // تجميع المناطق مع المدن
@@ -121,7 +140,7 @@ export const getCitiesWithZones = async (req: Request, res: Response) => {
     zonesCount: zoneList.filter((zone) => zone.cityId === city.id).length,
   }));
 
-  return SuccessResponse(res, { 
+  return SuccessResponse(res, {
     cities: citiesWithZones,
     totalCities: cityList.length,
     totalZones: zoneList.length,
@@ -131,11 +150,14 @@ export const getCitiesWithZones = async (req: Request, res: Response) => {
 // ✅ Get Single City With Zones
 export const getCityWithZones = async (req: Request, res: Response) => {
   const { id } = req.params;
-
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
   const city = await db
     .select()
     .from(cities)
-    .where(eq(cities.id, id))
+    .where(and(eq(cities.id, id), eq(cities.organizationId, organizationId)))
     .limit(1);
 
   if (city.length === 0) {

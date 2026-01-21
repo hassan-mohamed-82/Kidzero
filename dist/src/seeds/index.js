@@ -13,7 +13,7 @@ const _04_plans_1 = __importDefault(require("./data/04_plans"));
 const _05_bus_types_1 = __importDefault(require("./data/05_bus_types"));
 const _06_payment_methods_1 = __importDefault(require("./data/06_payment_methods"));
 const _07_admin_roles_1 = __importDefault(require("./data/07_admin_roles"));
-const _08_cities_1 = __importDefault(require("./data/08_cities"));
+// import cities from "./data/08_cities";
 const _09_promocodes_1 = __importDefault(require("./data/09_promocodes"));
 // Export all seeds in execution order
 exports.seeds = [
@@ -24,7 +24,7 @@ exports.seeds = [
     _05_bus_types_1.default,
     _06_payment_methods_1.default,
     _07_admin_roles_1.default,
-    _08_cities_1.default,
+    //cities,
     _09_promocodes_1.default,
 ];
 // Run seeds when this file is executed directly

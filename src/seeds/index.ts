@@ -9,7 +9,7 @@ import plans from "./data/04_plans";
 import busTypes from "./data/05_bus_types";
 import paymentMethods from "./data/06_payment_methods";
 import adminRoles from "./data/07_admin_roles";
-import cities from "./data/08_cities";
+// import cities from "./data/08_cities";
 import promocodes from "./data/09_promocodes";
 
 // Export all seeds in execution order
@@ -21,7 +21,7 @@ export const seeds: Seed[] = [
   busTypes,
   paymentMethods,
   adminRoles,
-  cities,
+//cities,
   promocodes,
 ];
 

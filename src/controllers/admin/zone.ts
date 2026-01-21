@@ -3,7 +3,7 @@
 import { Request, Response } from "express";
 import { db } from "../../models/db";
 import { zones, cities } from "../../models/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
@@ -11,6 +11,11 @@ import { BadRequest } from "../../Errors/BadRequest";
 // ✅ Create Zone
 export const createZone = async (req: Request, res: Response) => {
   const { name, cityId, cost } = req.body;
+  const organizationId = req.user?.organizationId;
+
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
 
   if (!name) throw new BadRequest("name is required");
   if (!cityId) throw new BadRequest("cityId is required");
@@ -20,14 +25,14 @@ export const createZone = async (req: Request, res: Response) => {
   const city = await db
     .select()
     .from(cities)
-    .where(eq(cities.id, cityId))
+    .where(and(eq(cities.id, cityId), eq(cities.organizationId, organizationId)))
     .limit(1);
 
   if (city.length === 0) {
     throw new NotFound("City not found");
   }
 
-  await db.insert(zones).values({ name, cityId, cost });
+  await db.insert(zones).values({ organizationId, name, cityId, cost });
 
   return SuccessResponse(res, { message: "Zone created successfully" }, 201);
 };
@@ -35,8 +40,18 @@ export const createZone = async (req: Request, res: Response) => {
 // ✅ Get All Zones
 export const getZones = async (req: Request, res: Response) => {
   const { cityId } = req.query;
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
 
-  let query = db
+  // Build where conditions
+  const conditions = [eq(zones.organizationId, organizationId)];
+  if (cityId && typeof cityId === "string") {
+    conditions.push(eq(zones.cityId, cityId));
+  }
+
+  const zoneList = await db
     .select({
       id: zones.id,
       name: zones.name,
@@ -49,14 +64,8 @@ export const getZones = async (req: Request, res: Response) => {
     })
     .from(zones)
     .leftJoin(cities, eq(zones.cityId, cities.id))
+    .where(and(...conditions))
     .orderBy(desc(zones.createdAt));
-
-  // فلتر حسب المدينة
-  if (cityId && typeof cityId === "string") {
-    query = query.where(eq(zones.cityId, cityId)) as any;
-  }
-
-  const zoneList = await query;
 
   return SuccessResponse(res, { zones: zoneList }, 200);
 };
@@ -64,7 +73,10 @@ export const getZones = async (req: Request, res: Response) => {
 // ✅ Get Zone By ID
 export const getZoneById = async (req: Request, res: Response) => {
   const { id } = req.params;
-
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
   const zone = await db
     .select({
       id: zones.id,
@@ -78,7 +90,7 @@ export const getZoneById = async (req: Request, res: Response) => {
     })
     .from(zones)
     .leftJoin(cities, eq(zones.cityId, cities.id))
-    .where(eq(zones.id, id))
+    .where(and(eq(zones.id, id), eq(zones.organizationId, organizationId)))
     .limit(1);
 
   if (zone.length === 0) {
@@ -92,11 +104,14 @@ export const getZoneById = async (req: Request, res: Response) => {
 export const updateZone = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { name, cityId, cost } = req.body;
-
+  const organizationId = req.user?.organizationId;
+  if (!organizationId) {
+    throw new BadRequest("Organization ID is required");
+  }
   const zone = await db
     .select()
     .from(zones)
-    .where(eq(zones.id, id))
+    .where(and(eq(zones.id, id), eq(zones.organizationId, organizationId)))
     .limit(1);
 
   if (zone.length === 0) {

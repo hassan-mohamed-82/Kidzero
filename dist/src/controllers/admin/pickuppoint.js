@@ -10,17 +10,25 @@ const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
 // ✅ Get All Pickup Points
 const getAllPickupPoints = async (req, res) => {
-    const allPoints = await db_1.db.select().from(schema_1.pickupPoints);
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const allPoints = await db_1.db.select().from(schema_1.pickupPoints).where((0, drizzle_orm_1.eq)(schema_1.pickupPoints.organizationId, organizationId));
     (0, response_1.SuccessResponse)(res, { pickupPoints: allPoints }, 200);
 };
 exports.getAllPickupPoints = getAllPickupPoints;
 // ✅ Get Pickup Point By ID
 const getPickupPointById = async (req, res) => {
     const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
     const point = await db_1.db
         .select()
         .from(schema_1.pickupPoints)
-        .where((0, drizzle_orm_1.eq)(schema_1.pickupPoints.id, id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.pickupPoints.id, id), (0, drizzle_orm_1.eq)(schema_1.pickupPoints.organizationId, organizationId)))
         .limit(1);
     if (!point[0]) {
         throw new NotFound_1.NotFound("Pickup Point not found");
