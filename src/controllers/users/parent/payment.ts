@@ -151,6 +151,7 @@ export const createParentPaymentOrgService = async (req: Request, res: Response)
         parentId: user,
         ServiceId,
         paymentMethodId,
+        organizationId: StudentOrganizationId,
         amount,
         receiptImage: receiptImageUrl || "",
         status: "pending",

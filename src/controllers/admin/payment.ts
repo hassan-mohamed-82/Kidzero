@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions, adminUsedPromocodes } from "../../models/schema";
+import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions, adminUsedPromocodes, parentPaymentOrgServices } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -588,4 +588,19 @@ export const payPlanPrice = async (req: Request, res: Response) => {
         },
         201
     );
+};
+
+
+export const getAllParentPayments = async (req: Request, res: Response) => {
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+
+    const allParentPayments = await db.query.parentPaymentOrgServices.findMany({
+        where: eq(parentPaymentOrgServices.organizationId, organizationId),
+    });
+
+    return SuccessResponse(res, { message: "Parent Payments fetched successfully", payments: allParentPayments }, 200);
 };

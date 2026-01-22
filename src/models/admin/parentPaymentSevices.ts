@@ -3,12 +3,14 @@ import { sql } from "drizzle-orm";
 import { parents } from "../admin/parent";
 import { organizationServices } from "./organizationServices";
 import { paymentMethod } from "../superadmin/paymentMethod";
-
+import { organizations } from "../superadmin/organization";
 export const parentPaymentOrgServices = mysqlTable("parent_payment_org_services", {
     id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
     parentId: char("parent_id", { length: 36 }).notNull().references(() => parents.id),
     ServiceId: char("service_id", { length: 36 }).notNull().references(() => organizationServices.id),
     paymentMethodId: char("payment_method_id", { length: 36 }).notNull().references(() => paymentMethod.id),
+    organizationId: char("organization_id", { length: 36 }).notNull().references(() => organizations.id),
+
     amount: double("amount").notNull(),
 
     receiptImage: varchar("receipt_image", { length: 500 }).notNull(),

@@ -21,7 +21,8 @@ const validateAndSaveLogo = async (req: Request, logo: string): Promise<string> 
 };
 
 export const getAllPaymentMethods = async (req: Request, res: Response) => {
-    const paymentMethods = await db.query.paymentMethod.findMany();
+    // const paymentMethods = await db.query.paymentMethod.findMany();
+    const paymentMethods = await db.select().from(paymentMethod).where(eq(paymentMethod.isActive, true));
     return SuccessResponse(res, { paymentMethods }, 200);
 };
 
