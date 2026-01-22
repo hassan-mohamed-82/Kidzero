@@ -6,6 +6,7 @@ const db_1 = require("../../models/db");
 const drizzle_orm_1 = require("drizzle-orm");
 const response_1 = require("../../utils/response");
 const Bustype_1 = require("../../models/superadmin/Bustype");
+const schema_1 = require("../../models/schema");
 const getAllBusTypes = async (req, res) => {
     const busTypes = await db_1.db.query.busTypes.findMany();
     return (0, response_1.SuccessResponse)(res, { busTypes }, 200);
@@ -69,6 +70,13 @@ const deleteBusType = async (req, res) => {
     });
     if (!existingBusType) {
         throw new BadRequest_1.BadRequest("Bus Type not found");
+    }
+    // Deleting a Bus Type that is associated with existing Buses should be prevented
+    const Buses = await db_1.db.query.buses.findMany({
+        where: (0, drizzle_orm_1.eq)(schema_1.buses.busTypeId, Id)
+    });
+    if (Buses.length > 0) {
+        throw new BadRequest_1.BadRequest("Cannot delete Bus Type associated with existing Buses");
     }
     await db_1.db.delete(Bustype_1.busTypes).where((0, drizzle_orm_1.eq)(Bustype_1.busTypes.id, Id));
     return (0, response_1.SuccessResponse)(res, { message: "Bus Type deleted successfully" }, 200);
