@@ -148,6 +148,7 @@ export const createParentPaymentOrgService = async (req: Request, res: Response)
         throw new BadRequest("Failed to process receipt image");
     }
     await db.insert(parentPaymentOrgServices).values({
+        id: crypto.randomUUID(),
         parentId: user,
         ServiceId,
         paymentMethodId,
