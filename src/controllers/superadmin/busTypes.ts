@@ -4,6 +4,7 @@ import { db } from "../../models/db";
 import { eq } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { busTypes } from "../../models/superadmin/Bustype";
+import { buses } from "../../models/schema";
 
 export const getAllBusTypes = async (req: Request, res: Response) => {
     const busTypes = await db.query.busTypes.findMany();
@@ -66,6 +67,14 @@ export const deleteBusType = async (req: Request, res: Response) => {
     });
     if (!existingBusType) {
         throw new BadRequest("Bus Type not found");
+    }
+    
+    // Deleting a Bus Type that is associated with existing Buses should be prevented
+    const Buses = await db.query.buses.findMany({
+        where: eq(buses.busTypeId, Id)
+    });
+    if (Buses.length > 0) {
+        throw new BadRequest("Cannot delete Bus Type associated with existing Buses");
     }
     await db.delete(busTypes).where(eq(busTypes.id, Id));
     return SuccessResponse(res, { message: "Bus Type deleted successfully" }, 200);
