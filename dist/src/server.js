@@ -15,10 +15,17 @@ const helmet_1 = __importDefault(require("helmet"));
 const cronJobs_1 = require("./jobs/cronJobs");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+// ✅ CORS أولاً - قبل أي middleware تاني
+const corsOptions = {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+};
+app.options("*", (0, cors_1.default)(corsOptions)); // ✅ Handle preflight
+app.use((0, cors_1.default)(corsOptions));
 app.use((0, helmet_1.default)({
     crossOriginResourcePolicy: false,
 }));
-app.use((0, cors_1.default)({ origin: "*" }));
 app.use((0, cookie_parser_1.default)());
 app.use(express_1.default.json({ limit: "20mb" }));
 app.use(express_1.default.urlencoded({ extended: true, limit: "20mb" }));
@@ -33,5 +40,5 @@ app.use((req, res, next) => {
 app.use(errorHandler_1.errorHandler);
 (0, cronJobs_1.startCronJobs)();
 app.listen(3000, () => {
-    console.log("Server is running on http://localhost:3000 ");
+    console.log("Server is running on http://localhost:3000");
 });
