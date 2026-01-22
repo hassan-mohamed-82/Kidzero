@@ -282,6 +282,7 @@ export const createRide = async (req: Request, res: Response) => {
 };
 
 // ✅ Get All Rides with Classification
+// ✅ Get All Rides with Classification
 export const getAllRides = async (req: Request, res: Response) => {
   const organizationId = req.user?.organizationId;
   const { tab } = req.query;
@@ -399,37 +400,36 @@ export const getAllRides = async (req: Request, res: Response) => {
     let classification: "upcoming" | "current" | "past";
     let currentStatus: string | null = null;
 
+    // ✅ لو فيه occurrence النهارده
     if (todayOcc) {
+      currentStatus = todayOcc.status;
+      
       if (todayOcc.status === "in_progress") {
         classification = "current";
-        currentStatus = "in_progress";
       } else if (todayOcc.status === "scheduled") {
         classification = "current";
-        currentStatus = "scheduled";
       } else if (todayOcc.status === "completed") {
-        if (nextOccDate && nextOccDate > today) {
-          classification = "upcoming";
-        } else {
-          classification = "past";
-        }
-        currentStatus = "completed";
+        // ✅ الرحلة المكتملة النهارده تفضل في current
+        classification = "current";
       } else if (todayOcc.status === "cancelled") {
-        if (nextOccDate && nextOccDate > today) {
-          classification = "upcoming";
-        } else {
-          classification = "past";
-        }
-        currentStatus = "cancelled";
+        // ✅ الرحلة الملغية النهارده تفضل في current
+        classification = "current";
+      } else {
+        classification = "current";
+      }
+    } 
+    // ✅ لو فيه occurrence قادمة
+    else if (nextOccDate) {
+      if (nextOccDate > today) {
+        classification = "upcoming";
+      } else if (nextOccDate === today) {
+        classification = "current";
       } else {
         classification = "past";
       }
-    } else if (nextOccDate) {
-      if (nextOccDate > today) {
-        classification = "upcoming";
-      } else {
-        classification = "current";
-      }
-    } else {
+    } 
+    // ✅ مفيش أي occurrences قادمة
+    else {
       classification = "past";
     }
 
@@ -440,7 +440,6 @@ export const getAllRides = async (req: Request, res: Response) => {
       frequency: ride.frequency,
       repeatType: ride.repeatType,
       startDate: ride.startDate,
-      // ✅ إصلاح endDate
       endDate: ride.endDate || null,
       isActive: ride.isActive,
       createdAt: ride.createdAt,
@@ -470,12 +469,28 @@ export const getAllRides = async (req: Request, res: Response) => {
   const current = formattedRides.filter((r) => r.classification === "current");
   const past = formattedRides.filter((r) => r.classification === "past");
 
+  // ✅ ترتيب الـ upcoming حسب التاريخ (الأقرب أولاً)
   upcoming.sort((a, b) => {
     const dateA = a.nextOccurrenceDate || a.startDate;
     const dateB = b.nextOccurrenceDate || b.startDate;
     return new Date(dateA).getTime() - new Date(dateB).getTime();
   });
 
+  // ✅ ترتيب الـ current حسب الحالة (in_progress أولاً)
+  const statusOrder: Record<string, number> = {
+    in_progress: 1,
+    scheduled: 2,
+    completed: 3,
+    cancelled: 4,
+  };
+  
+  current.sort((a, b) => {
+    const orderA = statusOrder[a.currentStatus || ""] || 5;
+    const orderB = statusOrder[b.currentStatus || ""] || 5;
+    return orderA - orderB;
+  });
+
+  // ✅ ترتيب الـ past حسب التاريخ (الأحدث أولاً)
   past.sort((a, b) => {
     return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
   });
@@ -1345,6 +1360,7 @@ export const updateOccurrenceStatus = async (req: Request, res: Response) => {
 };
 
 // ✅ Selection Data
+// ✅ Selection Data
 export const selection = async (req: Request, res: Response) => {
   const organizationId = req.user?.organizationId;
 
@@ -1356,23 +1372,36 @@ export const selection = async (req: Request, res: Response) => {
 
   const routesWithPickupPoints = await Promise.all(
     allRoutes.map(async (route) => {
+      // ✅ إصلاح: استخدام select مسطح ثم تنسيق البيانات
       const points = await db
         .select({
           id: routePickupPoints.id,
           stopOrder: routePickupPoints.stopOrder,
-          pickupPoint: {
-            id: pickupPoints.id,
-            name: pickupPoints.name,
-            address: pickupPoints.address,
-            lat: pickupPoints.lat,
-            lng: pickupPoints.lng,
-          },
+          pickupPointId: pickupPoints.id,
+          pickupPointName: pickupPoints.name,
+          pickupPointAddress: pickupPoints.address,
+          pickupPointLat: pickupPoints.lat,
+          pickupPointLng: pickupPoints.lng,
         })
         .from(routePickupPoints)
         .leftJoin(pickupPoints, eq(routePickupPoints.pickupPointId, pickupPoints.id))
         .where(eq(routePickupPoints.routeId, route.id))
         .orderBy(routePickupPoints.stopOrder);
-      return { ...route, pickupPoints: points };
+
+      // ✅ تنسيق البيانات بعد الجلب
+      const formattedPoints = points.map((p) => ({
+        id: p.id,
+        stopOrder: p.stopOrder,
+        pickupPoint: {
+          id: p.pickupPointId,
+          name: p.pickupPointName,
+          address: p.pickupPointAddress,
+          lat: p.pickupPointLat,
+          lng: p.pickupPointLng,
+        },
+      }));
+
+      return { ...route, pickupPoints: formattedPoints };
     })
   );
 
@@ -1380,22 +1409,35 @@ export const selection = async (req: Request, res: Response) => {
   const allDrivers = await db.select().from(drivers).where(eq(drivers.organizationId, organizationId));
   const allCodrivers = await db.select().from(codrivers).where(eq(codrivers.organizationId, organizationId));
 
-  const allStudents = await db
+  // ✅ إصلاح: نفس المشكلة مع students
+  const studentsData = await db
     .select({
       id: students.id,
       name: students.name,
       avatar: students.avatar,
       grade: students.grade,
       classroom: students.classroom,
-      parent: {
-        id: parents.id,
-        name: parents.name,
-        phone: parents.phone,
-      },
+      parentId: parents.id,
+      parentName: parents.name,
+      parentPhone: parents.phone,
     })
     .from(students)
     .leftJoin(parents, eq(students.parentId, parents.id))
     .where(eq(students.organizationId, organizationId));
+
+  // ✅ تنسيق بيانات الطلاب
+  const allStudents = studentsData.map((s) => ({
+    id: s.id,
+    name: s.name,
+    avatar: s.avatar,
+    grade: s.grade,
+    classroom: s.classroom,
+    parent: {
+      id: s.parentId,
+      name: s.parentName,
+      phone: s.parentPhone,
+    },
+  }));
 
   SuccessResponse(res, {
     routes: routesWithPickupPoints,

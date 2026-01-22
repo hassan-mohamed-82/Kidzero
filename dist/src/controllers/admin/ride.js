@@ -205,6 +205,7 @@ const createRide = async (req, res) => {
 };
 exports.createRide = createRide;
 // ✅ Get All Rides with Classification
+// ✅ Get All Rides with Classification
 const getAllRides = async (req, res) => {
     const organizationId = req.user?.organizationId;
     const { tab } = req.query;
@@ -298,45 +299,40 @@ const getAllRides = async (req, res) => {
         const nextOccDate = nextOccurrenceMap[ride.id];
         let classification;
         let currentStatus = null;
+        // ✅ لو فيه occurrence النهارده
         if (todayOcc) {
+            currentStatus = todayOcc.status;
             if (todayOcc.status === "in_progress") {
                 classification = "current";
-                currentStatus = "in_progress";
             }
             else if (todayOcc.status === "scheduled") {
                 classification = "current";
-                currentStatus = "scheduled";
             }
             else if (todayOcc.status === "completed") {
-                if (nextOccDate && nextOccDate > today) {
-                    classification = "upcoming";
-                }
-                else {
-                    classification = "past";
-                }
-                currentStatus = "completed";
+                // ✅ الرحلة المكتملة النهارده تفضل في current
+                classification = "current";
             }
             else if (todayOcc.status === "cancelled") {
-                if (nextOccDate && nextOccDate > today) {
-                    classification = "upcoming";
-                }
-                else {
-                    classification = "past";
-                }
-                currentStatus = "cancelled";
+                // ✅ الرحلة الملغية النهارده تفضل في current
+                classification = "current";
+            }
+            else {
+                classification = "current";
+            }
+        }
+        // ✅ لو فيه occurrence قادمة
+        else if (nextOccDate) {
+            if (nextOccDate > today) {
+                classification = "upcoming";
+            }
+            else if (nextOccDate === today) {
+                classification = "current";
             }
             else {
                 classification = "past";
             }
         }
-        else if (nextOccDate) {
-            if (nextOccDate > today) {
-                classification = "upcoming";
-            }
-            else {
-                classification = "current";
-            }
-        }
+        // ✅ مفيش أي occurrences قادمة
         else {
             classification = "past";
         }
@@ -347,7 +343,6 @@ const getAllRides = async (req, res) => {
             frequency: ride.frequency,
             repeatType: ride.repeatType,
             startDate: ride.startDate,
-            // ✅ إصلاح endDate
             endDate: ride.endDate || null,
             isActive: ride.isActive,
             createdAt: ride.createdAt,
@@ -374,11 +369,25 @@ const getAllRides = async (req, res) => {
     const upcoming = formattedRides.filter((r) => r.classification === "upcoming");
     const current = formattedRides.filter((r) => r.classification === "current");
     const past = formattedRides.filter((r) => r.classification === "past");
+    // ✅ ترتيب الـ upcoming حسب التاريخ (الأقرب أولاً)
     upcoming.sort((a, b) => {
         const dateA = a.nextOccurrenceDate || a.startDate;
         const dateB = b.nextOccurrenceDate || b.startDate;
         return new Date(dateA).getTime() - new Date(dateB).getTime();
     });
+    // ✅ ترتيب الـ current حسب الحالة (in_progress أولاً)
+    const statusOrder = {
+        in_progress: 1,
+        scheduled: 2,
+        completed: 3,
+        cancelled: 4,
+    };
+    current.sort((a, b) => {
+        const orderA = statusOrder[a.currentStatus || ""] || 5;
+        const orderB = statusOrder[b.currentStatus || ""] || 5;
+        return orderA - orderB;
+    });
+    // ✅ ترتيب الـ past حسب التاريخ (الأحدث أولاً)
     past.sort((a, b) => {
         return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
     });
@@ -1124,6 +1133,7 @@ const updateOccurrenceStatus = async (req, res) => {
 };
 exports.updateOccurrenceStatus = updateOccurrenceStatus;
 // ✅ Selection Data
+// ✅ Selection Data
 const selection = async (req, res) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
@@ -1131,43 +1141,66 @@ const selection = async (req, res) => {
     }
     const allRoutes = await db_1.db.select().from(schema_1.Rout).where((0, drizzle_orm_1.eq)(schema_1.Rout.organizationId, organizationId));
     const routesWithPickupPoints = await Promise.all(allRoutes.map(async (route) => {
+        // ✅ إصلاح: استخدام select مسطح ثم تنسيق البيانات
         const points = await db_1.db
             .select({
             id: schema_1.routePickupPoints.id,
             stopOrder: schema_1.routePickupPoints.stopOrder,
-            pickupPoint: {
-                id: schema_1.pickupPoints.id,
-                name: schema_1.pickupPoints.name,
-                address: schema_1.pickupPoints.address,
-                lat: schema_1.pickupPoints.lat,
-                lng: schema_1.pickupPoints.lng,
-            },
+            pickupPointId: schema_1.pickupPoints.id,
+            pickupPointName: schema_1.pickupPoints.name,
+            pickupPointAddress: schema_1.pickupPoints.address,
+            pickupPointLat: schema_1.pickupPoints.lat,
+            pickupPointLng: schema_1.pickupPoints.lng,
         })
             .from(schema_1.routePickupPoints)
             .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.routePickupPoints.pickupPointId, schema_1.pickupPoints.id))
             .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, route.id))
             .orderBy(schema_1.routePickupPoints.stopOrder);
-        return { ...route, pickupPoints: points };
+        // ✅ تنسيق البيانات بعد الجلب
+        const formattedPoints = points.map((p) => ({
+            id: p.id,
+            stopOrder: p.stopOrder,
+            pickupPoint: {
+                id: p.pickupPointId,
+                name: p.pickupPointName,
+                address: p.pickupPointAddress,
+                lat: p.pickupPointLat,
+                lng: p.pickupPointLng,
+            },
+        }));
+        return { ...route, pickupPoints: formattedPoints };
     }));
     const allBuses = await db_1.db.select().from(schema_1.buses).where((0, drizzle_orm_1.eq)(schema_1.buses.organizationId, organizationId));
     const allDrivers = await db_1.db.select().from(schema_1.drivers).where((0, drizzle_orm_1.eq)(schema_1.drivers.organizationId, organizationId));
     const allCodrivers = await db_1.db.select().from(schema_1.codrivers).where((0, drizzle_orm_1.eq)(schema_1.codrivers.organizationId, organizationId));
-    const allStudents = await db_1.db
+    // ✅ إصلاح: نفس المشكلة مع students
+    const studentsData = await db_1.db
         .select({
         id: schema_1.students.id,
         name: schema_1.students.name,
         avatar: schema_1.students.avatar,
         grade: schema_1.students.grade,
         classroom: schema_1.students.classroom,
-        parent: {
-            id: schema_1.parents.id,
-            name: schema_1.parents.name,
-            phone: schema_1.parents.phone,
-        },
+        parentId: schema_1.parents.id,
+        parentName: schema_1.parents.name,
+        parentPhone: schema_1.parents.phone,
     })
         .from(schema_1.students)
         .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
         .where((0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId));
+    // ✅ تنسيق بيانات الطلاب
+    const allStudents = studentsData.map((s) => ({
+        id: s.id,
+        name: s.name,
+        avatar: s.avatar,
+        grade: s.grade,
+        classroom: s.classroom,
+        parent: {
+            id: s.parentId,
+            name: s.parentName,
+            phone: s.parentPhone,
+        },
+    }));
     (0, response_1.SuccessResponse)(res, {
         routes: routesWithPickupPoints,
         buses: allBuses,
