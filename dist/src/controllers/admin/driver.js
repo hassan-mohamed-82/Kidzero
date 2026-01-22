@@ -216,6 +216,7 @@ const updateDriver = async (req, res) => {
 };
 exports.updateDriver = updateDriver;
 // ✅ Delete Driver
+// ✅ Delete Driver
 const deleteDriver = async (req, res) => {
     const { id } = req.params;
     const organizationId = req.user?.organizationId;
@@ -230,18 +231,36 @@ const deleteDriver = async (req, res) => {
     if (!existingDriver[0]) {
         throw new NotFound_1.NotFound("Driver not found");
     }
-    // Delete images
-    if (existingDriver[0].avatar) {
-        await (0, deleteImage_1.deletePhotoFromServer)(existingDriver[0].avatar);
+    // ✅ تحقق إن الـ Driver مش مرتبط برحلات
+    const driverRides = await db_1.db
+        .select({ id: schema_1.rides.id })
+        .from(schema_1.rides)
+        .where((0, drizzle_orm_1.eq)(schema_1.rides.driverId, id))
+        .limit(1);
+    if (driverRides.length > 0) {
+        throw new BadRequest_1.BadRequest("Cannot delete driver. Driver is assigned to rides. Please reassign or delete the rides first.");
     }
-    if (existingDriver[0].licenseImage) {
-        await (0, deleteImage_1.deletePhotoFromServer)(existingDriver[0].licenseImage);
+    try {
+        // Delete images
+        if (existingDriver[0].avatar) {
+            await (0, deleteImage_1.deletePhotoFromServer)(existingDriver[0].avatar);
+        }
+        if (existingDriver[0].licenseImage) {
+            await (0, deleteImage_1.deletePhotoFromServer)(existingDriver[0].licenseImage);
+        }
+        if (existingDriver[0].nationalIdImage) {
+            await (0, deleteImage_1.deletePhotoFromServer)(existingDriver[0].nationalIdImage);
+        }
+        await db_1.db.delete(schema_1.drivers).where((0, drizzle_orm_1.eq)(schema_1.drivers.id, id));
+        (0, response_1.SuccessResponse)(res, { message: "Driver deleted successfully" }, 200);
     }
-    if (existingDriver[0].nationalIdImage) {
-        await (0, deleteImage_1.deletePhotoFromServer)(existingDriver[0].nationalIdImage);
+    catch (error) {
+        console.error("Delete Driver Error:", error);
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            throw new BadRequest_1.BadRequest("Cannot delete driver. Driver is linked to other records.");
+        }
+        throw error;
     }
-    await db_1.db.delete(schema_1.drivers).where((0, drizzle_orm_1.eq)(schema_1.drivers.id, id));
-    (0, response_1.SuccessResponse)(res, { message: "Driver deleted successfully" }, 200);
 };
 exports.deleteDriver = deleteDriver;
 // ============================================

@@ -242,6 +242,7 @@ export const updateDriver = async (req: Request, res: Response) => {
 };
 
 // ✅ Delete Driver
+// ✅ Delete Driver
 export const deleteDriver = async (req: Request, res: Response) => {
     const { id } = req.params;
     const organizationId = req.user?.organizationId;
@@ -260,20 +261,41 @@ export const deleteDriver = async (req: Request, res: Response) => {
         throw new NotFound("Driver not found");
     }
 
-    // Delete images
-    if (existingDriver[0].avatar) {
-        await deletePhotoFromServer(existingDriver[0].avatar);
-    }
-    if (existingDriver[0].licenseImage) {
-        await deletePhotoFromServer(existingDriver[0].licenseImage);
-    }
-    if (existingDriver[0].nationalIdImage) {
-        await deletePhotoFromServer(existingDriver[0].nationalIdImage);
+    // ✅ تحقق إن الـ Driver مش مرتبط برحلات
+    const driverRides = await db
+        .select({ id: rides.id })
+        .from(rides)
+        .where(eq(rides.driverId, id))
+        .limit(1);
+
+    if (driverRides.length > 0) {
+        throw new BadRequest("Cannot delete driver. Driver is assigned to rides. Please reassign or delete the rides first.");
     }
 
-    await db.delete(drivers).where(eq(drivers.id, id));
+    try {
+        // Delete images
+        if (existingDriver[0].avatar) {
+            await deletePhotoFromServer(existingDriver[0].avatar);
+        }
+        if (existingDriver[0].licenseImage) {
+            await deletePhotoFromServer(existingDriver[0].licenseImage);
+        }
+        if (existingDriver[0].nationalIdImage) {
+            await deletePhotoFromServer(existingDriver[0].nationalIdImage);
+        }
 
-    SuccessResponse(res, { message: "Driver deleted successfully" }, 200);
+        await db.delete(drivers).where(eq(drivers.id, id));
+
+        SuccessResponse(res, { message: "Driver deleted successfully" }, 200);
+    } catch (error: any) {
+        console.error("Delete Driver Error:", error);
+        
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            throw new BadRequest("Cannot delete driver. Driver is linked to other records.");
+        }
+        
+        throw error;
+    }
 };
 
 
