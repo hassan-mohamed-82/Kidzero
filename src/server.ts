@@ -13,15 +13,14 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORS أولاً - قبل أي middleware تاني
-const corsOptions = {
+// ✅ CORS بدون app.options
+app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-};
-
-app.options("*", cors(corsOptions)); // ✅ Handle preflight
-app.use(cors(corsOptions));
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+}));
 
 app.use(
   helmet({
