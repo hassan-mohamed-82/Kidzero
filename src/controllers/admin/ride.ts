@@ -381,7 +381,7 @@ export const getAllRides = async (req: Request, res: Response) => {
       .where(
         and(
           inArray(rideOccurrences.rideId, rideIds),
-          sql`DATE(${rideOccurrences.occurDate}) >= ${today}`,
+          sql`DATE(${rideOccurrences.occurDate}) > ${today}`,
           eq(rideOccurrences.status, "scheduled")
         )
       )
@@ -405,28 +405,24 @@ export const getAllRides = async (req: Request, res: Response) => {
       currentStatus = todayOcc.status;
       
       if (todayOcc.status === "in_progress") {
+        // ✅ الرحلة الجارية = current
         classification = "current";
       } else if (todayOcc.status === "scheduled") {
+        // ✅ الرحلة المجدولة = current
         classification = "current";
       } else if (todayOcc.status === "completed") {
-        // ✅ الرحلة المكتملة النهارده تفضل في current
-        classification = "current";
+        // ✅ الرحلة المكتملة = past دايماً
+        classification = "past";
       } else if (todayOcc.status === "cancelled") {
-        // ✅ الرحلة الملغية النهارده تفضل في current
-        classification = "current";
-      } else {
-        classification = "current";
-      }
-    } 
-    // ✅ لو فيه occurrence قادمة
-    else if (nextOccDate) {
-      if (nextOccDate > today) {
-        classification = "upcoming";
-      } else if (nextOccDate === today) {
-        classification = "current";
+        // ✅ الرحلة الملغية = past دايماً
+        classification = "past";
       } else {
         classification = "past";
       }
+    } 
+    // ✅ مفيش occurrence النهارده - شوف لو فيه قادمة
+    else if (nextOccDate) {
+      classification = "upcoming";
     } 
     // ✅ مفيش أي occurrences قادمة
     else {

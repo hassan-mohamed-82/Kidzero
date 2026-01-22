@@ -287,7 +287,7 @@ const getAllRides = async (req, res) => {
             occurDate: (0, drizzle_orm_1.sql) `MIN(DATE(${schema_1.rideOccurrences.occurDate}))`,
         })
             .from(schema_1.rideOccurrences)
-            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrences.rideId, rideIds), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) >= ${today}`, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "scheduled")))
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrences.rideId, rideIds), (0, drizzle_orm_1.sql) `DATE(${schema_1.rideOccurrences.occurDate}) > ${today}`, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "scheduled")))
             .groupBy(schema_1.rideOccurrences.rideId);
         nextOccurrenceMap = nextOccurrences.reduce((acc, item) => {
             acc[item.rideId] = item.occurDate;
@@ -303,34 +303,28 @@ const getAllRides = async (req, res) => {
         if (todayOcc) {
             currentStatus = todayOcc.status;
             if (todayOcc.status === "in_progress") {
+                // ✅ الرحلة الجارية = current
                 classification = "current";
             }
             else if (todayOcc.status === "scheduled") {
+                // ✅ الرحلة المجدولة = current
                 classification = "current";
             }
             else if (todayOcc.status === "completed") {
-                // ✅ الرحلة المكتملة النهارده تفضل في current
-                classification = "current";
+                // ✅ الرحلة المكتملة = past دايماً
+                classification = "past";
             }
             else if (todayOcc.status === "cancelled") {
-                // ✅ الرحلة الملغية النهارده تفضل في current
-                classification = "current";
-            }
-            else {
-                classification = "current";
-            }
-        }
-        // ✅ لو فيه occurrence قادمة
-        else if (nextOccDate) {
-            if (nextOccDate > today) {
-                classification = "upcoming";
-            }
-            else if (nextOccDate === today) {
-                classification = "current";
+                // ✅ الرحلة الملغية = past دايماً
+                classification = "past";
             }
             else {
                 classification = "past";
             }
+        }
+        // ✅ مفيش occurrence النهارده - شوف لو فيه قادمة
+        else if (nextOccDate) {
+            classification = "upcoming";
         }
         // ✅ مفيش أي occurrences قادمة
         else {
