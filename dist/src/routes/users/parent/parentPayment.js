@@ -7,4 +7,5 @@ const router = (0, express_1.Router)();
 router.get("/", (0, catchAsync_1.catchAsync)(payment_1.getParentPayments));
 router.get("/:id", (0, catchAsync_1.catchAsync)(payment_1.getParentPaymentbyId));
 router.post("/", (0, catchAsync_1.catchAsync)(payment_1.createParentPayment));
+router.post("/org-service", (0, catchAsync_1.catchAsync)(payment_1.createParentPaymentOrgService));
 exports.default = router;
