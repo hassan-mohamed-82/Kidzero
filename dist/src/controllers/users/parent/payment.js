@@ -76,7 +76,7 @@ const createParentPaymentOrgService = async (req, res) => {
     if (!user) {
         throw new BadRequest_1.BadRequest("User not Logged In");
     }
-    const { ServiceId, paymentMethodId, amount, receiptImage, zoneId } = req.body;
+    const { ServiceId, paymentMethodId, amount, receiptImage, studentId } = req.body;
     if (!ServiceId || !paymentMethodId || !amount || !receiptImage) {
         throw new BadRequest_1.BadRequest("All fields are required");
     }
@@ -87,6 +87,12 @@ const createParentPaymentOrgService = async (req, res) => {
     if (!payMethod) {
         throw new BadRequest_1.BadRequest("Payment Method Not Found");
     }
+    const student = await db_1.db.query.students.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.students.id, studentId), });
+    if (!student) {
+        throw new BadRequest_1.BadRequest("Student Not Found");
+    }
+    const zoneId = student.zoneId;
+    const StudentOrganizationId = student.organizationId;
     const orgService = await db_1.db.query.organizationServices.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.organizationServices.id, ServiceId), });
     if (!orgService) {
         throw new BadRequest_1.BadRequest("Organization Service Not Found");
@@ -133,9 +139,11 @@ const createParentPaymentOrgService = async (req, res) => {
         throw new BadRequest_1.BadRequest("Failed to process receipt image");
     }
     await db_1.db.insert(schema_1.parentPaymentOrgServices).values({
+        id: crypto.randomUUID(),
         parentId: user,
         ServiceId,
         paymentMethodId,
+        organizationId: StudentOrganizationId,
         amount,
         receiptImage: receiptImageUrl || "",
         status: "pending",

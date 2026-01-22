@@ -21,7 +21,8 @@ const validateAndSaveLogo = async (req, logo) => {
     }
 };
 const getAllPaymentMethods = async (req, res) => {
-    const paymentMethods = await db_1.db.query.paymentMethod.findMany();
+    // const paymentMethods = await db.query.paymentMethod.findMany();
+    const paymentMethods = await db_1.db.select().from(schema_1.paymentMethod).where((0, drizzle_orm_1.eq)(schema_1.paymentMethod.isActive, true));
     return (0, response_1.SuccessResponse)(res, { paymentMethods }, 200);
 };
 exports.getAllPaymentMethods = getAllPaymentMethods;

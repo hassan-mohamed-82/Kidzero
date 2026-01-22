@@ -1,7 +1,7 @@
 "use strict";
 // // src/controllers/admin/paymentController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.payPlanPrice = exports.requestRenewal = exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
+exports.getAllParentPayments = exports.payPlanPrice = exports.requestRenewal = exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -491,3 +491,14 @@ const payPlanPrice = async (req, res) => {
     }, 201);
 };
 exports.payPlanPrice = payPlanPrice;
+const getAllParentPayments = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const allParentPayments = await db_1.db.query.parentPaymentOrgServices.findMany({
+        where: (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.organizationId, organizationId),
+    });
+    return (0, response_1.SuccessResponse)(res, { message: "Parent Payments fetched successfully", payments: allParentPayments }, 200);
+};
+exports.getAllParentPayments = getAllParentPayments;
