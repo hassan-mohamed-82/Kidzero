@@ -1,4 +1,4 @@
-import { parentPayment, parentPlans, paymentMethod, organizationServices, zones, parentPaymentOrgServices } from "../../../models/schema";
+import { parentPayment, parentPlans, paymentMethod, organizationServices, zones, parentPaymentOrgServices, students } from "../../../models/schema";
 import { db } from "../../../models/db";
 import { eq } from "drizzle-orm";
 import { Request, Response } from "express";
@@ -78,7 +78,7 @@ export const createParentPaymentOrgService = async (req: Request, res: Response)
     if (!user) {
         throw new BadRequest("User not Logged In");
     }
-    const { ServiceId, paymentMethodId, amount, receiptImage, zoneId } = req.body;
+    const { ServiceId, paymentMethodId, amount, receiptImage, studentId } = req.body;
     if (!ServiceId || !paymentMethodId || !amount || !receiptImage) {
         throw new BadRequest("All fields are required");
     }
@@ -89,6 +89,16 @@ export const createParentPaymentOrgService = async (req: Request, res: Response)
     if (!payMethod) {
         throw new BadRequest("Payment Method Not Found");
     }
+
+    const student = await db.query.students.findFirst({ where: eq(students.id, studentId), });
+    if (!student) {
+        throw new BadRequest("Student Not Found");
+    }
+
+    const zoneId = student.zoneId;
+    const StudentOrganizationId = student.organizationId;
+
+    
     const orgService = await db.query.organizationServices.findFirst({ where: eq(organizationServices.id, ServiceId), });
 
     if (!orgService) {

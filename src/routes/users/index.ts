@@ -11,6 +11,7 @@ import parentPlanRouter from "./parent/parentPlans";
 import walletRechargeRequestRouter from "./parent/walletRechargeRequest";
 import parentSubscriptionRouter from "./parent/parentSubscription";
 import paymentMethodRouter from "./parent/parentPaymentMethods";
+import organizationServicesRouter from "./parent/OrganizationServices";
 const router = Router();
 
 router.use("/auth", authRouter);
@@ -24,5 +25,5 @@ router.use("/parentplans", parentPlanRouter);
 router.use("/parentsubscriptions", parentSubscriptionRouter);
 router.use("/paymentmethods", paymentMethodRouter);
 router.use("/walletrequests", walletRechargeRequestRouter);
-
+router.use("/organizationservices", organizationServicesRouter);
 export default router;
