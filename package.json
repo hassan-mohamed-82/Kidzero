@@ -11,6 +11,8 @@
     "migrate-db": "npx drizzle-kit push",
     "seed": "tsx src/seeds/index.ts",
     "seed:fresh": "tsx src/seeds/index.ts --fresh",
+"start:prod": "node dist/src/server.js",
+
     "migrate-log": "node migrate.js"
   },
   "keywords": [],
