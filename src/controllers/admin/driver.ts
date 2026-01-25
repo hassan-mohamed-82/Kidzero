@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { buses, codrivers, drivers, parents, pickupPoints, rideOccurrences, rides, rideStudents, Rout, students } from "../../models/schema";
+import { buses, codrivers, drivers, organizations, parents, pickupPoints, rideOccurrences, rides, rideStudents, Rout, students } from "../../models/schema";
 import { eq, and, desc, gte, lte } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -21,7 +21,10 @@ export const createDriver = async (req: Request, res: Response) => {
     if (!organizationId) {
         throw new BadRequest("Organization ID is required");
     }
-
+    const organization = await db.select().from(organizations).where(eq(organizations.id, organizationId)).limit(1);
+    if (!organization || !organization[0]) {
+        throw new BadRequest("Invalid Organization");
+    }
     // Check subscription limit
 
 
@@ -289,11 +292,11 @@ export const deleteDriver = async (req: Request, res: Response) => {
         SuccessResponse(res, { message: "Driver deleted successfully" }, 200);
     } catch (error: any) {
         console.error("Delete Driver Error:", error);
-        
+
         if (error.code === 'ER_ROW_IS_REFERENCED_2') {
             throw new BadRequest("Cannot delete driver. Driver is linked to other records.");
         }
-        
+
         throw error;
     }
 };
