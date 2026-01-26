@@ -12,15 +12,18 @@ const handleImages_1 = require("../../utils/handleImages");
 const deleteImage_1 = require("../../utils/deleteImage");
 const uuid_1 = require("uuid");
 const GenerateUniqueCode_1 = require("../../utils/GenerateUniqueCode");
+const helperfunction_1 = require("../../utils/helperfunction");
 // ✅ Create Student (بدون Parent - بيتربط بعدين بالـ Code)
 // src/controllers/admin/studentController.ts
 const createStudent = async (req, res) => {
     const { name, avatar, grade, classroom, zoneId } = req.body;
+    // ✅ التحقق من الاشتراك
     // ✅ تأكد من استخدام req.admin مش req.user
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
+    await (0, helperfunction_1.checkStudentLimit)(organizationId);
     if (!name) {
         throw new BadRequest_1.BadRequest("Student name is required");
     }

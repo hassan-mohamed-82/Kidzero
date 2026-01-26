@@ -15,7 +15,7 @@ import {
   pickupPoints,
   parents,
 } from "../../models/schema";
-import { eq, and, inArray, count, sql, gte, desc, asc } from "drizzle-orm";
+import { eq, and, inArray, count, sql, gte, desc, asc, lte } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
@@ -144,7 +144,7 @@ export const createRide = async (req: Request, res: Response) => {
     throw new BadRequest("Missing required fields");
   }
 
-  // ✅ التحقق المُحسّن
+  // ✅ التحقق من frequency و repeatType
   if (frequency === "repeat") {
     if (!repeatType) {
       throw new BadRequest("Repeat type is required for repeating rides");
@@ -159,12 +159,155 @@ export const createRide = async (req: Request, res: Response) => {
       }
     }
 
-    // ✅ unlimited لا يحتاج endDate
     if (repeatType === "unlimited" && endDate) {
       console.log("Warning: endDate ignored for unlimited rides");
     }
   }
 
+  // ✅ حساب نطاق التواريخ للفحص
+  const checkStartDate = new Date(startDate);
+  let checkEndDate: Date;
+
+  if (frequency === "once") {
+    checkEndDate = checkStartDate;
+  } else if (frequency === "repeat" && repeatType === "limited" && endDate) {
+    checkEndDate = new Date(endDate);
+  } else {
+    // unlimited: نفحص 30 يوم قدام
+    checkEndDate = new Date(checkStartDate);
+    checkEndDate.setDate(checkEndDate.getDate() + 30);
+  }
+
+  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+
+  // ✅ 1) فحص تعارض السائق
+  const driverConflict = await db
+    .select({
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      occurDate: rideOccurrences.occurDate,
+    })
+    .from(rides)
+    .innerJoin(rideOccurrences, eq(rides.id, rideOccurrences.rideId))
+    .where(
+      and(
+        eq(rides.organizationId, organizationId),
+        eq(rides.driverId, driverId),
+        eq(rides.rideType, rideType),
+        gte(rideOccurrences.occurDate, checkStartDate),
+        lte(rideOccurrences.occurDate, checkEndDate),
+        inArray(rideOccurrences.status, ["scheduled", "in_progress"])
+      )
+    )
+    .limit(1);
+
+  if (driverConflict.length > 0) {
+    const conflict = driverConflict[0];
+    throw new BadRequest(
+      `Driver is already assigned to ride "${conflict.rideName || conflict.rideId}" on ${conflict.occurDate} (${conflict.rideType})`
+    );
+  }
+
+  // ✅ 2) فحص تعارض الكو-درايفر
+  if (codriverId) {
+    const codriverConflict = await db
+      .select({
+        rideId: rides.id,
+        rideName: rides.name,
+        rideType: rides.rideType,
+        occurDate: rideOccurrences.occurDate,
+      })
+      .from(rides)
+      .innerJoin(rideOccurrences, eq(rides.id, rideOccurrences.rideId))
+      .where(
+        and(
+          eq(rides.organizationId, organizationId),
+          eq(rides.codriverId, codriverId),
+          eq(rides.rideType, rideType),
+          gte(rideOccurrences.occurDate, checkStartDate),
+          lte(rideOccurrences.occurDate, checkEndDate),
+          inArray(rideOccurrences.status, ["scheduled", "in_progress"])
+        )
+      )
+      .limit(1);
+
+    if (codriverConflict.length > 0) {
+      const conflict = codriverConflict[0];
+      throw new BadRequest(
+        `Codriver is already assigned to ride "${conflict.rideName || conflict.rideId}" on ${conflict.occurDate} (${conflict.rideType})`
+      );
+    }
+  }
+
+  // ✅ 3) فحص تعارض الباص
+  const busConflict = await db
+    .select({
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      occurDate: rideOccurrences.occurDate,
+    })
+    .from(rides)
+    .innerJoin(rideOccurrences, eq(rides.id, rideOccurrences.rideId))
+    .where(
+      and(
+        eq(rides.organizationId, organizationId),
+        eq(rides.busId, busId),
+        eq(rides.rideType, rideType),
+        gte(rideOccurrences.occurDate, checkStartDate),
+        lte(rideOccurrences.occurDate, checkEndDate),
+        inArray(rideOccurrences.status, ["scheduled", "in_progress"])
+      )
+    )
+    .limit(1);
+
+  if (busConflict.length > 0) {
+    const conflict = busConflict[0];
+    throw new BadRequest(
+      `Bus is already assigned to ride "${conflict.rideName || conflict.rideId}" on ${conflict.occurDate} (${conflict.rideType})`
+    );
+  }
+
+  // ✅ 4) فحص تعارض الطلاب
+  if (rideStudentsData.length > 0) {
+    const studentIds = rideStudentsData.map((s: any) => s.studentId);
+
+    const studentConflicts = await db
+      .select({
+        studentId: rideStudents.studentId,
+        studentName: students.name,
+        rideName: rides.name,
+        rideType: rides.rideType,
+        occurDate: rideOccurrences.occurDate,
+      })
+      .from(rideStudents)
+      .innerJoin(rides, eq(rideStudents.rideId, rides.id))
+      .innerJoin(rideOccurrences, eq(rides.id, rideOccurrences.rideId))
+      .innerJoin(students, eq(rideStudents.studentId, students.id))
+      .where(
+        and(
+          eq(rides.organizationId, organizationId),
+          eq(rides.rideType, rideType),
+          inArray(rideStudents.studentId, studentIds),
+          gte(rideOccurrences.occurDate, checkStartDate),
+          lte(rideOccurrences.occurDate, checkEndDate),
+          inArray(rideOccurrences.status, ["scheduled", "in_progress"])
+        )
+      )
+      .limit(5);
+
+    if (studentConflicts.length > 0) {
+      const conflictNames = studentConflicts
+        .map((c) => `${c.studentName} (${c.occurDate})`)
+        .join(", ");
+      throw new BadRequest(
+        `Students already assigned to another ${rideType} ride: ${conflictNames}`
+      );
+    }
+  }
+
+  // ✅ التحقق من وجود الموارد
   const bus = await db
     .select()
     .from(buses)
@@ -199,6 +342,7 @@ export const createRide = async (req: Request, res: Response) => {
     .limit(1);
   if (!route[0]) throw new NotFound("Route not found");
 
+  // ✅ التحقق من الطلاب ونقاط الالتقاط
   if (rideStudentsData.length > 0) {
     const routePickupPointsList = await db
       .select()
@@ -228,9 +372,9 @@ export const createRide = async (req: Request, res: Response) => {
     }
   }
 
+  // ✅ إنشاء الرحلة
   const rideId = uuidv4();
 
-  // ✅ الإدراج المُصحّح - endDate فقط لو limited
   await db.insert(rides).values({
     id: rideId,
     organizationId,
@@ -243,7 +387,7 @@ export const createRide = async (req: Request, res: Response) => {
     frequency,
     repeatType: frequency === "repeat" ? repeatType : null,
     startDate,
-    endDate: (frequency === "repeat" && repeatType === "limited") ? endDate : null,
+    endDate: frequency === "repeat" && repeatType === "limited" ? endDate : null,
   });
 
   if (rideStudentsData.length > 0) {
@@ -257,11 +401,10 @@ export const createRide = async (req: Request, res: Response) => {
     await db.insert(rideStudents).values(rideStudentsInsert);
   }
 
-  // ✅ تمرير null لـ endDate في حالة unlimited
   const occurrencesCount = await generateOccurrences(
     rideId,
     startDate,
-    (frequency === "repeat" && repeatType === "limited") ? endDate : null,
+    frequency === "repeat" && repeatType === "limited" ? endDate : null,
     frequency,
     repeatType,
     rideStudentsData
@@ -280,6 +423,7 @@ export const createRide = async (req: Request, res: Response) => {
     201
   );
 };
+
 
 // ✅ Get All Rides with Classification
 // ✅ Get All Rides with Classification
@@ -403,7 +547,7 @@ export const getAllRides = async (req: Request, res: Response) => {
     // ✅ لو فيه occurrence النهارده
     if (todayOcc) {
       currentStatus = todayOcc.status;
-      
+
       if (todayOcc.status === "in_progress") {
         // ✅ الرحلة الجارية = current
         classification = "current";
@@ -419,11 +563,11 @@ export const getAllRides = async (req: Request, res: Response) => {
       } else {
         classification = "past";
       }
-    } 
+    }
     // ✅ مفيش occurrence النهارده - شوف لو فيه قادمة
     else if (nextOccDate) {
       classification = "upcoming";
-    } 
+    }
     // ✅ مفيش أي occurrences قادمة
     else {
       classification = "past";
@@ -479,7 +623,7 @@ export const getAllRides = async (req: Request, res: Response) => {
     completed: 3,
     cancelled: 4,
   };
-  
+
   current.sort((a, b) => {
     const orderA = statusOrder[a.currentStatus || ""] || 5;
     const orderB = statusOrder[b.currentStatus || ""] || 5;

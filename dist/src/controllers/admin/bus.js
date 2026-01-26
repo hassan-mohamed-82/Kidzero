@@ -98,7 +98,7 @@ const createBus = async (req, res) => {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
     // التحقق من الاشتراك وحد الباصات أولاً
-    //await checkBusLimit(organizationId);
+    await (0, helperfunction_1.checkBusLimit)(organizationId);
     // تحقق من وجود الـ Bus Type
     const busType = await db_1.db
         .select()

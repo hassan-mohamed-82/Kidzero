@@ -11,6 +11,7 @@ import { saveBase64Image } from "../../utils/handleImages";
 import { deletePhotoFromServer } from "../../utils/deleteImage";
 import { v4 as uuidv4 } from "uuid";
 import { generateUniqueStudentCode } from "../../utils/GenerateUniqueCode";
+import { checkStudentLimit } from "../../utils/helperfunction";
 
 // ✅ Create Student (بدون Parent - بيتربط بعدين بالـ Code)
 // src/controllers/admin/studentController.ts
@@ -18,12 +19,16 @@ import { generateUniqueStudentCode } from "../../utils/GenerateUniqueCode";
 export const createStudent = async (req: Request, res: Response) => {
   const { name, avatar, grade, classroom, zoneId } = req.body;
 
+  // ✅ التحقق من الاشتراك
+
   // ✅ تأكد من استخدام req.admin مش req.user
   const organizationId = req.user?.organizationId;
 
   if (!organizationId) {
     throw new BadRequest("Organization ID is required");
   }
+
+  await checkStudentLimit(organizationId);
 
   if (!name) {
     throw new BadRequest("Student name is required");

@@ -118,7 +118,7 @@ export const createBus = async (req: Request, res: Response) => {
   }
 
   // التحقق من الاشتراك وحد الباصات أولاً
-  //await checkBusLimit(organizationId);
+  await checkBusLimit(organizationId);
 
   // تحقق من وجود الـ Bus Type
   const busType = await db

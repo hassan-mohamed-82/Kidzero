@@ -25,7 +25,7 @@ export const createDriver = async (req: Request, res: Response) => {
     // Check subscription limit
 
 
-    //   await checkDriverLimit(organizationId);
+      await checkDriverLimit(organizationId);
 
     // Check if phone already exists
     const existingDriver = await db

@@ -91,7 +91,7 @@ const createRide = async (req, res) => {
     if (!busId || !driverId || !routeId || !rideType || !frequency || !startDate) {
         throw new BadRequest_1.BadRequest("Missing required fields");
     }
-    // ✅ التحقق المُحسّن
+    // ✅ التحقق من frequency و repeatType
     if (frequency === "repeat") {
         if (!repeatType) {
             throw new BadRequest_1.BadRequest("Repeat type is required for repeating rides");
@@ -104,11 +104,100 @@ const createRide = async (req, res) => {
                 throw new BadRequest_1.BadRequest("End date must be after start date");
             }
         }
-        // ✅ unlimited لا يحتاج endDate
         if (repeatType === "unlimited" && endDate) {
             console.log("Warning: endDate ignored for unlimited rides");
         }
     }
+    // ✅ حساب نطاق التواريخ للفحص
+    const checkStartDate = new Date(startDate);
+    let checkEndDate;
+    if (frequency === "once") {
+        checkEndDate = checkStartDate;
+    }
+    else if (frequency === "repeat" && repeatType === "limited" && endDate) {
+        checkEndDate = new Date(endDate);
+    }
+    else {
+        // unlimited: نفحص 30 يوم قدام
+        checkEndDate = new Date(checkStartDate);
+        checkEndDate.setDate(checkEndDate.getDate() + 30);
+    }
+    const formatDate = (d) => d.toISOString().split("T")[0];
+    // ✅ 1) فحص تعارض السائق
+    const driverConflict = await db_1.db
+        .select({
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        occurDate: schema_1.rideOccurrences.occurDate,
+    })
+        .from(schema_1.rides)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rides.id, schema_1.rideOccurrences.rideId))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rides.driverId, driverId), (0, drizzle_orm_1.eq)(schema_1.rides.rideType, rideType), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, checkStartDate), (0, drizzle_orm_1.lte)(schema_1.rideOccurrences.occurDate, checkEndDate), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrences.status, ["scheduled", "in_progress"])))
+        .limit(1);
+    if (driverConflict.length > 0) {
+        const conflict = driverConflict[0];
+        throw new BadRequest_1.BadRequest(`Driver is already assigned to ride "${conflict.rideName || conflict.rideId}" on ${conflict.occurDate} (${conflict.rideType})`);
+    }
+    // ✅ 2) فحص تعارض الكو-درايفر
+    if (codriverId) {
+        const codriverConflict = await db_1.db
+            .select({
+            rideId: schema_1.rides.id,
+            rideName: schema_1.rides.name,
+            rideType: schema_1.rides.rideType,
+            occurDate: schema_1.rideOccurrences.occurDate,
+        })
+            .from(schema_1.rides)
+            .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rides.id, schema_1.rideOccurrences.rideId))
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rides.codriverId, codriverId), (0, drizzle_orm_1.eq)(schema_1.rides.rideType, rideType), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, checkStartDate), (0, drizzle_orm_1.lte)(schema_1.rideOccurrences.occurDate, checkEndDate), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrences.status, ["scheduled", "in_progress"])))
+            .limit(1);
+        if (codriverConflict.length > 0) {
+            const conflict = codriverConflict[0];
+            throw new BadRequest_1.BadRequest(`Codriver is already assigned to ride "${conflict.rideName || conflict.rideId}" on ${conflict.occurDate} (${conflict.rideType})`);
+        }
+    }
+    // ✅ 3) فحص تعارض الباص
+    const busConflict = await db_1.db
+        .select({
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        occurDate: schema_1.rideOccurrences.occurDate,
+    })
+        .from(schema_1.rides)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rides.id, schema_1.rideOccurrences.rideId))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rides.busId, busId), (0, drizzle_orm_1.eq)(schema_1.rides.rideType, rideType), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, checkStartDate), (0, drizzle_orm_1.lte)(schema_1.rideOccurrences.occurDate, checkEndDate), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrences.status, ["scheduled", "in_progress"])))
+        .limit(1);
+    if (busConflict.length > 0) {
+        const conflict = busConflict[0];
+        throw new BadRequest_1.BadRequest(`Bus is already assigned to ride "${conflict.rideName || conflict.rideId}" on ${conflict.occurDate} (${conflict.rideType})`);
+    }
+    // ✅ 4) فحص تعارض الطلاب
+    if (rideStudentsData.length > 0) {
+        const studentIds = rideStudentsData.map((s) => s.studentId);
+        const studentConflicts = await db_1.db
+            .select({
+            studentId: schema_1.rideStudents.studentId,
+            studentName: schema_1.students.name,
+            rideName: schema_1.rides.name,
+            rideType: schema_1.rides.rideType,
+            occurDate: schema_1.rideOccurrences.occurDate,
+        })
+            .from(schema_1.rideStudents)
+            .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideStudents.rideId, schema_1.rides.id))
+            .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rides.id, schema_1.rideOccurrences.rideId))
+            .innerJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.rideStudents.studentId, schema_1.students.id))
+            .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rides.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.rides.rideType, rideType), (0, drizzle_orm_1.inArray)(schema_1.rideStudents.studentId, studentIds), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, checkStartDate), (0, drizzle_orm_1.lte)(schema_1.rideOccurrences.occurDate, checkEndDate), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrences.status, ["scheduled", "in_progress"])))
+            .limit(5);
+        if (studentConflicts.length > 0) {
+            const conflictNames = studentConflicts
+                .map((c) => `${c.studentName} (${c.occurDate})`)
+                .join(", ");
+            throw new BadRequest_1.BadRequest(`Students already assigned to another ${rideType} ride: ${conflictNames}`);
+        }
+    }
+    // ✅ التحقق من وجود الموارد
     const bus = await db_1.db
         .select()
         .from(schema_1.buses)
@@ -142,6 +231,7 @@ const createRide = async (req, res) => {
         .limit(1);
     if (!route[0])
         throw new NotFound_1.NotFound("Route not found");
+    // ✅ التحقق من الطلاب ونقاط الالتقاط
     if (rideStudentsData.length > 0) {
         const routePickupPointsList = await db_1.db
             .select()
@@ -166,8 +256,8 @@ const createRide = async (req, res) => {
             }
         }
     }
+    // ✅ إنشاء الرحلة
     const rideId = (0, uuid_1.v4)();
-    // ✅ الإدراج المُصحّح - endDate فقط لو limited
     await db_1.db.insert(schema_1.rides).values({
         id: rideId,
         organizationId,
@@ -180,7 +270,7 @@ const createRide = async (req, res) => {
         frequency,
         repeatType: frequency === "repeat" ? repeatType : null,
         startDate,
-        endDate: (frequency === "repeat" && repeatType === "limited") ? endDate : null,
+        endDate: frequency === "repeat" && repeatType === "limited" ? endDate : null,
     });
     if (rideStudentsData.length > 0) {
         const rideStudentsInsert = rideStudentsData.map((s) => ({
@@ -192,8 +282,7 @@ const createRide = async (req, res) => {
         }));
         await db_1.db.insert(schema_1.rideStudents).values(rideStudentsInsert);
     }
-    // ✅ تمرير null لـ endDate في حالة unlimited
-    const occurrencesCount = await generateOccurrences(rideId, startDate, (frequency === "repeat" && repeatType === "limited") ? endDate : null, frequency, repeatType, rideStudentsData);
+    const occurrencesCount = await generateOccurrences(rideId, startDate, frequency === "repeat" && repeatType === "limited" ? endDate : null, frequency, repeatType, rideStudentsData);
     (0, response_1.SuccessResponse)(res, {
         message: "Ride created successfully",
         rideId,

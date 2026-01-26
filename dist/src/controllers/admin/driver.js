@@ -11,6 +11,7 @@ const drizzle_orm_1 = require("drizzle-orm");
 const response_1 = require("../../utils/response");
 const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
+const helperfunction_1 = require("../../utils/helperfunction");
 const handleImages_1 = require("../../utils/handleImages");
 const deleteImage_1 = require("../../utils/deleteImage");
 const bcrypt_1 = __importDefault(require("bcrypt"));
@@ -23,7 +24,7 @@ const createDriver = async (req, res) => {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
     // Check subscription limit
-    //   await checkDriverLimit(organizationId);
+    await (0, helperfunction_1.checkDriverLimit)(organizationId);
     // Check if phone already exists
     const existingDriver = await db_1.db
         .select()
