@@ -1,4 +1,7 @@
 import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import { initSocket } from "./socket";
 import path from "path";
 import ApiRoute from "./routes";
 import { errorHandler } from "./middlewares/errorHandler";
@@ -12,6 +15,15 @@ import { startCronJobs } from "./jobs/cronJobs";
 dotenv.config();
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+initSocket(io);
 
 // ✅ CORS بدون app.options
 app.use(cors({
@@ -46,6 +58,6 @@ app.use(errorHandler);
 
 startCronJobs();
 
-app.listen(3000, () => {
+httpServer.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
 });
