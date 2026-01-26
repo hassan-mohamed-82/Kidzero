@@ -542,7 +542,7 @@ export const getLiveTracking = async (req: Request, res: Response) => {
     throw new BadRequest("Parent authentication required");
   }
 
-  // جلب أولاد الـ Parent
+  // ✅ 1) جلب أولاد الـ Parent
   const myChildren = await db
     .select({ id: students.id, name: students.name })
     .from(students)
@@ -554,7 +554,7 @@ export const getLiveTracking = async (req: Request, res: Response) => {
 
   const childrenIds = myChildren.map((c) => c.id);
 
-  // تحقق إن الـ Parent عنده طفل في هذه الرحلة
+  // ✅ 2) جلب الـ Occurrence أولاً (بدون التحقق من الأطفال)
   const [occurrence] = await db
     .select({
       occurrenceId: rideOccurrences.id,
@@ -586,23 +586,30 @@ export const getLiveTracking = async (req: Request, res: Response) => {
     .leftJoin(buses, eq(rides.busId, buses.id))
     .leftJoin(drivers, eq(rides.driverId, drivers.id))
     .leftJoin(Rout, eq(rides.routeId, Rout.id))
-    .innerJoin(
-      rideOccurrenceStudents,
-      eq(rideOccurrenceStudents.occurrenceId, rideOccurrences.id)
-    )
+    .where(eq(rideOccurrences.id, occurrenceId))
+    .limit(1);
+
+  if (!occurrence) {
+    throw new NotFound("Ride occurrence not found");
+  }
+
+  // ✅ 3) التحقق إن الـ Parent عنده طفل في هذه الرحلة
+  const childInRide = await db
+    .select({ studentId: rideOccurrenceStudents.studentId })
+    .from(rideOccurrenceStudents)
     .where(
       and(
-        eq(rideOccurrences.id, occurrenceId),
+        eq(rideOccurrenceStudents.occurrenceId, occurrenceId),
         inArray(rideOccurrenceStudents.studentId, childrenIds)
       )
     )
     .limit(1);
 
-  if (!occurrence) {
-    throw new NotFound("Ride not found or access denied");
+  if (childInRide.length === 0) {
+    throw new NotFound("Access denied - no children in this ride");
   }
 
-  // جلب حالة أطفال الـ Parent في هذه الرحلة
+  // ✅ 4) جلب حالة أطفال الـ Parent في هذه الرحلة
   const childrenStatus = await db
     .select({
       id: rideOccurrenceStudents.id,
@@ -625,10 +632,7 @@ export const getLiveTracking = async (req: Request, res: Response) => {
     })
     .from(rideOccurrenceStudents)
     .innerJoin(students, eq(rideOccurrenceStudents.studentId, students.id))
-    .leftJoin(
-      pickupPoints,
-      eq(rideOccurrenceStudents.pickupPointId, pickupPoints.id)
-    )
+    .leftJoin(pickupPoints, eq(rideOccurrenceStudents.pickupPointId, pickupPoints.id))
     .where(
       and(
         eq(rideOccurrenceStudents.occurrenceId, occurrenceId),
@@ -636,7 +640,7 @@ export const getLiveTracking = async (req: Request, res: Response) => {
       )
     );
 
-  // جلب نقاط المسار لو موجود
+  // ✅ 5) جلب نقاط المسار
   let routeStops: any[] = [];
   if (occurrence.routeId) {
     routeStops = await db
@@ -654,6 +658,7 @@ export const getLiveTracking = async (req: Request, res: Response) => {
       .orderBy(asc(routePickupPoints.stopOrder));
   }
 
+  // ✅ 6) إرجاع البيانات
   SuccessResponse(
     res,
     {
@@ -671,32 +676,32 @@ export const getLiveTracking = async (req: Request, res: Response) => {
       },
       bus: occurrence.busId
         ? {
-          id: occurrence.busId,
-          busNumber: occurrence.busNumber,
-          plateNumber: occurrence.plateNumber,
-          currentLocation:
-            occurrence.status === "in_progress"
-              ? {
-                lat: occurrence.currentLat,
-                lng: occurrence.currentLng,
-              }
-              : null,
-        }
+            id: occurrence.busId,
+            busNumber: occurrence.busNumber,
+            plateNumber: occurrence.plateNumber,
+            currentLocation:
+              occurrence.status === "in_progress"
+                ? {
+                    lat: occurrence.currentLat,
+                    lng: occurrence.currentLng,
+                  }
+                : null,
+          }
         : null,
       driver: occurrence.driverId
         ? {
-          id: occurrence.driverId,
-          name: occurrence.driverName,
-          phone: occurrence.driverPhone,
-          avatar: occurrence.driverAvatar,
-        }
+            id: occurrence.driverId,
+            name: occurrence.driverName,
+            phone: occurrence.driverPhone,
+            avatar: occurrence.driverAvatar,
+          }
         : null,
       route: occurrence.routeId
         ? {
-          id: occurrence.routeId,
-          name: occurrence.routeName,
-          stops: routeStops,
-        }
+            id: occurrence.routeId,
+            name: occurrence.routeName,
+            stops: routeStops,
+          }
         : null,
       children: childrenStatus.map((c) => ({
         id: c.id,
@@ -713,18 +718,19 @@ export const getLiveTracking = async (req: Request, res: Response) => {
         },
         pickupPoint: c.pickupPointId
           ? {
-            id: c.pickupPointId,
-            name: c.pickupPointName,
-            address: c.pickupPointAddress,
-            lat: c.pickupPointLat,
-            lng: c.pickupPointLng,
-          }
+              id: c.pickupPointId,
+              name: c.pickupPointName,
+              address: c.pickupPointAddress,
+              lat: c.pickupPointLat,
+              lng: c.pickupPointLng,
+            }
           : null,
       })),
     },
     200
   );
 };
+
 
 // ✅ Submit Excuse for Child (عذر غياب)
 export const submitExcuse = async (req: Request, res: Response) => {

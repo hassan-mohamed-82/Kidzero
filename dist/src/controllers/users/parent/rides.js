@@ -449,7 +449,7 @@ const getLiveTracking = async (req, res) => {
     if (!parentId) {
         throw new BadRequest_1.BadRequest("Parent authentication required");
     }
-    // جلب أولاد الـ Parent
+    // ✅ 1) جلب أولاد الـ Parent
     const myChildren = await db_1.db
         .select({ id: schema_1.students.id, name: schema_1.students.name })
         .from(schema_1.students)
@@ -458,7 +458,7 @@ const getLiveTracking = async (req, res) => {
         throw new NotFound_1.NotFound("No children found");
     }
     const childrenIds = myChildren.map((c) => c.id);
-    // تحقق إن الـ Parent عنده طفل في هذه الرحلة
+    // ✅ 2) جلب الـ Occurrence أولاً (بدون التحقق من الأطفال)
     const [occurrence] = await db_1.db
         .select({
         occurrenceId: schema_1.rideOccurrences.id,
@@ -490,13 +490,21 @@ const getLiveTracking = async (req, res) => {
         .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
         .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
         .leftJoin(schema_1.Rout, (0, drizzle_orm_1.eq)(schema_1.rides.routeId, schema_1.Rout.id))
-        .innerJoin(schema_1.rideOccurrenceStudents, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
-        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrences.id, occurrenceId), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, childrenIds)))
+        .where((0, drizzle_orm_1.eq)(schema_1.rideOccurrences.id, occurrenceId))
         .limit(1);
     if (!occurrence) {
-        throw new NotFound_1.NotFound("Ride not found or access denied");
+        throw new NotFound_1.NotFound("Ride occurrence not found");
     }
-    // جلب حالة أطفال الـ Parent في هذه الرحلة
+    // ✅ 3) التحقق إن الـ Parent عنده طفل في هذه الرحلة
+    const childInRide = await db_1.db
+        .select({ studentId: schema_1.rideOccurrenceStudents.studentId })
+        .from(schema_1.rideOccurrenceStudents)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, occurrenceId), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, childrenIds)))
+        .limit(1);
+    if (childInRide.length === 0) {
+        throw new NotFound_1.NotFound("Access denied - no children in this ride");
+    }
+    // ✅ 4) جلب حالة أطفال الـ Parent في هذه الرحلة
     const childrenStatus = await db_1.db
         .select({
         id: schema_1.rideOccurrenceStudents.id,
@@ -521,7 +529,7 @@ const getLiveTracking = async (req, res) => {
         .innerJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.studentId, schema_1.students.id))
         .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.pickupPointId, schema_1.pickupPoints.id))
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, occurrenceId), (0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, childrenIds)));
-    // جلب نقاط المسار لو موجود
+    // ✅ 5) جلب نقاط المسار
     let routeStops = [];
     if (occurrence.routeId) {
         routeStops = await db_1.db
@@ -538,6 +546,7 @@ const getLiveTracking = async (req, res) => {
             .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, occurrence.routeId))
             .orderBy((0, drizzle_orm_1.asc)(schema_1.routePickupPoints.stopOrder));
     }
+    // ✅ 6) إرجاع البيانات
     (0, response_1.SuccessResponse)(res, {
         occurrence: {
             id: occurrence.occurrenceId,
