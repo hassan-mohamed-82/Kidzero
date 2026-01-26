@@ -23,6 +23,10 @@ const createDriver = async (req, res) => {
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
+    const organization = await db_1.db.select().from(schema_1.organizations).where((0, drizzle_orm_1.eq)(schema_1.organizations.id, organizationId)).limit(1);
+    if (!organization || !organization[0]) {
+        throw new BadRequest_1.BadRequest("Invalid Organization");
+    }
     // Check subscription limit
     await (0, helperfunction_1.checkDriverLimit)(organizationId);
     // Check if phone already exists
