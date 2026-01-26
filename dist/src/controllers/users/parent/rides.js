@@ -1,7 +1,7 @@
 "use strict";
 // src/controllers/users/parent/rides.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRideHistorySummary = exports.submitExcuse = exports.getLiveTracking = exports.getChildRides = exports.getTodayRidesForAllChildren = exports.getMyChildrenRides = void 0;
+exports.getRideHistorySummary = exports.getUpcomingRides = exports.getActiveRides = exports.submitExcuse = exports.getLiveTracking = exports.getChildRides = exports.getTodayRidesForAllChildren = exports.getMyChildrenRides = void 0;
 const db_1 = require("../../../models/db");
 const schema_1 = require("../../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -680,6 +680,191 @@ const submitExcuse = async (req, res) => {
     }, 200);
 };
 exports.submitExcuse = submitExcuse;
+// ✅ Get Active Rides (الرحلات الجارية حالياً)
+const getActiveRides = async (req, res) => {
+    const parentId = req.user?.id;
+    if (!parentId) {
+        throw new BadRequest_1.BadRequest("Parent authentication required");
+    }
+    const myChildren = await db_1.db
+        .select({ id: schema_1.students.id, name: schema_1.students.name, avatar: schema_1.students.avatar })
+        .from(schema_1.students)
+        .where((0, drizzle_orm_1.eq)(schema_1.students.parentId, parentId));
+    if (myChildren.length === 0) {
+        return (0, response_1.SuccessResponse)(res, { activeRides: [], count: 0 }, 200);
+    }
+    const childrenIds = myChildren.map((c) => c.id);
+    // جلب الرحلات الجارية فقط (in_progress)
+    const activeRides = await db_1.db
+        .select({
+        // Occurrence
+        occurrenceId: schema_1.rideOccurrences.id,
+        occurDate: schema_1.rideOccurrences.occurDate,
+        status: schema_1.rideOccurrences.status,
+        startedAt: schema_1.rideOccurrences.startedAt,
+        currentLat: schema_1.rideOccurrences.currentLat,
+        currentLng: schema_1.rideOccurrences.currentLng,
+        // Ride
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        // Student
+        studentId: schema_1.rideOccurrenceStudents.studentId,
+        studentStatus: schema_1.rideOccurrenceStudents.status,
+        pickupTime: schema_1.rideOccurrenceStudents.pickupTime,
+        pickedUpAt: schema_1.rideOccurrenceStudents.pickedUpAt,
+        // Bus
+        busId: schema_1.buses.id,
+        busNumber: schema_1.buses.busNumber,
+        plateNumber: schema_1.buses.plateNumber,
+        // Driver
+        driverId: schema_1.drivers.id,
+        driverName: schema_1.drivers.name,
+        driverPhone: schema_1.drivers.phone,
+        driverAvatar: schema_1.drivers.avatar,
+        // Pickup Point
+        pickupPointId: schema_1.pickupPoints.id,
+        pickupPointName: schema_1.pickupPoints.name,
+        pickupPointLat: schema_1.pickupPoints.lat,
+        pickupPointLng: schema_1.pickupPoints.lng,
+    })
+        .from(schema_1.rideOccurrenceStudents)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .leftJoin(schema_1.buses, (0, drizzle_orm_1.eq)(schema_1.rides.busId, schema_1.buses.id))
+        .leftJoin(schema_1.drivers, (0, drizzle_orm_1.eq)(schema_1.rides.driverId, schema_1.drivers.id))
+        .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.pickupPointId, schema_1.pickupPoints.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, childrenIds), (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "in_progress")));
+    // تجميع مع بيانات الأطفال
+    const formattedRides = activeRides.map((r) => {
+        const child = myChildren.find((c) => c.id === r.studentId);
+        return {
+            occurrenceId: r.occurrenceId,
+            date: r.occurDate,
+            startedAt: r.startedAt,
+            ride: {
+                id: r.rideId,
+                name: r.rideName,
+                type: r.rideType,
+            },
+            child: {
+                id: r.studentId,
+                name: child?.name,
+                avatar: child?.avatar,
+                status: r.studentStatus,
+                pickupTime: r.pickupTime,
+                pickedUpAt: r.pickedUpAt,
+            },
+            bus: r.busId
+                ? {
+                    id: r.busId,
+                    busNumber: r.busNumber,
+                    plateNumber: r.plateNumber,
+                    currentLocation: {
+                        lat: r.currentLat,
+                        lng: r.currentLng,
+                    },
+                }
+                : null,
+            driver: r.driverId
+                ? {
+                    id: r.driverId,
+                    name: r.driverName,
+                    phone: r.driverPhone,
+                    avatar: r.driverAvatar,
+                }
+                : null,
+            pickupPoint: r.pickupPointId
+                ? {
+                    id: r.pickupPointId,
+                    name: r.pickupPointName,
+                    lat: r.pickupPointLat,
+                    lng: r.pickupPointLng,
+                }
+                : null,
+        };
+    });
+    (0, response_1.SuccessResponse)(res, {
+        activeRides: formattedRides,
+        count: formattedRides.length,
+    }, 200);
+};
+exports.getActiveRides = getActiveRides;
+// ✅ Get Upcoming Rides (الرحلات القادمة)
+const getUpcomingRides = async (req, res) => {
+    const parentId = req.user?.id;
+    const { days = 7 } = req.query;
+    if (!parentId) {
+        throw new BadRequest_1.BadRequest("Parent authentication required");
+    }
+    const myChildren = await db_1.db
+        .select({ id: schema_1.students.id, name: schema_1.students.name, avatar: schema_1.students.avatar })
+        .from(schema_1.students)
+        .where((0, drizzle_orm_1.eq)(schema_1.students.parentId, parentId));
+    if (myChildren.length === 0) {
+        return (0, response_1.SuccessResponse)(res, { upcomingRides: [], count: 0 }, 200);
+    }
+    const childrenIds = myChildren.map((c) => c.id);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + Number(days));
+    const upcomingRides = await db_1.db
+        .select({
+        occurrenceId: schema_1.rideOccurrences.id,
+        occurDate: schema_1.rideOccurrences.occurDate,
+        status: schema_1.rideOccurrences.status,
+        // Ride
+        rideId: schema_1.rides.id,
+        rideName: schema_1.rides.name,
+        rideType: schema_1.rides.rideType,
+        // Student
+        studentId: schema_1.rideOccurrenceStudents.studentId,
+        pickupTime: schema_1.rideOccurrenceStudents.pickupTime,
+        // Pickup Point
+        pickupPointName: schema_1.pickupPoints.name,
+    })
+        .from(schema_1.rideOccurrenceStudents)
+        .innerJoin(schema_1.rideOccurrences, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.occurrenceId, schema_1.rideOccurrences.id))
+        .innerJoin(schema_1.rides, (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.rideId, schema_1.rides.id))
+        .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.rideOccurrenceStudents.pickupPointId, schema_1.pickupPoints.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.inArray)(schema_1.rideOccurrenceStudents.studentId, childrenIds), (0, drizzle_orm_1.gte)(schema_1.rideOccurrences.occurDate, today), (0, drizzle_orm_1.lte)(schema_1.rideOccurrences.occurDate, endDate), (0, drizzle_orm_1.eq)(schema_1.rideOccurrences.status, "scheduled")))
+        .orderBy((0, drizzle_orm_1.asc)(schema_1.rideOccurrences.occurDate), (0, drizzle_orm_1.asc)(schema_1.rides.rideType));
+    // تجميع حسب التاريخ
+    const groupedByDate = upcomingRides.reduce((acc, r) => {
+        const dateKey = new Date(r.occurDate).toISOString().split("T")[0];
+        if (!acc[dateKey]) {
+            acc[dateKey] = {
+                date: dateKey,
+                dayName: new Date(r.occurDate).toLocaleDateString("ar-EG", { weekday: "long" }),
+                rides: [],
+            };
+        }
+        const child = myChildren.find((c) => c.id === r.studentId);
+        acc[dateKey].rides.push({
+            occurrenceId: r.occurrenceId,
+            ride: {
+                id: r.rideId,
+                name: r.rideName,
+                type: r.rideType,
+            },
+            child: {
+                id: r.studentId,
+                name: child?.name,
+                avatar: child?.avatar,
+            },
+            pickupTime: r.pickupTime,
+            pickupPointName: r.pickupPointName,
+        });
+        return acc;
+    }, {});
+    (0, response_1.SuccessResponse)(res, {
+        upcomingRides: Object.values(groupedByDate),
+        totalDays: Object.keys(groupedByDate).length,
+        totalRides: upcomingRides.length,
+    }, 200);
+};
+exports.getUpcomingRides = getUpcomingRides;
 // ✅ Get Ride History Summary (ملخص سجل الرحلات)
 const getRideHistorySummary = async (req, res) => {
     const { childId } = req.params;

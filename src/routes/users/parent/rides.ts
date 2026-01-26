@@ -7,6 +7,8 @@ import {
   getMyChildrenRides,
   getTodayRidesForAllChildren,
   getChildRides,
+  getActiveRides,
+  getUpcomingRides,
   getLiveTracking,
   submitExcuse,
   getRideHistorySummary,
@@ -21,6 +23,12 @@ router.use(authorizeRoles("parent"));
 
 // ✅ رحلات اليوم لكل الأولاد
 router.get("/today", catchAsync(getTodayRidesForAllChildren));
+
+// ✅ الرحلات الجارية حالياً
+router.get("/active", catchAsync(getActiveRides));
+
+// ✅ الرحلات القادمة
+router.get("/upcoming", catchAsync(getUpcomingRides));
 
 // ✅ كل أولادي مع رحلاتهم
 router.get("/children", catchAsync(getMyChildrenRides));

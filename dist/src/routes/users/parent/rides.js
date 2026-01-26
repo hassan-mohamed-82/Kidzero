@@ -11,6 +11,10 @@ router.use((0, authorized_1.authorizeRoles)("parent"));
 // ============ Static Routes First ============
 // ✅ رحلات اليوم لكل الأولاد
 router.get("/today", (0, catchAsync_1.catchAsync)(rides_1.getTodayRidesForAllChildren));
+// ✅ الرحلات الجارية حالياً
+router.get("/active", (0, catchAsync_1.catchAsync)(rides_1.getActiveRides));
+// ✅ الرحلات القادمة
+router.get("/upcoming", (0, catchAsync_1.catchAsync)(rides_1.getUpcomingRides));
 // ✅ كل أولادي مع رحلاتهم
 router.get("/children", (0, catchAsync_1.catchAsync)(rides_1.getMyChildrenRides));
 // ============ Child Specific Routes ============

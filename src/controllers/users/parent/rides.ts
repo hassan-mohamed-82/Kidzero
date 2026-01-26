@@ -823,7 +823,226 @@ export const submitExcuse = async (req: Request, res: Response) => {
   );
 };
 
+// ✅ Get Active Rides (الرحلات الجارية حالياً)
+export const getActiveRides = async (req: Request, res: Response) => {
+  const parentId = req.user?.id;
 
+  if (!parentId) {
+    throw new BadRequest("Parent authentication required");
+  }
+
+  const myChildren = await db
+    .select({ id: students.id, name: students.name, avatar: students.avatar })
+    .from(students)
+    .where(eq(students.parentId, parentId));
+
+  if (myChildren.length === 0) {
+    return SuccessResponse(res, { activeRides: [], count: 0 }, 200);
+  }
+
+  const childrenIds = myChildren.map((c) => c.id);
+
+  // جلب الرحلات الجارية فقط (in_progress)
+  const activeRides = await db
+    .select({
+      // Occurrence
+      occurrenceId: rideOccurrences.id,
+      occurDate: rideOccurrences.occurDate,
+      status: rideOccurrences.status,
+      startedAt: rideOccurrences.startedAt,
+      currentLat: rideOccurrences.currentLat,
+      currentLng: rideOccurrences.currentLng,
+      // Ride
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      // Student
+      studentId: rideOccurrenceStudents.studentId,
+      studentStatus: rideOccurrenceStudents.status,
+      pickupTime: rideOccurrenceStudents.pickupTime,
+      pickedUpAt: rideOccurrenceStudents.pickedUpAt,
+      // Bus
+      busId: buses.id,
+      busNumber: buses.busNumber,
+      plateNumber: buses.plateNumber,
+      // Driver
+      driverId: drivers.id,
+      driverName: drivers.name,
+      driverPhone: drivers.phone,
+      driverAvatar: drivers.avatar,
+      // Pickup Point
+      pickupPointId: pickupPoints.id,
+      pickupPointName: pickupPoints.name,
+      pickupPointLat: pickupPoints.lat,
+      pickupPointLng: pickupPoints.lng,
+    })
+    .from(rideOccurrenceStudents)
+    .innerJoin(rideOccurrences, eq(rideOccurrenceStudents.occurrenceId, rideOccurrences.id))
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .leftJoin(buses, eq(rides.busId, buses.id))
+    .leftJoin(drivers, eq(rides.driverId, drivers.id))
+    .leftJoin(pickupPoints, eq(rideOccurrenceStudents.pickupPointId, pickupPoints.id))
+    .where(
+      and(
+        inArray(rideOccurrenceStudents.studentId, childrenIds),
+        eq(rideOccurrences.status, "in_progress")
+      )
+    );
+
+  // تجميع مع بيانات الأطفال
+  const formattedRides = activeRides.map((r) => {
+    const child = myChildren.find((c) => c.id === r.studentId);
+    return {
+      occurrenceId: r.occurrenceId,
+      date: r.occurDate,
+      startedAt: r.startedAt,
+      ride: {
+        id: r.rideId,
+        name: r.rideName,
+        type: r.rideType,
+      },
+      child: {
+        id: r.studentId,
+        name: child?.name,
+        avatar: child?.avatar,
+        status: r.studentStatus,
+        pickupTime: r.pickupTime,
+        pickedUpAt: r.pickedUpAt,
+      },
+      bus: r.busId
+        ? {
+            id: r.busId,
+            busNumber: r.busNumber,
+            plateNumber: r.plateNumber,
+            currentLocation: {
+              lat: r.currentLat,
+              lng: r.currentLng,
+            },
+          }
+        : null,
+      driver: r.driverId
+        ? {
+            id: r.driverId,
+            name: r.driverName,
+            phone: r.driverPhone,
+            avatar: r.driverAvatar,
+          }
+        : null,
+      pickupPoint: r.pickupPointId
+        ? {
+            id: r.pickupPointId,
+            name: r.pickupPointName,
+            lat: r.pickupPointLat,
+            lng: r.pickupPointLng,
+          }
+        : null,
+    };
+  });
+
+  SuccessResponse(
+    res,
+    {
+      activeRides: formattedRides,
+      count: formattedRides.length,
+    },
+    200
+  );
+};
+
+// ✅ Get Upcoming Rides (الرحلات القادمة)
+export const getUpcomingRides = async (req: Request, res: Response) => {
+  const parentId = req.user?.id;
+  const { days = 7 } = req.query;
+
+  if (!parentId) {
+    throw new BadRequest("Parent authentication required");
+  }
+
+  const myChildren = await db
+    .select({ id: students.id, name: students.name, avatar: students.avatar })
+    .from(students)
+    .where(eq(students.parentId, parentId));
+
+  if (myChildren.length === 0) {
+    return SuccessResponse(res, { upcomingRides: [], count: 0 }, 200);
+  }
+
+  const childrenIds = myChildren.map((c) => c.id);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + Number(days));
+
+  const upcomingRides = await db
+    .select({
+      occurrenceId: rideOccurrences.id,
+      occurDate: rideOccurrences.occurDate,
+      status: rideOccurrences.status,
+      // Ride
+      rideId: rides.id,
+      rideName: rides.name,
+      rideType: rides.rideType,
+      // Student
+      studentId: rideOccurrenceStudents.studentId,
+      pickupTime: rideOccurrenceStudents.pickupTime,
+      // Pickup Point
+      pickupPointName: pickupPoints.name,
+    })
+    .from(rideOccurrenceStudents)
+    .innerJoin(rideOccurrences, eq(rideOccurrenceStudents.occurrenceId, rideOccurrences.id))
+    .innerJoin(rides, eq(rideOccurrences.rideId, rides.id))
+    .leftJoin(pickupPoints, eq(rideOccurrenceStudents.pickupPointId, pickupPoints.id))
+    .where(
+      and(
+        inArray(rideOccurrenceStudents.studentId, childrenIds),
+        gte(rideOccurrences.occurDate, today),
+        lte(rideOccurrences.occurDate, endDate),
+        eq(rideOccurrences.status, "scheduled")
+      )
+    )
+    .orderBy(asc(rideOccurrences.occurDate), asc(rides.rideType));
+
+  // تجميع حسب التاريخ
+  const groupedByDate = upcomingRides.reduce((acc: any, r) => {
+    const dateKey = new Date(r.occurDate).toISOString().split("T")[0];
+    if (!acc[dateKey]) {
+      acc[dateKey] = {
+        date: dateKey,
+        dayName: new Date(r.occurDate).toLocaleDateString("ar-EG", { weekday: "long" }),
+        rides: [],
+      };
+    }
+    const child = myChildren.find((c) => c.id === r.studentId);
+    acc[dateKey].rides.push({
+      occurrenceId: r.occurrenceId,
+      ride: {
+        id: r.rideId,
+        name: r.rideName,
+        type: r.rideType,
+      },
+      child: {
+        id: r.studentId,
+        name: child?.name,
+        avatar: child?.avatar,
+      },
+      pickupTime: r.pickupTime,
+      pickupPointName: r.pickupPointName,
+    });
+    return acc;
+  }, {});
+
+  SuccessResponse(
+    res,
+    {
+      upcomingRides: Object.values(groupedByDate),
+      totalDays: Object.keys(groupedByDate).length,
+      totalRides: upcomingRides.length,
+    },
+    200
+  );
+};
 // ✅ Get Ride History Summary (ملخص سجل الرحلات)
 export const getRideHistorySummary = async (req: Request, res: Response) => {
   const { childId } = req.params;
