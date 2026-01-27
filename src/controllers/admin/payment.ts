@@ -9,6 +9,7 @@ import { NotFound } from "../../Errors/NotFound";
 import { BadRequest } from "../../Errors/BadRequest";
 import { saveBase64Image } from "../../utils/handleImages";
 import { verifyPromocodeAvailable } from "./promocodes";
+import { parentServicesSubscriptions } from "../../models/admin/parentServicesSubscription";
 
 export const getAllPayments = async (req: Request, res: Response) => {
     const organizationId = req.user?.organizationId;
@@ -603,4 +604,90 @@ export const getAllParentPayments = async (req: Request, res: Response) => {
     });
 
     return SuccessResponse(res, { message: "Parent Payments fetched successfully", payments: allParentPayments }, 200);
+};
+
+export const getParentPaymentById = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+    if (!id) {
+        throw new BadRequest("Payment ID is required");
+    }
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+    const parentPaymentResult = await db.query.parentPaymentOrgServices.findFirst({
+        where: and(
+            eq(parentPaymentOrgServices.id, id),
+            eq(parentPaymentOrgServices.organizationId, organizationId)
+        ),
+    });
+    if (!parentPaymentResult) {
+        throw new NotFound("Parent Payment not found");
+    }
+    SuccessResponse(res, { message: "Parent Payment fetched successfully", payment: parentPaymentResult }, 200);
+};
+
+export const ReplyToParentPayment = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status, rejectedReason } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!id) {
+        throw new BadRequest("Payment ID is required");
+    }
+    if (!organizationId) {
+        throw new BadRequest("Organization ID is required");
+    }
+    if (!status) {
+        throw new BadRequest("Status is required");
+    }
+    const parentPaymentResult = await db.query.parentPaymentOrgServices.findFirst({
+        where: and(
+            eq(parentPaymentOrgServices.id, id),
+            eq(parentPaymentOrgServices.organizationId, organizationId)
+        ),
+    });
+    if (!parentPaymentResult) {
+        throw new NotFound("Parent Payment not found");
+    }
+
+    if (status !== "pending" && status !== "completed" && status !== "rejected") {
+        throw new BadRequest("Invalid status value");
+    }
+
+    switch (status) {
+        case "rejected":
+
+            if (!rejectedReason) {
+                throw new BadRequest("Rejection reason is required when rejecting a payment");
+            }
+            await db.update(parentPaymentOrgServices).set({
+                status: "rejected",
+                rejectedReason: rejectedReason,
+            }).where(eq(parentPaymentOrgServices.id, id));
+            return SuccessResponse(res, { message: "Parent Payment rejected successfully for the student" }, 200);
+
+        case "completed":
+            // Assuming parents also get subscriptions similar to organizations
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setFullYear(endDate.getFullYear() + 1);
+            await db.insert(parentServicesSubscriptions).values({
+                parentId: parentPaymentResult.parentId,
+                studentId: parentPaymentResult.studentId,
+                serviceId: parentPaymentResult.serviceId,
+                parentServicePaymentId: parentPaymentResult.id,
+                startDate: startDate,
+                endDate: endDate,
+                isActive: true,
+            });
+            await db.update(parentPaymentOrgServices).set({
+                status: "completed",
+                rejectedReason: null,
+            }).where(eq(parentPaymentOrgServices.id, id));
+            return SuccessResponse(res, { message: "Parent Payment approved and subscription activated successfully for the student" }, 200);
+        default:
+            throw new BadRequest("Only 'completed' or 'rejected' status updates are allowed");
+    }
+
+
 };
