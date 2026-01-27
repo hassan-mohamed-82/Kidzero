@@ -11,8 +11,7 @@
     "migrate-db": "npx drizzle-kit push",
     "seed": "tsx src/seeds/index.ts",
     "seed:fresh": "tsx src/seeds/index.ts --fresh",
-"start:prod": "node dist/src/server.js",
-
+    "start:prod": "node dist/src/server.js",
     "migrate-log": "node migrate.js"
   },
   "keywords": [],
@@ -39,6 +38,8 @@
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.12",
     "resend": "^6.5.2",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
     "uuid": "^11.1.0",
     "zod": "^3.25.74"
   },
@@ -52,6 +53,7 @@
     "@types/multer": "^2.0.0",
     "@types/node": "^24.0.10",
     "@types/nodemailer": "^6.4.17",
+    "@types/socket.io": "^3.0.1",
     "drizzle-kit": "^0.31.8",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.21.0"
