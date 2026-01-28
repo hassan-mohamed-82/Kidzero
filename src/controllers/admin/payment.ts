@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions, adminUsedPromocodes, parentPaymentOrgServices } from "../../models/schema";
+import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions, adminUsedPromocodes, parentPaymentOrgServices, parents, organizationServices } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -599,10 +599,46 @@ export const getAllParentPayments = async (req: Request, res: Response) => {
         throw new BadRequest("Organization ID is required");
     }
 
-    const allParentPayments = await db.query.parentPaymentOrgServices.findMany({
-        where: eq(parentPaymentOrgServices.organizationId, organizationId),
-    });
-
+    // const allParentPayments = await db.query.parentPaymentOrgServices.findMany({
+    //     where: eq(parentPaymentOrgServices.organizationId, organizationId),
+    // });
+    const allParentPayments = await db.select({
+        id: parentPaymentOrgServices.id,
+        amount: parentPaymentOrgServices.amount,
+        status: parentPaymentOrgServices.status,
+        organizationId: parentPaymentOrgServices.organizationId,
+        parentId: parentPaymentOrgServices.parentId,
+        serviceId: parentPaymentOrgServices.serviceId,
+        paymentMethodId: parentPaymentOrgServices.paymentMethodId,
+        createdAt: parentPaymentOrgServices.createdAt,
+        updatedAt: parentPaymentOrgServices.updatedAt,
+        organization: {
+            id: organizations.id,
+            name: organizations.name,
+        },
+        parent: {
+            id: parents.id,
+            name: parents.name,
+            email: parents.email,
+            phone: parents.phone,
+        },
+        service: {
+            id: organizationServices.id,
+            serviceName: organizationServices.serviceName,
+            serviceDescription: organizationServices.serviceDescription,
+            useZonePricing: organizationServices.useZonePricing,
+            servicePrice: organizationServices.servicePrice,
+        },
+        paymentMethod: {
+            id: paymentMethod.id,
+            name: paymentMethod.name,
+        },
+    }).from(parentPaymentOrgServices)
+        .leftJoin(organizations, eq(parentPaymentOrgServices.organizationId, organizations.id))
+        .leftJoin(parents, eq(parentPaymentOrgServices.parentId, parents.id))
+        .leftJoin(organizationServices, eq(parentPaymentOrgServices.serviceId, organizationServices.id))
+        .leftJoin(paymentMethod, eq(parentPaymentOrgServices.paymentMethodId, paymentMethod.id))
+        .where(eq(parentPaymentOrgServices.organizationId, organizationId));
     return SuccessResponse(res, { message: "Parent Payments fetched successfully", payments: allParentPayments }, 200);
 };
 
