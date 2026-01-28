@@ -704,7 +704,6 @@ export const ReplyToParentPayment = async (req: Request, res: Response) => {
             return SuccessResponse(res, { message: "Parent Payment rejected successfully for the student" }, 200);
 
         case "completed":
-            // Assuming parents also get subscriptions similar to organizations
             const startDate = new Date();
             const endDate = new Date();
             endDate.setFullYear(endDate.getFullYear() + 1);

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions, paymentMethod } from "../../models/schema";
+import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions, paymentMethod, parents } from "../../models/schema";
 import { db } from "../../models/db";
 import { eq, desc, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
@@ -395,8 +395,38 @@ export const rejectInstallment = async (req: Request, res: Response) => {
 
 // // Parents
 export const getAllParentPayments = async (req: Request, res: Response) => {
-    const payments = await db.query.parentPayment.findMany();
-    return SuccessResponse(res, { message: "Parent Payments retrieved successfully", payments });
+    // const payments = await db.query.parentPayment.findMany();
+    const allParentPayments = await db.select({
+        id: parentPayment.id,
+        parentId: parentPayment.parentId,
+        planId: parentPayment.planId,
+        paymentMethodId: parentPayment.paymentMethodId,
+        receiptImage: parentPayment.receiptImage,
+        amount: parentPayment.amount,
+        status: parentPayment.status,
+        rejectedReason: parentPayment.rejectedReason,
+        createdAt: parentPayment.createdAt,
+        updatedAt: parentPayment.updatedAt,
+        parent: {
+            id: parents.id,
+            name: parents.name,
+            phone: parents.phone,
+        },
+        plan: {
+            id: plans.id,
+            name: plans.name,
+            subscriptionFees: plans.subscriptionFees,
+            minSubscriptionFeesPay: plans.minSubscriptionFeesPay,
+        },
+        paymentMethod: {
+            id: paymentMethod.id,
+            name: paymentMethod.name,
+        },
+    }).from(parentPayment)
+        .leftJoin(parents, eq(parentPayment.parentId, parents.id))
+        .leftJoin(plans, eq(parentPayment.planId, plans.id))
+        .leftJoin(paymentMethod, eq(parentPayment.paymentMethodId, paymentMethod.id));
+    return SuccessResponse(res, { message: "Parent Payments fetched successfully", payments: allParentPayments }, 200);
 };
 
 export const getParentPaymentById = async (req: Request, res: Response) => {
