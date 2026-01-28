@@ -51,7 +51,9 @@ __exportStar(require("./admin/rideOccurrenceStudent"), exports);
 __exportStar(require("./admin/rideOccurrence"), exports);
 __exportStar(require("./admin/organizationServices"), exports);
 __exportStar(require("./admin/adminUsedPromocodes"), exports);
-__exportStar(require("./admin/parentPaymentSevices"), exports);
+__exportStar(require("./admin/parentPaymentServices"), exports);
+__exportStar(require("./admin/parentServicesSubscription"), exports);
+__exportStar(require("./admin/Notes"), exports);
 __exportStar(require("./user/walletRechargeRequest"), exports);
 // Relations
 __exportStar(require("./relations/OrganizationRelations"), exports);

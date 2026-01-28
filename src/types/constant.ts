@@ -48,7 +48,8 @@ export const SUPER_ADMIN_MODULES = [
   "invoices",
   "installments",
   "wallets",
-  "profile"
+  "profile",
+  "notes"
 ] as const;
 
 export const SUPER_ADMIN_ACTIONS = [

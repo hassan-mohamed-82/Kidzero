@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllAvailableOrganizationServices = void 0;
+exports.getCurrentSubscribedServices = exports.getAllAvailableOrganizationServices = void 0;
 const db_1 = require("../../../models/db");
 const response_1 = require("../../../utils/response");
 const schema_1 = require("../../../models/schema");
@@ -43,3 +43,18 @@ const getAllAvailableOrganizationServices = async (req, res) => {
     }, 200);
 };
 exports.getAllAvailableOrganizationServices = getAllAvailableOrganizationServices;
+const getCurrentSubscribedServices = async (req, res) => {
+    const studentId = req.params.studentId;
+    if (!studentId) {
+        throw new BadRequest_1.BadRequest("Student ID is required");
+    }
+    const currentSubscribedServicesForStudent = await db_1.db
+        .select()
+        .from(schema_1.parentServicesSubscriptions)
+        .where((0, drizzle_orm_1.eq)(schema_1.parentServicesSubscriptions.studentId, studentId));
+    return (0, response_1.SuccessResponse)(res, {
+        message: "Current subscribed services retrieved successfully",
+        currentSubscribedServicesForStudent
+    }, 200);
+};
+exports.getCurrentSubscribedServices = getCurrentSubscribedServices;

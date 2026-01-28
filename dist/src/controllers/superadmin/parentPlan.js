@@ -42,7 +42,7 @@ const deleteParentPlanById = async (req, res) => {
 };
 exports.deleteParentPlanById = deleteParentPlanById;
 const createParentPlan = async (req, res) => {
-    const { name, price, startDate, endDate, minSubscriptionfeesPay, subscriptionFees } = req.body;
+    const { name, price, minSubscriptionfeesPay, subscriptionFees } = req.body;
     if (!name || !subscriptionFees || !minSubscriptionfeesPay) {
         throw new BadRequest_1.BadRequest("Please provide all required fields: name, subscriptionFees , minSubscriptionfeesPay");
     }

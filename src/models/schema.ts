@@ -39,6 +39,9 @@ export * from "./admin/organizationServices";
 export * from "./admin/adminUsedPromocodes";
 export * from "./admin/parentPaymentServices";
 export * from "./admin/parentServicesSubscription";
+export * from "./admin/Notes";
+
+
 
 export * from "./user/walletRechargeRequest";
 // Relations

@@ -13,8 +13,19 @@ const cors_1 = __importDefault(require("cors"));
 const cookie_parser_1 = __importDefault(require("cookie-parser"));
 const helmet_1 = __importDefault(require("helmet"));
 const cronJobs_1 = require("./jobs/cronJobs");
+const http_1 = __importDefault(require("http"));
+const socket_io_1 = require("socket.io");
+const socket_1 = require("./socket");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+const httpServer = http_1.default.createServer(app);
+const io = new socket_io_1.Server(httpServer, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
+(0, socket_1.initSocket)(io);
 // ✅ CORS بدون app.options
 app.use((0, cors_1.default)({
     origin: "*",
@@ -39,6 +50,6 @@ app.use((req, res, next) => {
 });
 app.use(errorHandler_1.errorHandler);
 (0, cronJobs_1.startCronJobs)();
-app.listen(3000, () => {
+httpServer.listen(3000, () => {
     console.log("Server is running on http://localhost:3000");
 });

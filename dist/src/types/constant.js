@@ -42,7 +42,8 @@ exports.SUPER_ADMIN_MODULES = [
     "invoices",
     "installments",
     "wallets",
-    "profile"
+    "profile",
+    "notes"
 ];
 exports.SUPER_ADMIN_ACTIONS = [
     "view",

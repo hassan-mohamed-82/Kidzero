@@ -11,6 +11,7 @@ import profileRouter from "./profile";
 import diverRouter from "./driver";
 import departmentRouter from "./department";
 import parentRouter from "./parent";
+import noteRouter from "./Notes";
 import codriverRouter from "./codriver"
 import studentRouter from "./student";
 import subscribtionRouter from "./subscribtion";
@@ -31,6 +32,7 @@ route.use(authenticated, authorizeRoles("admin", "organizer"));
 route.use("/roles", catchAsync(rolesRouter));
 route.use("/departments", catchAsync(departmentRouter));
 route.use("/pickuppoints", catchAsync(pickupPointRouter));
+route.use("/notes", catchAsync(noteRouter));
 route.use("/admins", catchAsync(adminRouter));
 route.use("/codrivers", catchAsync(codriverRouter));
 route.use("/drivers", catchAsync(diverRouter));

@@ -16,6 +16,7 @@ const profile_1 = __importDefault(require("./profile"));
 const driver_1 = __importDefault(require("./driver"));
 const department_1 = __importDefault(require("./department"));
 const parent_1 = __importDefault(require("./parent"));
+const Notes_1 = __importDefault(require("./Notes"));
 const codriver_1 = __importDefault(require("./codriver"));
 const student_1 = __importDefault(require("./student"));
 const subscribtion_1 = __importDefault(require("./subscribtion"));
@@ -36,6 +37,7 @@ route.use(authenticated_1.authenticated, (0, authorized_1.authorizeRoles)("admin
 route.use("/roles", (0, catchAsync_1.catchAsync)(roles_1.default));
 route.use("/departments", (0, catchAsync_1.catchAsync)(department_1.default));
 route.use("/pickuppoints", (0, catchAsync_1.catchAsync)(pickuppoint_1.default));
+route.use("/notes", (0, catchAsync_1.catchAsync)(Notes_1.default));
 route.use("/admins", (0, catchAsync_1.catchAsync)(admin_1.default));
 route.use("/codrivers", (0, catchAsync_1.catchAsync)(codriver_1.default));
 route.use("/drivers", (0, catchAsync_1.catchAsync)(driver_1.default));

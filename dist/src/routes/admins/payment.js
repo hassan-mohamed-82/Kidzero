@@ -10,5 +10,6 @@ router.post('/', (0, checkpermission_1.checkPermission)("payments", "Add"), (0, 
 router.post('/renewal', (0, checkpermission_1.checkPermission)("payments", "Add"), (0, catchAsync_1.catchAsync)(payment_1.requestRenewal));
 router.post('/plan-price', (0, checkpermission_1.checkPermission)("payments", "Add"), (0, catchAsync_1.catchAsync)(payment_1.payPlanPrice));
 router.get('/parent-payments', (0, checkpermission_1.checkPermission)("payments", "View"), (0, catchAsync_1.catchAsync)(payment_1.getAllParentPayments));
+router.post('/replyParentPayment/:id', (0, checkpermission_1.checkPermission)("payments", "Add"), (0, catchAsync_1.catchAsync)(payment_1.ReplyToParentPayment));
 router.get('/:id', (0, checkpermission_1.checkPermission)("payments", "View"), (0, catchAsync_1.catchAsync)(payment_1.getPaymentById));
 exports.default = router;

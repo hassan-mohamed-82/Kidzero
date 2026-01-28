@@ -1,7 +1,7 @@
 "use strict";
 // // src/controllers/admin/paymentController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllParentPayments = exports.payPlanPrice = exports.requestRenewal = exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
+exports.ReplyToParentPayment = exports.getParentPaymentById = exports.getAllParentPayments = exports.payPlanPrice = exports.requestRenewal = exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -10,6 +10,7 @@ const NotFound_1 = require("../../Errors/NotFound");
 const BadRequest_1 = require("../../Errors/BadRequest");
 const handleImages_1 = require("../../utils/handleImages");
 const promocodes_1 = require("./promocodes");
+const parentServicesSubscription_1 = require("../../models/admin/parentServicesSubscription");
 const getAllPayments = async (req, res) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
@@ -496,9 +497,120 @@ const getAllParentPayments = async (req, res) => {
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const allParentPayments = await db_1.db.query.parentPaymentOrgServices.findMany({
-        where: (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.organizationId, organizationId),
-    });
+    // const allParentPayments = await db.query.parentPaymentOrgServices.findMany({
+    //     where: eq(parentPaymentOrgServices.organizationId, organizationId),
+    // });
+    const allParentPayments = await db_1.db.select({
+        id: schema_1.parentPaymentOrgServices.id,
+        amount: schema_1.parentPaymentOrgServices.amount,
+        status: schema_1.parentPaymentOrgServices.status,
+        organizationId: schema_1.parentPaymentOrgServices.organizationId,
+        parentId: schema_1.parentPaymentOrgServices.parentId,
+        serviceId: schema_1.parentPaymentOrgServices.serviceId,
+        paymentMethodId: schema_1.parentPaymentOrgServices.paymentMethodId,
+        receiptImage: schema_1.parentPaymentOrgServices.receiptImage,
+        createdAt: schema_1.parentPaymentOrgServices.createdAt,
+        updatedAt: schema_1.parentPaymentOrgServices.updatedAt,
+        organization: {
+            id: schema_1.organizations.id,
+            name: schema_1.organizations.name,
+        },
+        parent: {
+            id: schema_1.parents.id,
+            name: schema_1.parents.name,
+            email: schema_1.parents.email,
+            phone: schema_1.parents.phone,
+        },
+        service: {
+            id: schema_1.organizationServices.id,
+            serviceName: schema_1.organizationServices.serviceName,
+            serviceDescription: schema_1.organizationServices.serviceDescription,
+            useZonePricing: schema_1.organizationServices.useZonePricing,
+            servicePrice: schema_1.organizationServices.servicePrice,
+        },
+        paymentMethod: {
+            id: schema_1.paymentMethod.id,
+            name: schema_1.paymentMethod.name,
+        },
+    }).from(schema_1.parentPaymentOrgServices)
+        .leftJoin(schema_1.organizations, (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.organizationId, schema_1.organizations.id))
+        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.parentId, schema_1.parents.id))
+        .leftJoin(schema_1.organizationServices, (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.serviceId, schema_1.organizationServices.id))
+        .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.paymentMethodId, schema_1.paymentMethod.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.organizationId, organizationId));
     return (0, response_1.SuccessResponse)(res, { message: "Parent Payments fetched successfully", payments: allParentPayments }, 200);
 };
 exports.getAllParentPayments = getAllParentPayments;
+const getParentPaymentById = async (req, res) => {
+    const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+    if (!id) {
+        throw new BadRequest_1.BadRequest("Payment ID is required");
+    }
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    const parentPaymentResult = await db_1.db.query.parentPaymentOrgServices.findFirst({
+        where: (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.id, id), (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.organizationId, organizationId)),
+    });
+    if (!parentPaymentResult) {
+        throw new NotFound_1.NotFound("Parent Payment not found");
+    }
+    (0, response_1.SuccessResponse)(res, { message: "Parent Payment fetched successfully", payment: parentPaymentResult }, 200);
+};
+exports.getParentPaymentById = getParentPaymentById;
+const ReplyToParentPayment = async (req, res) => {
+    const { id } = req.params;
+    const { status, rejectedReason } = req.body;
+    const organizationId = req.user?.organizationId;
+    if (!id) {
+        throw new BadRequest_1.BadRequest("Payment ID is required");
+    }
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Organization ID is required");
+    }
+    if (!status) {
+        throw new BadRequest_1.BadRequest("Status is required");
+    }
+    const parentPaymentResult = await db_1.db.query.parentPaymentOrgServices.findFirst({
+        where: (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.id, id), (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.organizationId, organizationId)),
+    });
+    if (!parentPaymentResult) {
+        throw new NotFound_1.NotFound("Parent Payment not found");
+    }
+    if (status !== "pending" && status !== "completed" && status !== "rejected") {
+        throw new BadRequest_1.BadRequest("Invalid status value");
+    }
+    switch (status) {
+        case "rejected":
+            if (!rejectedReason) {
+                throw new BadRequest_1.BadRequest("Rejection reason is required when rejecting a payment");
+            }
+            await db_1.db.update(schema_1.parentPaymentOrgServices).set({
+                status: "rejected",
+                rejectedReason: rejectedReason,
+            }).where((0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.id, id));
+            return (0, response_1.SuccessResponse)(res, { message: "Parent Payment rejected successfully for the student" }, 200);
+        case "completed":
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setFullYear(endDate.getFullYear() + 1);
+            await db_1.db.insert(parentServicesSubscription_1.parentServicesSubscriptions).values({
+                parentId: parentPaymentResult.parentId,
+                studentId: parentPaymentResult.studentId,
+                serviceId: parentPaymentResult.serviceId,
+                parentServicePaymentId: parentPaymentResult.id,
+                startDate: startDate,
+                endDate: endDate,
+                isActive: true,
+            });
+            await db_1.db.update(schema_1.parentPaymentOrgServices).set({
+                status: "completed",
+                rejectedReason: null,
+            }).where((0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.id, id));
+            return (0, response_1.SuccessResponse)(res, { message: "Parent Payment approved and subscription activated successfully for the student" }, 200);
+        default:
+            throw new BadRequest_1.BadRequest("Only 'completed' or 'rejected' status updates are allowed");
+    }
+};
+exports.ReplyToParentPayment = ReplyToParentPayment;
