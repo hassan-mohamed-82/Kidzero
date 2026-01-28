@@ -1,13 +1,15 @@
 import { mysqlTable, char, double, varchar, mysqlEnum, timestamp, text } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
-import { parents } from "../admin/parent";
+import { parents } from "./parent";
 import { organizationServices } from "./organizationServices";
 import { paymentMethod } from "../superadmin/paymentMethod";
 import { organizations } from "../superadmin/organization";
+import { students } from "../schema";
 export const parentPaymentOrgServices = mysqlTable("parent_payment_org_services", {
     id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
     parentId: char("parent_id", { length: 36 }).notNull().references(() => parents.id),
-    ServiceId: char("service_id", { length: 36 }).notNull().references(() => organizationServices.id),
+    serviceId: char("service_id", { length: 36 }).notNull().references(() => organizationServices.id),
+    studentId: char("student_id", { length: 36 }).notNull().references(() => students.id),
     paymentMethodId: char("payment_method_id", { length: 36 }).notNull().references(() => paymentMethod.id),
     organizationId: char("organization_id", { length: 36 }).notNull().references(() => organizations.id),
 

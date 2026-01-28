@@ -1,4 +1,4 @@
-import { Request , Response } from "express";
+import { Request, Response } from "express";
 import { db } from "../../models/db";
 import { parentPlans } from "../../models/schema";
 import { SuccessResponse } from "../../utils/response";
@@ -42,7 +42,7 @@ export const deleteParentPlanById = async (req: Request, res: Response) => {
 };
 
 export const createParentPlan = async (req: Request, res: Response) => {
-    const { name, price, startDate, endDate , minSubscriptionfeesPay , subscriptionFees } = req.body;
+    const { name, price, minSubscriptionfeesPay, subscriptionFees } = req.body;
 
     if (!name || !subscriptionFees || !minSubscriptionfeesPay) {
         throw new BadRequest("Please provide all required fields: name, subscriptionFees , minSubscriptionfeesPay");
@@ -61,8 +61,8 @@ export const updateParentPlan = async (req: Request, res: Response) => {
     if (!id) {
         throw new BadRequest("Please Enter Parent Plan Id");
     }
-    const { name, price , minSubscriptionfeesPay , subscriptionFees } = req.body;
-    const parentPlan =  await db.query.parentPlans.findFirst({
+    const { name, price, minSubscriptionfeesPay, subscriptionFees } = req.body;
+    const parentPlan = await db.query.parentPlans.findFirst({
         where: eq(parentPlans.id, id)
     });
 

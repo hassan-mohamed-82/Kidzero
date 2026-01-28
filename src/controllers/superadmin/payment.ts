@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions, paymentMethod } from "../../models/schema";
+import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions, paymentMethod, parents, parentPlans } from "../../models/schema";
 import { db } from "../../models/db";
 import { eq, desc, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
@@ -25,98 +25,6 @@ export const getPaymentById = async (req: Request, res: Response) => {
     }
     return SuccessResponse(res, { message: "Payment retrieved successfully", payment: paymentRecord });
 };
-
-// Accept or Reject Payment
-// export const ReplyToPayment = async (req: Request, res: Response) => {
-//     const { id } = req.params;
-//     const { status, rejectedReason } = req.body;
-
-//     if (!id) {
-//         throw new BadRequest("Payment ID is required");
-//     }
-//     if (!status || !["completed", "rejected"].includes(status)) {
-//         throw new BadRequest("Valid status is required");
-//     }
-//     if (status === "rejected" && !rejectedReason) {
-//         throw new BadRequest("Rejection reason is required for rejected payments");
-//     }
-
-//     const paymentRecord = await db.query.payment.findFirst({
-//         where: eq(payment.id, id),
-//     });
-
-//     if (!paymentRecord) {
-//         throw new BadRequest("Payment not found");
-//     }
-
-//     // Prevent double-processing
-//     if (paymentRecord.status !== "pending") {
-//         throw new BadRequest("Payment has already been processed");
-//     }
-
-//     // Update payment status first
-//     await db.update(payment)
-//         .set({
-//             status,
-//             rejectedReason: status === "rejected" ? rejectedReason : null,
-//         })
-//         .where(eq(payment.id, id));
-
-//     // Create/Renew Subscription for the Organization if accepted
-//     if (status === "completed") {
-//         const existingSubscription = await db.query.subscriptions.findFirst({
-//             where: eq(subscriptions.organizationId, paymentRecord.organizationId),
-//         });
-
-//         const startDate = new Date();
-//         const endDate = new Date();
-
-//         if (paymentRecord.RequestedSubscriptionType === "yearly") {
-//             endDate.setFullYear(endDate.getFullYear() + 1);
-//         } else {
-//             endDate.setMonth(endDate.getMonth() + 4);
-//         }
-
-//         if (existingSubscription) {
-//             // Renew Subscription
-//             await db.update(subscriptions)
-//                 .set({
-//                     startDate,
-//                     endDate,
-//                     planId: paymentRecord.planId,
-//                     subscriptionType: paymentRecord.RequestedSubscriptionType,
-//                     paymentId: paymentRecord.id,
-//                     isActive: true,
-//                 })
-//                 .where(eq(subscriptions.id, existingSubscription.id));
-
-//             return SuccessResponse(res, { message: "Subscription renewed successfully" });
-//         } else {
-//             // Create new Subscription
-//             await db.insert(subscriptions).values({
-//                 organizationId: paymentRecord.organizationId,
-//                 planId: paymentRecord.planId,
-//                 startDate,
-//                 endDate,
-//                 subscriptionType: paymentRecord.RequestedSubscriptionType,
-//                 paymentId: paymentRecord.id,
-//                 isActive: true,
-//             });
-
-//             // Update Organization Status
-//             await db.update(organizations)
-//                 .set({
-//                     status: "subscribed",
-//                 })
-//                 .where(eq(organizations.id, paymentRecord.organizationId));
-
-//             return SuccessResponse(res, { message: "Subscription created successfully" });
-//         }
-//     }
-
-//     // If rejected, just return
-//     return SuccessResponse(res, { message: "Payment rejected successfully" });
-// };
 
 export const ReplyToPayment = async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -487,8 +395,35 @@ export const rejectInstallment = async (req: Request, res: Response) => {
 
 // // Parents
 export const getAllParentPayments = async (req: Request, res: Response) => {
-    const payments = await db.query.parentPayment.findMany();
-    return SuccessResponse(res, { message: "Parent Payments retrieved successfully", payments });
+    // const payments = await db.query.parentPayment.findMany();
+    const allParentPayments = await db.select({
+        id: parentPayment.id,
+        parentId: parentPayment.parentId,
+        planId: parentPayment.planId,
+        paymentMethodId: parentPayment.paymentMethodId,
+        receiptImage: parentPayment.receiptImage,
+        amount: parentPayment.amount,
+        status: parentPayment.status,
+        rejectedReason: parentPayment.rejectedReason,
+        createdAt: parentPayment.createdAt,
+        updatedAt: parentPayment.updatedAt,
+        parent: {
+            name: parents.name,
+            phone: parents.phone,
+        },
+        parentPlans: {
+            name: parentPlans.name,
+            subscriptionFees: parentPlans.subscriptionFees,
+            minSubscriptionFeesPay: parentPlans.minSubscriptionFeesPay,
+        },
+        paymentMethod: {
+            name: paymentMethod.name,
+        },
+    }).from(parentPayment)
+        .leftJoin(parents, eq(parentPayment.parentId, parents.id))
+        .leftJoin(parentPlans, eq(parentPayment.planId, parentPlans.id))
+        .leftJoin(paymentMethod, eq(parentPayment.paymentMethodId, paymentMethod.id));
+    return SuccessResponse(res, { message: "Parent Payments fetched successfully", payments: allParentPayments }, 200);
 };
 
 export const getParentPaymentById = async (req: Request, res: Response) => {

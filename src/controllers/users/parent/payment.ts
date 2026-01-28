@@ -150,7 +150,8 @@ export const createParentPaymentOrgService = async (req: Request, res: Response)
     await db.insert(parentPaymentOrgServices).values({
         id: crypto.randomUUID(),
         parentId: user,
-        ServiceId,
+        studentId: studentId,
+        serviceId: ServiceId,
         paymentMethodId,
         organizationId: StudentOrganizationId,
         amount,

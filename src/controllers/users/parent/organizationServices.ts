@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { db } from "../../../models/db";
 import { SuccessResponse } from "../../../utils/response";
-import { organizationServices, students, zones } from "../../../models/schema";
+import { organizationServices, students, zones, parentServicesSubscriptions } from "../../../models/schema";
 import { eq, sql } from "drizzle-orm";
 import { BadRequest } from "../../../Errors/BadRequest";
 
@@ -46,3 +46,20 @@ export const getAllAvailableOrganizationServices = async (req: Request, res: Res
         orgServices
     }, 200);
 }
+
+export const getCurrentSubscribedServices = async (req: Request, res: Response) => {
+    const studentId = req.params.studentId;
+
+    if (!studentId) {
+        throw new BadRequest("Student ID is required");
+    }
+    const currentSubscribedServicesForStudent = await db
+        .select()
+        .from(parentServicesSubscriptions)
+        .where(eq(parentServicesSubscriptions.studentId, studentId));
+
+    return SuccessResponse(res, {
+        message: "Current subscribed services retrieved successfully",
+        currentSubscribedServicesForStudent
+    }, 200);
+};

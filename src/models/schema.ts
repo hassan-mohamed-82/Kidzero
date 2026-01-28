@@ -37,9 +37,8 @@ export * from "./admin/rideOccurrenceStudent";
 export * from "./admin/rideOccurrence";
 export * from "./admin/organizationServices";
 export * from "./admin/adminUsedPromocodes";
-export * from "./admin/parentPaymentSevices";
-export * from "./admin/Notes";
-
+export * from "./admin/parentPaymentServices";
+export * from "./admin/parentServicesSubscription";
 
 export * from "./user/walletRechargeRequest";
 // Relations
