@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions, paymentMethod, parents } from "../../models/schema";
+import { payment, plans, subscriptions, organizations, feeInstallments, parentPayment, parentSubscriptions, paymentMethod, parents, parentPlans } from "../../models/schema";
 import { db } from "../../models/db";
 import { eq, desc, and } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
@@ -421,7 +421,7 @@ export const getAllParentPayments = async (req: Request, res: Response) => {
         },
     }).from(parentPayment)
         .leftJoin(parents, eq(parentPayment.parentId, parents.id))
-        .leftJoin(plans, eq(parentPayment.planId, plans.id))
+        .leftJoin(parentPlans, eq(parentPayment.planId, parentPlans.id))
         .leftJoin(paymentMethod, eq(parentPayment.paymentMethodId, paymentMethod.id));
     return SuccessResponse(res, { message: "Parent Payments fetched successfully", payments: allParentPayments }, 200);
 };
