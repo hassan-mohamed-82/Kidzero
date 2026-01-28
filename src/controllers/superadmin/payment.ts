@@ -411,10 +411,10 @@ export const getAllParentPayments = async (req: Request, res: Response) => {
             name: parents.name,
             phone: parents.phone,
         },
-        plans: {
-            name: plans.name,
-            subscriptionFees: plans.subscriptionFees,
-            minSubscriptionFeesPay: plans.minSubscriptionFeesPay,
+        parentPlans: {
+            name: parentPlans.name,
+            subscriptionFees: parentPlans.subscriptionFees,
+            minSubscriptionFeesPay: parentPlans.minSubscriptionFeesPay,
         },
         paymentMethod: {
             name: paymentMethod.name,
