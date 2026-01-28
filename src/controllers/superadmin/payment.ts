@@ -408,18 +408,15 @@ export const getAllParentPayments = async (req: Request, res: Response) => {
         createdAt: parentPayment.createdAt,
         updatedAt: parentPayment.updatedAt,
         parent: {
-            id: parents.id,
             name: parents.name,
             phone: parents.phone,
         },
-        plan: {
-            id: plans.id,
+        plans: {
             name: plans.name,
             subscriptionFees: plans.subscriptionFees,
             minSubscriptionFeesPay: plans.minSubscriptionFeesPay,
         },
         paymentMethod: {
-            id: paymentMethod.id,
             name: paymentMethod.name,
         },
     }).from(parentPayment)
