@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { SuccessResponse } from "../utils/response";
-export const getPrivacyPolicy = (req: Request, res: Response) => {
+import { buses } from "../models/schema";
+import { db } from "../models/db";
+export const getPrivacyPolicy = async (req: Request, res: Response) => {
     const response = {
         policy: `
 Privacy Policy for Kidsero
@@ -132,9 +134,15 @@ wegostores@gmail.com
     return SuccessResponse(res, response);
 };
 
-export const getSupport = (req: Request, res: Response) => {
+export const getSupport = async (req: Request, res: Response) => {
     const response = {
         support: "Contact Support\r\nWe're here to help! If you have any questions or need assistance, please reach out to us through the following methods:\r\n\r\nOther Contact Information\r\nEmail: wegostationdev@gmail.com\r\nPhone Number: +201200908090\r\nDelete Account Support\r\nTo delete your account please contact us on wegostationdev@gmail.com",
     };
     return SuccessResponse(res, response);
+};
+
+
+export const getLanding = async (req: Request, res: Response) => {
+    const liveBusesTracking = (await db.select().from(buses)).length;
+    return SuccessResponse(res, { message: "Landing Page Retrieved Successfully", liveBusesTracking }, 200);
 };
