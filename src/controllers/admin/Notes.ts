@@ -117,7 +117,7 @@ export const getAllNotes = async (req: Request, res: Response) => {
     }
 
     if (type) {
-        conditions.push(eq(notes.type, type as "holiday" | "event" | "announcement" | "other"));
+        conditions.push(eq(notes.type, type as "holiday" | "event" | "other"));
     }
 
     const allNotes = await db
@@ -147,7 +147,6 @@ export const getAllNotes = async (req: Request, res: Response) => {
     const byType = {
         holiday: filteredNotes.filter((n) => n.type === "holiday"),
         event: filteredNotes.filter((n) => n.type === "event"),
-        announcement: filteredNotes.filter((n) => n.type === "announcement"),
         other: filteredNotes.filter((n) => n.type === "other"),
     };
 
@@ -168,7 +167,6 @@ export const getAllNotes = async (req: Request, res: Response) => {
             byType: {
                 holidays: byType.holiday.length,
                 events: byType.event.length,
-                announcements: byType.announcement.length,
                 other: byType.other.length,
             },
             total: filteredNotes.length,

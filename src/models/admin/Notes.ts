@@ -9,7 +9,7 @@ export const notes = mysqlTable("notes", {
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   date: date("date").notNull(),
-  type: mysqlEnum("type", ["holiday", "event", "announcement", "other"]).default("holiday"),
+  type: mysqlEnum("type", ["holiday", "event", "other"]).default("holiday"),
   cancelRides: boolean("cancel_rides").default(true),
   status: mysqlEnum("status", ["active", "cancelled"]).default("active"),
   createdBy: char("created_by", { length: 36 }),

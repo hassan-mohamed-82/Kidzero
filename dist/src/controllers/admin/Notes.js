@@ -108,7 +108,6 @@ const getAllNotes = async (req, res) => {
     const byType = {
         holiday: filteredNotes.filter((n) => n.type === "holiday"),
         event: filteredNotes.filter((n) => n.type === "event"),
-        announcement: filteredNotes.filter((n) => n.type === "announcement"),
         other: filteredNotes.filter((n) => n.type === "other"),
     };
     (0, response_1.SuccessResponse)(res, {
@@ -126,7 +125,6 @@ const getAllNotes = async (req, res) => {
         byType: {
             holidays: byType.holiday.length,
             events: byType.event.length,
-            announcements: byType.announcement.length,
             other: byType.other.length,
         },
         total: filteredNotes.length,

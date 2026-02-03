@@ -10,7 +10,7 @@ exports.notes = (0, mysql_core_1.mysqlTable)("notes", {
     title: (0, mysql_core_1.varchar)("title", { length: 255 }).notNull(),
     description: (0, mysql_core_1.text)("description"),
     date: (0, mysql_core_1.date)("date").notNull(),
-    type: (0, mysql_core_1.mysqlEnum)("type", ["holiday", "event", "announcement", "other"]).default("holiday"),
+    type: (0, mysql_core_1.mysqlEnum)("type", ["holiday", "event", "other"]).default("holiday"),
     cancelRides: (0, mysql_core_1.boolean)("cancel_rides").default(true),
     status: (0, mysql_core_1.mysqlEnum)("status", ["active", "cancelled"]).default("active"),
     createdBy: (0, mysql_core_1.char)("created_by", { length: 36 }),
