@@ -1,22 +1,9 @@
-// src/controllers/admin/subscriptionController.ts
+import { Router } from "express";
+import { getHomeDashboard } from "../../controllers/admin/dashboard";
+import { catchAsync } from "../../utils/catchAsync";
+const router = Router();
 
-import { BadRequest } from "../../Errors/BadRequest";
-import { getUsageInfo } from "../../utils/helperfunction";
-import { Request, Response } from "express";
-import { SuccessResponse } from "../../utils/response";
-import { NotFound } from "../../Errors/NotFound";
-export const getMyUsage = async (req: Request, res: Response) => {
-  const organizationId = req.user?.organizationId;
+router.get("/", catchAsync(getHomeDashboard));
 
-  if (!organizationId) {
-    throw new BadRequest("Organization ID is required");
-  }
+export default router;
 
-  const usage = await getUsageInfo(organizationId);
-
-  if (!usage) {
-    throw new NotFound("No active subscription found");
-  }
-
-  SuccessResponse(res, usage, 200);
-};
