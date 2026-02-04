@@ -23,6 +23,13 @@ export const getAllAvailableOrganizationServices = async (req: Request, res: Res
             baseServicePrice: organizationServices.servicePrice, // The default price
             useZonePricing: organizationServices.useZonePricing,
 
+            // Installment info
+            allowInstallments: organizationServices.allowInstallments,
+            maxInstallmentDates: organizationServices.maxInstallmentDates,
+            earlyPaymentDiscount: organizationServices.earlyPaymentDiscount,
+            latePaymentFine: organizationServices.latePaymentFine,
+            dueDay: organizationServices.dueDay,
+
             // The cost of the zone the student belongs to
             studentZoneCost: zones.cost,
 

@@ -40,6 +40,7 @@ export * from "./admin/adminUsedPromocodes";
 export * from "./admin/parentPaymentServices";
 export * from "./admin/parentServicesSubscription";
 export * from "./admin/Notes";
+export * from "./admin/servicePaymentInstallments";
 
 
 
