@@ -16,7 +16,7 @@ export const parentServicesSubscriptions = mysqlTable("parent__services_subscrip
 
     paymentType: mysqlEnum("payment_type", ["onetime", "installment"]).default("onetime"),
     totalAmount: double("total_amount").notNull().default(0),
-    outstandingAmount: double("outstanding_amount").notNull().default(0),
+    currentPaid: double("current_paid").notNull().default(0),
 
 
     createdAt: timestamp("created_at").defaultNow(),

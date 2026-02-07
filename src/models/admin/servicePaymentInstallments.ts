@@ -2,11 +2,12 @@ import { mysqlTable, char, double, timestamp, mysqlEnum, date, int } from "drizz
 import { sql } from "drizzle-orm";
 import { parentServicesSubscriptions } from "./parentServicesSubscription";
 import { parentPaymentOrgServices } from "./parentPaymentServices";
+import { organizationServices } from "./organizationServices";
 
 export const servicePaymentInstallments = mysqlTable("service_payment_installments", {
     id: char("id", { length: 36 }).primaryKey().default(sql`(UUID())`),
     subscriptionId: char("subscription_id", { length: 36 }).notNull().references(() => parentServicesSubscriptions.id),
-
+    serviceId: char("service_id", { length: 36 }).notNull().references(() => organizationServices.id),
     dueDate: date("due_date").notNull(),
     amount: double("amount").notNull(), // Base amount for this installment
 

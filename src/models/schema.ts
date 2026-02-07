@@ -41,8 +41,7 @@ export * from "./admin/parentPaymentServices";
 export * from "./admin/parentServicesSubscription";
 export * from "./admin/Notes";
 export * from "./admin/servicePaymentInstallments";
-
-
+export * from "./admin/parentpaymentInstallments";
 
 export * from "./user/walletRechargeRequest";
 // Relations
