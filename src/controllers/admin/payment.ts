@@ -615,6 +615,7 @@ export const getAllParentPayments = async (req: Request, res: Response) => {
         id: parentPaymentOrgServices.id,
         amount: parentPaymentOrgServices.amount,
         status: parentPaymentOrgServices.status,
+        rejectedReason: parentPaymentOrgServices.rejectedReason,
         organizationId: parentPaymentOrgServices.organizationId,
         parentId: parentPaymentOrgServices.parentId,
         serviceId: parentPaymentOrgServices.serviceId,
