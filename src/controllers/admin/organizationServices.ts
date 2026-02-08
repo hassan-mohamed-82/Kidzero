@@ -137,13 +137,13 @@ export const updateOrganizationService = async (req: Request, res: Response) => 
     await db.update(organizationServices).set({
         serviceName: serviceName || orgService.serviceName,
         serviceDescription: serviceDescription || orgService.serviceDescription,
-        useZonePricing: useZonePricing || orgService.useZonePricing,
+        useZonePricing: useZonePricing ?? orgService.useZonePricing,
         servicePrice: useZonePricing ? 0 : servicePrice || orgService.servicePrice,
-        allowInstallments: allowInstallments || orgService.allowInstallments,
-        maxInstallmentDates: maxInstallmentDates || orgService.maxInstallmentDates,
-        earlyPaymentDiscount: earlyPaymentDiscount || orgService.earlyPaymentDiscount,
-        latePaymentFine: latePaymentFine || orgService.latePaymentFine,
-        dueDay: dueDay || orgService.dueDay,
+        allowInstallments: allowInstallments ?? orgService.allowInstallments,
+        maxInstallmentDates: maxInstallmentDates ?? orgService.maxInstallmentDates,
+        earlyPaymentDiscount: earlyPaymentDiscount ?? orgService.earlyPaymentDiscount,
+        latePaymentFine: latePaymentFine ?? orgService.latePaymentFine,
+        dueDay: dueDay ?? orgService.dueDay,
     }).where(and(eq(organizationServices.id, id), eq(organizationServices.organizationId, organizationId)));
 
     return SuccessResponse(res, { message: "Organization Service Updated Successfully" }, 200);
