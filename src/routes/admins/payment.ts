@@ -15,6 +15,9 @@ import { catchAsync } from '../../utils/catchAsync';
 import { checkPermission } from '../../middlewares/checkpermission';
 const router = Router();
 
+router.get('/parent-payment-installments', checkPermission("payments", "View"), catchAsync(GetParentPaymentInstallments));
+router.get('/parent-payment-installments/:id', checkPermission("payments", "View"), catchAsync(GetParentPaymentInstallmentById));
+
 router.get('/', checkPermission("payments", "View"), catchAsync(getAllPayments));
 router.post('/', checkPermission("payments", "Add"), catchAsync(createPayment));
 router.post('/renewal', checkPermission("payments", "Add"), catchAsync(requestRenewal));
@@ -22,7 +25,5 @@ router.post('/plan-price', checkPermission("payments", "Add"), catchAsync(payPla
 router.get('/parent-payments', checkPermission("payments", "View"), catchAsync(getAllParentPayments));
 router.post('/replyParentPayment/:id', checkPermission("payments", "Add"), catchAsync(ReplyToParentPayment));
 router.post('/replyParentPaymentInstallment/:id', checkPermission("payments", "Add"), catchAsync(ReplyToParentPaymentInstallment));
-router.get('/parent-payment-installments', checkPermission("payments", "View"), catchAsync(GetParentPaymentInstallments));
-router.get('/parent-payment-installments/:id', checkPermission("payments", "View"), catchAsync(GetParentPaymentInstallmentById));
 router.get('/:id', checkPermission("payments", "View"), catchAsync(getPaymentById));
 export default router;
