@@ -1594,6 +1594,7 @@ export const selection = async (req: Request, res: Response) => {
 };
 
 // ✅ Search Students
+// ✅ Search Students
 export const searchStudentsForRide = async (req: Request, res: Response) => {
   const { phone, name, parentName } = req.query;
   const organizationId = req.user?.organizationId;
@@ -1606,7 +1607,10 @@ export const searchStudentsForRide = async (req: Request, res: Response) => {
     throw new BadRequest("Please provide search criteria");
   }
 
-  let conditions: any[] = [eq(students.organizationId, organizationId)];
+  let conditions: any[] = [
+    eq(students.organizationId, organizationId),
+    eq(students.status, "active"), // ✅ فلترة الـ active بس
+  ];
 
   if (phone) {
     conditions.push(sql`${parents.phone} LIKE ${`%${phone}%`}`);

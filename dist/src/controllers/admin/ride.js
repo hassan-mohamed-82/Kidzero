@@ -1297,6 +1297,7 @@ const selection = async (req, res) => {
 };
 exports.selection = selection;
 // ✅ Search Students
+// ✅ Search Students
 const searchStudentsForRide = async (req, res) => {
     const { phone, name, parentName } = req.query;
     const organizationId = req.user?.organizationId;
@@ -1306,7 +1307,10 @@ const searchStudentsForRide = async (req, res) => {
     if (!phone && !name && !parentName) {
         throw new BadRequest_1.BadRequest("Please provide search criteria");
     }
-    let conditions = [(0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId)];
+    let conditions = [
+        (0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId),
+        (0, drizzle_orm_1.eq)(schema_1.students.status, "active"), // ✅ فلترة الـ active بس
+    ];
     if (phone) {
         conditions.push((0, drizzle_orm_1.sql) `${schema_1.parents.phone} LIKE ${`%${phone}%`}`);
     }
