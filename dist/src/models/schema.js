@@ -54,6 +54,8 @@ __exportStar(require("./admin/adminUsedPromocodes"), exports);
 __exportStar(require("./admin/parentPaymentServices"), exports);
 __exportStar(require("./admin/parentServicesSubscription"), exports);
 __exportStar(require("./admin/Notes"), exports);
+__exportStar(require("./admin/servicePaymentInstallments"), exports);
+__exportStar(require("./admin/parentpaymentInstallments"), exports);
 __exportStar(require("./user/walletRechargeRequest"), exports);
 // Relations
 __exportStar(require("./relations/OrganizationRelations"), exports);

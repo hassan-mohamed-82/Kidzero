@@ -46,10 +46,18 @@ const deleteOrganizationService = async (req, res) => {
 };
 exports.deleteOrganizationService = deleteOrganizationService;
 const createOrganizationService = async (req, res) => {
-    const { serviceName, serviceDescription, useZonePricing, servicePrice } = req.body;
+    const { serviceName, serviceDescription, useZonePricing, servicePrice, allowInstallments, maxInstallmentDates, earlyPaymentDiscount, latePaymentFine, dueDay } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization Id is required");
+    }
+    if (allowInstallments) {
+        if (!maxInstallmentDates) {
+            throw new BadRequest_1.BadRequest("Max Installment Dates is required");
+        }
+        if (!dueDay) {
+            throw new BadRequest_1.BadRequest("Due Day is required");
+        }
     }
     if (!serviceName) {
         throw new BadRequest_1.BadRequest("Service Name is required");
@@ -71,13 +79,18 @@ const createOrganizationService = async (req, res) => {
         serviceDescription,
         useZonePricing,
         servicePrice: useZonePricing ? 0 : servicePrice,
+        allowInstallments,
+        maxInstallmentDates,
+        earlyPaymentDiscount,
+        latePaymentFine,
+        dueDay,
     });
     return (0, response_1.SuccessResponse)(res, { message: "Organization Service Created Successfully" }, 201);
 };
 exports.createOrganizationService = createOrganizationService;
 const updateOrganizationService = async (req, res) => {
     const { id } = req.params;
-    const { serviceName, serviceDescription, useZonePricing, servicePrice } = req.body;
+    const { serviceName, serviceDescription, useZonePricing, servicePrice, allowInstallments, maxInstallmentDates, earlyPaymentDiscount, latePaymentFine, dueDay } = req.body;
     const organizationId = req.user?.organizationId;
     if (!id) {
         throw new BadRequest_1.BadRequest("Organization Service Id is required");
@@ -95,11 +108,38 @@ const updateOrganizationService = async (req, res) => {
     if (!orgService) {
         throw new BadRequest_1.BadRequest("Organization Service Not Found");
     }
+    if (allowInstallments) {
+        if (!maxInstallmentDates) {
+            throw new BadRequest_1.BadRequest("Max Installment Dates is required");
+        }
+        if (!dueDay) {
+            throw new BadRequest_1.BadRequest("Due Day is required");
+        }
+    }
+    if (!serviceName) {
+        throw new BadRequest_1.BadRequest("Service Name is required");
+    }
+    if (!serviceDescription) {
+        throw new BadRequest_1.BadRequest("Service Description is required");
+    }
+    // Validate useZonePricing is provided and is a boolean
+    if (typeof useZonePricing !== 'boolean') {
+        throw new BadRequest_1.BadRequest("useZonePricing must be true or false");
+    }
+    // If not using zone pricing, servicePrice is required
+    if (!useZonePricing && !servicePrice) {
+        throw new BadRequest_1.BadRequest("Service Price is required when not using zone pricing");
+    }
     await db_1.db.update(schema_1.organizationServices).set({
         serviceName: serviceName || orgService.serviceName,
         serviceDescription: serviceDescription || orgService.serviceDescription,
-        useZonePricing: useZonePricing || orgService.useZonePricing,
+        useZonePricing: useZonePricing ?? orgService.useZonePricing,
         servicePrice: useZonePricing ? 0 : servicePrice || orgService.servicePrice,
+        allowInstallments: allowInstallments ?? orgService.allowInstallments,
+        maxInstallmentDates: maxInstallmentDates ?? orgService.maxInstallmentDates,
+        earlyPaymentDiscount: earlyPaymentDiscount ?? orgService.earlyPaymentDiscount,
+        latePaymentFine: latePaymentFine ?? orgService.latePaymentFine,
+        dueDay: dueDay ?? orgService.dueDay,
     }).where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.organizationServices.id, id), (0, drizzle_orm_1.eq)(schema_1.organizationServices.organizationId, organizationId)));
     return (0, response_1.SuccessResponse)(res, { message: "Organization Service Updated Successfully" }, 200);
 };

@@ -21,6 +21,12 @@ const getAllAvailableOrganizationServices = async (req, res) => {
         serviceDescription: schema_1.organizationServices.serviceDescription,
         baseServicePrice: schema_1.organizationServices.servicePrice, // The default price
         useZonePricing: schema_1.organizationServices.useZonePricing,
+        // Installment info
+        allowInstallments: schema_1.organizationServices.allowInstallments,
+        maxInstallmentDates: schema_1.organizationServices.maxInstallmentDates,
+        earlyPaymentDiscount: schema_1.organizationServices.earlyPaymentDiscount,
+        latePaymentFine: schema_1.organizationServices.latePaymentFine,
+        dueDay: schema_1.organizationServices.dueDay,
         // The cost of the zone the student belongs to
         studentZoneCost: schema_1.zones.cost,
         // CALCULATED FIELD: The final price the user sees

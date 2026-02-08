@@ -17,6 +17,8 @@ exports.parentPaymentOrgServices = (0, mysql_core_1.mysqlTable)("parent_payment_
     organizationId: (0, mysql_core_1.char)("organization_id", { length: 36 }).notNull().references(() => organization_1.organizations.id),
     amount: (0, mysql_core_1.double)("amount").notNull(),
     receiptImage: (0, mysql_core_1.varchar)("receipt_image", { length: 500 }).notNull(),
+    type: (0, mysql_core_1.mysqlEnum)("type", ["onetime", "installment"]).notNull().default("onetime"), // New
+    requestedInstallments: (0, mysql_core_1.int)("requested_installments").notNull().default(0), // New
     status: (0, mysql_core_1.mysqlEnum)("status", ["pending", "completed", "rejected"]).notNull().default("pending"),
     rejectedReason: (0, mysql_core_1.varchar)("rejected_reason", { length: 255 }),
     createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),

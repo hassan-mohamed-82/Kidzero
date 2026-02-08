@@ -16,6 +16,9 @@ exports.parentServicesSubscriptions = (0, mysql_core_1.mysqlTable)("parent__serv
     isActive: (0, mysql_core_1.boolean)("is_active").notNull().default(true),
     startDate: (0, mysql_core_1.date)("start_date").notNull(),
     endDate: (0, mysql_core_1.date)("end_date").notNull(),
+    paymentType: (0, mysql_core_1.mysqlEnum)("payment_type", ["onetime", "installment"]).default("onetime"),
+    totalAmount: (0, mysql_core_1.double)("total_amount").notNull().default(0),
+    currentPaid: (0, mysql_core_1.double)("current_paid").notNull().default(0),
     createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
     updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });

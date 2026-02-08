@@ -8,4 +8,5 @@ router.get("/", (0, catchAsync_1.catchAsync)(payment_1.getParentPayments));
 router.get("/:id", (0, catchAsync_1.catchAsync)(payment_1.getParentPaymentbyId));
 router.post("/", (0, catchAsync_1.catchAsync)(payment_1.createParentPayment));
 router.post("/org-service", (0, catchAsync_1.catchAsync)(payment_1.createParentPaymentOrgService));
+router.post("/pay-installment", (0, catchAsync_1.catchAsync)(payment_1.payServiceInstallment));
 exports.default = router;

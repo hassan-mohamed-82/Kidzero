@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createParentPaymentOrgService = exports.createParentPayment = exports.getParentPaymentbyId = exports.getParentPayments = void 0;
+exports.payServiceInstallment = exports.createParentPaymentOrgService = exports.createParentPayment = exports.getParentPaymentbyId = exports.getParentPayments = void 0;
 const schema_1 = require("../../../models/schema");
 const db_1 = require("../../../models/db");
 const drizzle_orm_1 = require("drizzle-orm");
 const response_1 = require("../../../utils/response");
 const BadRequest_1 = require("../../../Errors/BadRequest");
 const handleImages_1 = require("../../../utils/handleImages");
+const NotFound_1 = require("../../../Errors/NotFound");
 // get parent payments for logged in parent
 const getParentPayments = async (req, res) => {
     const user = req.user?.id;
@@ -76,12 +77,9 @@ const createParentPaymentOrgService = async (req, res) => {
     if (!user) {
         throw new BadRequest_1.BadRequest("User not Logged In");
     }
-    const { ServiceId, paymentMethodId, amount, receiptImage, studentId } = req.body;
-    if (!ServiceId || !paymentMethodId || !amount || !receiptImage) {
-        throw new BadRequest_1.BadRequest("All fields are required");
-    }
-    if (amount <= 0) {
-        throw new BadRequest_1.BadRequest("Amount must be greater than zero");
+    const { ServiceId, paymentMethodId, amount, receiptImage, studentId, paymentType, numberOfInstallments } = req.body;
+    if (!ServiceId || !paymentMethodId || !amount || !receiptImage || !studentId) {
+        throw new BadRequest_1.BadRequest("ServiceId, paymentMethodId, amount, receiptImage and studentId are required");
     }
     const payMethod = await db_1.db.query.paymentMethod.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId), });
     if (!payMethod) {
@@ -97,8 +95,9 @@ const createParentPaymentOrgService = async (req, res) => {
     if (!orgService) {
         throw new BadRequest_1.BadRequest("Organization Service Not Found");
     }
-    let cost;
-    if (orgService.useZonePricing === true) { // Use zone pricing
+    // Calculate Base Cost
+    let serviceCost;
+    if (orgService.useZonePricing === true) {
         if (!zoneId) {
             throw new BadRequest_1.BadRequest("Zone ID is required for this service");
         }
@@ -106,30 +105,41 @@ const createParentPaymentOrgService = async (req, res) => {
         if (!zone) {
             throw new BadRequest_1.BadRequest("Zone Not Found");
         }
-        cost = zone.cost;
-        if (payMethod.feeStatus === true) {
-            if (payMethod.feeAmount < 0) {
-                throw new BadRequest_1.BadRequest("Invalid payment method fee amount");
-            }
-            cost += payMethod.feeAmount;
-        }
-        if (amount < cost) {
-            throw new BadRequest_1.BadRequest(`Amount must be at least ${cost}`);
-        }
+        serviceCost = zone.cost;
     }
-    else { // Use standard pricing
-        cost = orgService.servicePrice;
-        if (payMethod.feeStatus === true) {
-            if (payMethod.feeAmount < 0) {
-                throw new BadRequest_1.BadRequest("Invalid payment method fee amount");
-            }
-            cost += payMethod.feeAmount;
-        }
-        if (amount < cost) {
-            throw new BadRequest_1.BadRequest(`Amount must be at least ${cost}`);
-        }
+    else {
+        serviceCost = orgService.servicePrice;
     }
-    // Save receipt image
+    if (paymentType !== 'onetime' && paymentType !== 'installment') {
+        throw new BadRequest_1.BadRequest("Invalid payment type");
+    }
+    const type = paymentType || 'onetime';
+    let installments = 1;
+    if (type === 'installment') {
+        if (!orgService.allowInstallments) {
+            throw new BadRequest_1.BadRequest("This service does not support installments");
+        }
+        if (!numberOfInstallments || numberOfInstallments > (orgService.maxInstallmentDates || 12)) {
+            throw new BadRequest_1.BadRequest(`Invalid number of installments. Max allowed: ${orgService.maxInstallmentDates}`);
+        }
+        installments = numberOfInstallments;
+    }
+    const installmentAmount = serviceCost / installments; // Example 1000/4 = 250 every time he must pays this amount
+    let requiredAmount = installmentAmount;
+    if (type === 'onetime') {
+        requiredAmount = serviceCost;
+    }
+    let totalRequired = requiredAmount;
+    if (payMethod.feeStatus === true) {
+        if (payMethod.feeAmount < 0) {
+            throw new BadRequest_1.BadRequest("Invalid payment method fee amount");
+        }
+        totalRequired += payMethod.feeAmount;
+    }
+    if (amount < totalRequired) {
+        throw new BadRequest_1.BadRequest(`Amount must be at least ${totalRequired} (Service: ${requiredAmount} + Fees: ${payMethod.feeAmount || 0})`);
+    }
+    // 7. Save Receipt & Create Payment Record
     let receiptImageUrl = null;
     if (receiptImage) {
         const savedImage = await (0, handleImages_1.saveBase64Image)(req, receiptImage, "payments/receipts");
@@ -138,11 +148,14 @@ const createParentPaymentOrgService = async (req, res) => {
     if (!receiptImageUrl) {
         throw new BadRequest_1.BadRequest("Failed to process receipt image");
     }
+    const transactionId = crypto.randomUUID();
     await db_1.db.insert(schema_1.parentPaymentOrgServices).values({
-        id: crypto.randomUUID(),
+        id: transactionId,
         parentId: user,
         studentId: studentId,
         serviceId: ServiceId,
+        type,
+        requestedInstallments: installments,
         paymentMethodId,
         organizationId: StudentOrganizationId,
         amount,
@@ -150,6 +163,38 @@ const createParentPaymentOrgService = async (req, res) => {
         status: "pending",
         rejectedReason: null,
     });
-    return (0, response_1.SuccessResponse)(res, { message: "Payment created successfully" }, 201);
+    return (0, response_1.SuccessResponse)(res, { message: "Payment and Subscription created successfully", transactionId }, 201);
 };
 exports.createParentPaymentOrgService = createParentPaymentOrgService;
+const payServiceInstallment = async (req, res) => {
+    const user = req.user?.id;
+    if (!user)
+        throw new BadRequest_1.BadRequest("User not Logged In");
+    const { installmentId, paymentMethodId, receiptImage, paidAmount } = req.body;
+    if (!installmentId || !paymentMethodId || !receiptImage || !paidAmount)
+        throw new BadRequest_1.BadRequest("All fields required");
+    const installment = await db_1.db.query.servicePaymentInstallments.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.servicePaymentInstallments.id, installmentId) });
+    if (!installment)
+        throw new NotFound_1.NotFound("Installment not found");
+    if (installment.status === 'paid')
+        throw new BadRequest_1.BadRequest("Installment already paid");
+    const subscription = await db_1.db.query.parentServicesSubscriptions.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.parentServicesSubscriptions.id, installment.subscriptionId) });
+    if (!subscription)
+        throw new NotFound_1.NotFound("Subscription not found");
+    const service = await db_1.db.query.organizationServices.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.organizationServices.id, subscription.serviceId) });
+    if (!service)
+        throw new NotFound_1.NotFound("Service not found");
+    const payMethod = await db_1.db.query.paymentMethod.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId) });
+    if (!payMethod)
+        throw new NotFound_1.NotFound("Payment Method not found");
+    // Send the Request to the Admin to accept it
+    await db_1.db.insert(schema_1.parentPaymentInstallments).values({
+        installmentId,
+        paymentMethodId,
+        receiptImage,
+        paidAmount,
+        parentId: user,
+    });
+    return (0, response_1.SuccessResponse)(res, { message: "Payment submitted for approval" }, 200);
+};
+exports.payServiceInstallment = payServiceInstallment;
