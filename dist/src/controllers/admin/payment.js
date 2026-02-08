@@ -501,6 +501,7 @@ const getAllParentPayments = async (req, res) => {
         id: schema_1.parentPaymentOrgServices.id,
         amount: schema_1.parentPaymentOrgServices.amount,
         status: schema_1.parentPaymentOrgServices.status,
+        rejectedReason: schema_1.parentPaymentOrgServices.rejectedReason,
         organizationId: schema_1.parentPaymentOrgServices.organizationId,
         parentId: schema_1.parentPaymentOrgServices.parentId,
         serviceId: schema_1.parentPaymentOrgServices.serviceId,
