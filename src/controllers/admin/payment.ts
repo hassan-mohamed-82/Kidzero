@@ -935,7 +935,15 @@ export const GetParentPaymentInstallments = async (req: Request, res: Response) 
                                 ELSE ${organizationServices.servicePrice}
                             END`,
             // CALCULATED FIELD: Remaining amount to pay for this installment
-            remainingAmount: sql<number>`(${servicePaymentInstallments.amount} + ${servicePaymentInstallments.fineAmount} - ${servicePaymentInstallments.discountAmount} - ${servicePaymentInstallments.paidAmount})`
+            remainingAmount: sql<number>`(
+                CASE 
+                    WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                    ELSE ${organizationServices.servicePrice}
+                END 
+                + ${servicePaymentInstallments.fineAmount} 
+                - ${servicePaymentInstallments.discountAmount} 
+                - ${servicePaymentInstallments.paidAmount}
+            )`
         },
         parent: {
             id: parents.id,
@@ -993,7 +1001,15 @@ export const GetParentPaymentInstallmentById = async (req: Request, res: Respons
                                 ELSE ${organizationServices.servicePrice}
                             END`,
             // CALCULATED FIELD: Remaining amount to pay for this installment
-            remainingAmount: sql<number>`(${servicePaymentInstallments.amount} + ${servicePaymentInstallments.fineAmount} - ${servicePaymentInstallments.discountAmount} - ${servicePaymentInstallments.paidAmount})`
+            remainingAmount: sql<number>`(
+                CASE 
+                    WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                    ELSE ${organizationServices.servicePrice}
+                END 
+                + ${servicePaymentInstallments.fineAmount} 
+                - ${servicePaymentInstallments.discountAmount} 
+                - ${servicePaymentInstallments.paidAmount}
+            )`
         },
         parent: {
             id: parents.id,
