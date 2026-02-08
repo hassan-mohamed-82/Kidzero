@@ -1502,10 +1502,11 @@ export const selection = async (req: Request, res: Response) => {
     throw new BadRequest("Organization ID is required");
   }
 
-  // ✅ فلترة الـ routes الـ active بس
+  // ✅ فلترة الـ routes الـ active + organizationId
   const allRoutes = await db
     .select()
     .from(Rout)
+    .where(and(eq(Rout.organizationId, organizationId), eq(Rout.status, "active")));
 
   const routesWithPickupPoints = await Promise.all(
     allRoutes.map(async (route) => {
@@ -1540,22 +1541,25 @@ export const selection = async (req: Request, res: Response) => {
     })
   );
 
-  // ✅ فلترة الـ buses الـ active بس
+  // ✅ فلترة الـ buses الـ active + organizationId
   const allBuses = await db
     .select()
     .from(buses)
+    .where(and(eq(buses.organizationId, organizationId), eq(buses.status, "active")));
 
-  // ✅ فلترة الـ drivers الـ active بس
+  // ✅ فلترة الـ drivers الـ active + organizationId
   const allDrivers = await db
     .select()
     .from(drivers)
+    .where(and(eq(drivers.organizationId, organizationId), eq(drivers.status, "active")));
 
-  // ✅ فلترة الـ codrivers الـ active بس
+  // ✅ فلترة الـ codrivers الـ active + organizationId
   const allCodrivers = await db
     .select()
     .from(codrivers)
+    .where(and(eq(codrivers.organizationId, organizationId), eq(codrivers.status, "active")));
 
-  // ✅ فلترة الـ students الـ active بس
+  // ✅ فلترة الـ students الـ active + organizationId
   const studentsData = await db
     .select({
       id: students.id,
@@ -1593,7 +1597,6 @@ export const selection = async (req: Request, res: Response) => {
   }, 200);
 };
 
-// ✅ Search Students
 // ✅ Search Students
 export const searchStudentsForRide = async (req: Request, res: Response) => {
   const { phone, name, parentName } = req.query;
