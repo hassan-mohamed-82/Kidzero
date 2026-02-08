@@ -1211,15 +1211,16 @@ const updateOccurrenceStatus = async (req, res) => {
 };
 exports.updateOccurrenceStatus = updateOccurrenceStatus;
 // ✅ Selection Data
-// ✅ Selection Data
 const selection = async (req, res) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    const allRoutes = await db_1.db.select().from(schema_1.Rout).where((0, drizzle_orm_1.eq)(schema_1.Rout.organizationId, organizationId));
+    // ✅ فلترة الـ routes الـ active بس
+    const allRoutes = await db_1.db
+        .select()
+        .from(schema_1.Rout);
     const routesWithPickupPoints = await Promise.all(allRoutes.map(async (route) => {
-        // ✅ إصلاح: استخدام select مسطح ثم تنسيق البيانات
         const points = await db_1.db
             .select({
             id: schema_1.routePickupPoints.id,
@@ -1234,7 +1235,6 @@ const selection = async (req, res) => {
             .leftJoin(schema_1.pickupPoints, (0, drizzle_orm_1.eq)(schema_1.routePickupPoints.pickupPointId, schema_1.pickupPoints.id))
             .where((0, drizzle_orm_1.eq)(schema_1.routePickupPoints.routeId, route.id))
             .orderBy(schema_1.routePickupPoints.stopOrder);
-        // ✅ تنسيق البيانات بعد الجلب
         const formattedPoints = points.map((p) => ({
             id: p.id,
             stopOrder: p.stopOrder,
@@ -1248,10 +1248,19 @@ const selection = async (req, res) => {
         }));
         return { ...route, pickupPoints: formattedPoints };
     }));
-    const allBuses = await db_1.db.select().from(schema_1.buses).where((0, drizzle_orm_1.eq)(schema_1.buses.organizationId, organizationId));
-    const allDrivers = await db_1.db.select().from(schema_1.drivers).where((0, drizzle_orm_1.eq)(schema_1.drivers.organizationId, organizationId));
-    const allCodrivers = await db_1.db.select().from(schema_1.codrivers).where((0, drizzle_orm_1.eq)(schema_1.codrivers.organizationId, organizationId));
-    // ✅ إصلاح: نفس المشكلة مع students
+    // ✅ فلترة الـ buses الـ active بس
+    const allBuses = await db_1.db
+        .select()
+        .from(schema_1.buses);
+    // ✅ فلترة الـ drivers الـ active بس
+    const allDrivers = await db_1.db
+        .select()
+        .from(schema_1.drivers);
+    // ✅ فلترة الـ codrivers الـ active بس
+    const allCodrivers = await db_1.db
+        .select()
+        .from(schema_1.codrivers);
+    // ✅ فلترة الـ students الـ active بس
     const studentsData = await db_1.db
         .select({
         id: schema_1.students.id,
@@ -1265,8 +1274,7 @@ const selection = async (req, res) => {
     })
         .from(schema_1.students)
         .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.students.parentId, schema_1.parents.id))
-        .where((0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId));
-    // ✅ تنسيق بيانات الطلاب
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.students.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.students.status, "active")));
     const allStudents = studentsData.map((s) => ({
         id: s.id,
         name: s.name,

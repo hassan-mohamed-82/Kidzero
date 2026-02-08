@@ -1495,7 +1495,6 @@ export const updateOccurrenceStatus = async (req: Request, res: Response) => {
 };
 
 // ✅ Selection Data
-// ✅ Selection Data
 export const selection = async (req: Request, res: Response) => {
   const organizationId = req.user?.organizationId;
 
@@ -1503,11 +1502,13 @@ export const selection = async (req: Request, res: Response) => {
     throw new BadRequest("Organization ID is required");
   }
 
-  const allRoutes = await db.select().from(Rout).where(eq(Rout.organizationId, organizationId));
+  // ✅ فلترة الـ routes الـ active بس
+  const allRoutes = await db
+    .select()
+    .from(Rout)
 
   const routesWithPickupPoints = await Promise.all(
     allRoutes.map(async (route) => {
-      // ✅ إصلاح: استخدام select مسطح ثم تنسيق البيانات
       const points = await db
         .select({
           id: routePickupPoints.id,
@@ -1523,7 +1524,6 @@ export const selection = async (req: Request, res: Response) => {
         .where(eq(routePickupPoints.routeId, route.id))
         .orderBy(routePickupPoints.stopOrder);
 
-      // ✅ تنسيق البيانات بعد الجلب
       const formattedPoints = points.map((p) => ({
         id: p.id,
         stopOrder: p.stopOrder,
@@ -1540,11 +1540,22 @@ export const selection = async (req: Request, res: Response) => {
     })
   );
 
-  const allBuses = await db.select().from(buses).where(eq(buses.organizationId, organizationId));
-  const allDrivers = await db.select().from(drivers).where(eq(drivers.organizationId, organizationId));
-  const allCodrivers = await db.select().from(codrivers).where(eq(codrivers.organizationId, organizationId));
+  // ✅ فلترة الـ buses الـ active بس
+  const allBuses = await db
+    .select()
+    .from(buses)
 
-  // ✅ إصلاح: نفس المشكلة مع students
+  // ✅ فلترة الـ drivers الـ active بس
+  const allDrivers = await db
+    .select()
+    .from(drivers)
+
+  // ✅ فلترة الـ codrivers الـ active بس
+  const allCodrivers = await db
+    .select()
+    .from(codrivers)
+
+  // ✅ فلترة الـ students الـ active بس
   const studentsData = await db
     .select({
       id: students.id,
@@ -1558,9 +1569,8 @@ export const selection = async (req: Request, res: Response) => {
     })
     .from(students)
     .leftJoin(parents, eq(students.parentId, parents.id))
-    .where(eq(students.organizationId, organizationId));
+    .where(and(eq(students.organizationId, organizationId), eq(students.status, "active")));
 
-  // ✅ تنسيق بيانات الطلاب
   const allStudents = studentsData.map((s) => ({
     id: s.id,
     name: s.name,
