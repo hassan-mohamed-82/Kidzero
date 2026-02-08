@@ -1,6 +1,18 @@
-import { parentPayment, parentPlans, paymentMethod, organizationServices, zones, parentPaymentOrgServices, students, parentServicesSubscriptions, servicePaymentInstallments, parentPaymentInstallments } from "../../../models/schema";
+import {
+    parentPayment,
+    parentPlans,
+    paymentMethod,
+    organizationServices,
+    zones,
+    parentPaymentOrgServices,
+    students,
+    parentServicesSubscriptions,
+    servicePaymentInstallments,
+    parentPaymentInstallments,
+    parents
+} from "../../../models/schema";
 import { db } from "../../../models/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { Request, Response } from "express";
 import { SuccessResponse } from "../../../utils/response";
 import { BadRequest } from "../../../Errors/BadRequest";
@@ -215,4 +227,69 @@ export const payServiceInstallment = async (req: Request, res: Response) => {
     });
 
     return SuccessResponse(res, { message: "Payment submitted for approval" }, 200);
+};
+
+export const getparentPaymentOrgServicebyId = async (req: Request, res: Response) => {
+    const user = req.user?.id;
+    if (!user) throw new BadRequest("User not Logged In");
+
+    const { id } = req.params;
+    if (!id) throw new BadRequest("Payment ID is required");
+
+    const payment = await db.query.parentPaymentOrgServices.findFirst({ where: eq(parentPaymentOrgServices.id, id) });
+    if (!payment) throw new NotFound("Payment not found");
+
+    return SuccessResponse(res, { payment }, 200);
+};
+
+export const getparentInstallments = async (req: Request, res: Response) => {
+    const user = req.user?.id;
+    if (!user) throw new BadRequest("User not Logged In");
+    const parent = await db.query.parents.findFirst({ where: eq(parents.id, user) });
+    if (!parent) throw new NotFound("Unauthorized Access");
+
+    // Get ALL subscriptions for the parent (not just the first one)
+    const subscriptions = await db.query.parentServicesSubscriptions.findMany({
+        where: eq(parentServicesSubscriptions.parentId, parent.id)
+    });
+
+    if (subscriptions.length === 0) {
+        return SuccessResponse(res, { installments: [] }, 200);
+    }
+
+    // Get installments for ALL subscriptions
+    const subscriptionIds = subscriptions.map(sub => sub.id);
+    const installments = await db.query.servicePaymentInstallments.findMany({
+        where: inArray(servicePaymentInstallments.subscriptionId, subscriptionIds)
+    });
+
+    return SuccessResponse(res, { installments }, 200);
+};
+
+export const getparentInstallmentById = async (req: Request, res: Response) => {
+    const user = req.user?.id;
+    if (!user) throw new BadRequest("User not Logged In");
+
+    const { id } = req.params;
+    if (!id) throw new BadRequest("Installment ID is required");
+
+    const parent = await db.query.parents.findFirst({ where: eq(parents.id, user) });
+    if (!parent) throw new NotFound("Unauthorized Access");
+
+    // Get the installment
+    const installment = await db.query.servicePaymentInstallments.findFirst({
+        where: eq(servicePaymentInstallments.id, id)
+    });
+    if (!installment) throw new NotFound("Installment not found");
+
+    // Verify the parent owns this installment's subscription
+    const subscription = await db.query.parentServicesSubscriptions.findFirst({
+        where: and(
+            eq(parentServicesSubscriptions.id, installment.subscriptionId),
+            eq(parentServicesSubscriptions.parentId, parent.id)
+        )
+    });
+    if (!subscription) throw new BadRequest("Unauthorized Access to Installment");
+
+    return SuccessResponse(res, { installment }, 200);
 };
