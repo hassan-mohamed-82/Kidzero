@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const information_1 = require("../controllers/information");
+const catchAsync_1 = require("../utils/catchAsync");
+const route = (0, express_1.Router)();
+route.get('/privacy', (0, catchAsync_1.catchAsync)(information_1.getPrivacyPolicy));
+route.get('/support', (0, catchAsync_1.catchAsync)(information_1.getSupport));
+route.get('/landing', (0, catchAsync_1.catchAsync)(information_1.getLanding));
+exports.default = route;

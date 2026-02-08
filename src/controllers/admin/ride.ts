@@ -426,7 +426,6 @@ export const createRide = async (req: Request, res: Response) => {
 
 
 // ✅ Get All Rides with Classification
-// ✅ Get All Rides with Classification
 export const getAllRides = async (req: Request, res: Response) => {
   const organizationId = req.user?.organizationId;
   const { tab } = req.query;
@@ -544,31 +543,27 @@ export const getAllRides = async (req: Request, res: Response) => {
     let classification: "upcoming" | "current" | "past";
     let currentStatus: string | null = null;
 
-    // ✅ لو فيه occurrence النهارده
     if (todayOcc) {
       currentStatus = todayOcc.status;
 
       if (todayOcc.status === "in_progress") {
-        // ✅ الرحلة الجارية = current
         classification = "current";
       } else if (todayOcc.status === "scheduled") {
-        // ✅ الرحلة المجدولة = current
         classification = "current";
-      } else if (todayOcc.status === "completed") {
-        // ✅ الرحلة المكتملة = past دايماً
-        classification = "past";
-      } else if (todayOcc.status === "cancelled") {
-        // ✅ الرحلة الملغية = past دايماً
-        classification = "past";
+      } else if (todayOcc.status === "completed" || todayOcc.status === "cancelled") {
+        // ✅ الرحلة خلصت/اتلغت النهارده - شوف لو فيه قادمة
+        if (nextOccDate) {
+          classification = "upcoming";
+        } else {
+          classification = "past";
+        }
       } else {
         classification = "past";
       }
     }
-    // ✅ مفيش occurrence النهارده - شوف لو فيه قادمة
     else if (nextOccDate) {
       classification = "upcoming";
     }
-    // ✅ مفيش أي occurrences قادمة
     else {
       classification = "past";
     }
