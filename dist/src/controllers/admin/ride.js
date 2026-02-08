@@ -1216,10 +1216,11 @@ const selection = async (req, res) => {
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
     }
-    // ✅ فلترة الـ routes الـ active بس
+    // ✅ فلترة الـ routes الـ active + organizationId
     const allRoutes = await db_1.db
         .select()
-        .from(schema_1.Rout);
+        .from(schema_1.Rout)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.Rout.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.Rout.status, "active")));
     const routesWithPickupPoints = await Promise.all(allRoutes.map(async (route) => {
         const points = await db_1.db
             .select({
@@ -1248,19 +1249,22 @@ const selection = async (req, res) => {
         }));
         return { ...route, pickupPoints: formattedPoints };
     }));
-    // ✅ فلترة الـ buses الـ active بس
+    // ✅ فلترة الـ buses الـ active + organizationId
     const allBuses = await db_1.db
         .select()
-        .from(schema_1.buses);
-    // ✅ فلترة الـ drivers الـ active بس
+        .from(schema_1.buses)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.buses.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.buses.status, "active")));
+    // ✅ فلترة الـ drivers الـ active + organizationId
     const allDrivers = await db_1.db
         .select()
-        .from(schema_1.drivers);
-    // ✅ فلترة الـ codrivers الـ active بس
+        .from(schema_1.drivers)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.drivers.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.drivers.status, "active")));
+    // ✅ فلترة الـ codrivers الـ active + organizationId
     const allCodrivers = await db_1.db
         .select()
-        .from(schema_1.codrivers);
-    // ✅ فلترة الـ students الـ active بس
+        .from(schema_1.codrivers)
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.codrivers.organizationId, organizationId), (0, drizzle_orm_1.eq)(schema_1.codrivers.status, "active")));
+    // ✅ فلترة الـ students الـ active + organizationId
     const studentsData = await db_1.db
         .select({
         id: schema_1.students.id,
@@ -1296,7 +1300,6 @@ const selection = async (req, res) => {
     }, 200);
 };
 exports.selection = selection;
-// ✅ Search Students
 // ✅ Search Students
 const searchStudentsForRide = async (req, res) => {
     const { phone, name, parentName } = req.query;
