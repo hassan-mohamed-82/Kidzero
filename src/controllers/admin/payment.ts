@@ -14,7 +14,8 @@ import {
     parentPaymentOrgServices,
     parents, organizationServices,
     servicePaymentInstallments,
-    parentPaymentInstallments
+    parentPaymentInstallments,
+    students
 } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
@@ -23,7 +24,8 @@ import { BadRequest } from "../../Errors/BadRequest";
 import { saveBase64Image } from "../../utils/handleImages";
 import { verifyPromocodeAvailable } from "./promocodes";
 import { parentServicesSubscriptions } from "../../models/admin/parentServicesSubscription";
-
+import { sql } from "drizzle-orm";
+import { zones } from "../../models/schema";
 export const getAllPayments = async (req: Request, res: Response) => {
     const organizationId = req.user?.organizationId;
 
@@ -922,23 +924,34 @@ export const GetParentPaymentInstallments = async (req: Request, res: Response) 
             id: organizationServices.id,
             serviceName: organizationServices.serviceName,
             servicePrice: organizationServices.servicePrice,
+            useZonePricing: organizationServices.useZonePricing,
+            // The cost of the zone the student belongs to
+            studentZoneCost: zones.cost,
+
+            // CALCULATED FIELD: The final price the user sees
+            finalPrice: sql<number>`
+                            CASE 
+                                WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                                ELSE ${organizationServices.servicePrice}
+                            END`,
+            // CALCULATED FIELD: Remaining amount to pay for this installment
+            remainingAmount: sql<number>`(${servicePaymentInstallments.amount} + ${servicePaymentInstallments.fineAmount} - ${servicePaymentInstallments.discountAmount} - ${servicePaymentInstallments.paidAmount})`
         },
         parent: {
             id: parents.id,
             name: parents.name,
             email: parents.email,
             phone: parents.phone,
-        },
-        paymentMethod: {
-            id: paymentMethod.id,
-            name: paymentMethod.name,
         }
     })
         .from(parentPaymentInstallments)
         .leftJoin(servicePaymentInstallments, eq(parentPaymentInstallments.installmentId, servicePaymentInstallments.id))
         .leftJoin(organizationServices, eq(servicePaymentInstallments.serviceId, organizationServices.id))
         .leftJoin(parents, eq(parentPaymentInstallments.parentId, parents.id))
-        .leftJoin(paymentMethod, eq(parentPaymentInstallments.paymentMethodId, paymentMethod.id))
+        .leftJoin(parentServicesSubscriptions, eq(servicePaymentInstallments.subscriptionId, parentServicesSubscriptions.id))
+        .leftJoin(students, eq(parentServicesSubscriptions.studentId, students.id))
+        .leftJoin(zones, eq(students.zoneId, zones.id))
+
         .where(eq(organizationServices.organizationId, organizationId));
 
     return SuccessResponse(res, { message: "Parent Payment Installments fetched successfully", installments: paymentInstallments }, 200);
@@ -969,23 +982,35 @@ export const GetParentPaymentInstallmentById = async (req: Request, res: Respons
             id: organizationServices.id,
             serviceName: organizationServices.serviceName,
             servicePrice: organizationServices.servicePrice,
+            useZonePricing: organizationServices.useZonePricing,
+            // The cost of the zone the student belongs to
+            studentZoneCost: zones.cost,
+
+            // CALCULATED FIELD: The final price the user sees
+            finalPrice: sql<number>`
+                            CASE 
+                                WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                                ELSE ${organizationServices.servicePrice}
+                            END`,
+            // CALCULATED FIELD: Remaining amount to pay for this installment
+            remainingAmount: sql<number>`(${servicePaymentInstallments.amount} + ${servicePaymentInstallments.fineAmount} - ${servicePaymentInstallments.discountAmount} - ${servicePaymentInstallments.paidAmount})`
         },
         parent: {
             id: parents.id,
             name: parents.name,
             email: parents.email,
             phone: parents.phone,
-        },
-        paymentMethod: {
-            id: paymentMethod.id,
-            name: paymentMethod.name,
         }
     })
         .from(parentPaymentInstallments)
         .leftJoin(servicePaymentInstallments, eq(parentPaymentInstallments.installmentId, servicePaymentInstallments.id))
         .leftJoin(organizationServices, eq(servicePaymentInstallments.serviceId, organizationServices.id))
         .leftJoin(parents, eq(parentPaymentInstallments.parentId, parents.id))
-        .leftJoin(paymentMethod, eq(parentPaymentInstallments.paymentMethodId, paymentMethod.id))
+        // New Joins for Zone Pricing
+        .leftJoin(parentServicesSubscriptions, eq(servicePaymentInstallments.subscriptionId, parentServicesSubscriptions.id))
+        .leftJoin(students, eq(parentServicesSubscriptions.studentId, students.id))
+        .leftJoin(zones, eq(students.zoneId, zones.id))
+
         .where(and(
             eq(parentPaymentInstallments.id, id),
             eq(organizationServices.organizationId, organizationId)
