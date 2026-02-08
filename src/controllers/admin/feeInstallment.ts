@@ -50,7 +50,7 @@ export const getInstallmentStatus = async (req: Request, res: Response) => {
 
     // Calculate totals from approved installments
     const approvedInstallments = allInstallments.filter(i => i.status === "approved");
-    const totalPaid = approvedInstallments.reduce((sum, i) => sum + i.installmentAmount, 0);
+    const totalPaid = approvedInstallments.reduce((sum, i) => sum + (i.paidAmount ?? 0), 0);
     const remainingAmount = plan.subscriptionFees - totalPaid;
 
     // Check for pending installments
@@ -189,7 +189,7 @@ export const createInstallmentPayment = async (req: Request, res: Response) => {
             eq(feeInstallments.status, "approved")
         ));
 
-    const totalPaid = approvedInstallments.reduce((sum, i) => sum + i.installmentAmount, 0);
+    const totalPaid = approvedInstallments.reduce((sum, i) => sum + (i.paidAmount ?? 0), 0);
     const remainingAmount = plan.subscriptionFees - totalPaid;
     const installmentNumber = approvedInstallments.length + 1;
 
