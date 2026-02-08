@@ -1,4 +1,4 @@
-import { mysqlTable, char, double, varchar, mysqlEnum, timestamp, text } from "drizzle-orm/mysql-core";
+import { mysqlTable, char, double, varchar, mysqlEnum, timestamp, int, text } from "drizzle-orm/mysql-core";
 import { sql } from "drizzle-orm";
 import { parents } from "./parent";
 import { organizationServices } from "./organizationServices";
@@ -16,6 +16,9 @@ export const parentPaymentOrgServices = mysqlTable("parent_payment_org_services"
     amount: double("amount").notNull(),
 
     receiptImage: varchar("receipt_image", { length: 500 }).notNull(),
+
+    type: mysqlEnum("type", ["onetime", "installment"]).notNull().default("onetime"), // New
+    requestedInstallments: int("requested_installments").notNull().default(0), // New
 
     status: mysqlEnum("status", ["pending", "completed", "rejected"]).notNull().default("pending"),
     rejectedReason: varchar("rejected_reason", { length: 255 }),

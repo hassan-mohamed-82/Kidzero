@@ -1,4 +1,4 @@
-import { boolean, date, int, mysqlTable, timestamp, varchar, char, double } from "drizzle-orm/mysql-core";
+import { boolean, date, int, mysqlTable, timestamp, varchar, char, double, mysqlEnum } from "drizzle-orm/mysql-core";
 import { organizationServices } from "./organizationServices";
 import { parents } from "../admin/parent";
 import { parentPaymentOrgServices } from "./parentPaymentServices";
@@ -13,6 +13,11 @@ export const parentServicesSubscriptions = mysqlTable("parent__services_subscrip
     isActive: boolean("is_active").notNull().default(true),
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
+
+    paymentType: mysqlEnum("payment_type", ["onetime", "installment"]).default("onetime"),
+    totalAmount: double("total_amount").notNull().default(0),
+    currentPaid: double("current_paid").notNull().default(0),
+
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),

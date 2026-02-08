@@ -2,7 +2,20 @@
 
 import { Request, Response } from "express";
 import { db } from "../../models/db";
-import { payment, plans, paymentMethod, organizations, promocode, feeInstallments, subscriptions, adminUsedPromocodes, parentPaymentOrgServices, parents, organizationServices } from "../../models/schema";
+import {
+    payment,
+    plans,
+    paymentMethod,
+    organizations,
+    promocode,
+    feeInstallments,
+    subscriptions,
+    adminUsedPromocodes,
+    parentPaymentOrgServices,
+    parents, organizationServices,
+    servicePaymentInstallments,
+    parentPaymentInstallments
+} from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
 import { NotFound } from "../../Errors/NotFound";
@@ -598,10 +611,6 @@ export const getAllParentPayments = async (req: Request, res: Response) => {
     if (!organizationId) {
         throw new BadRequest("Organization ID is required");
     }
-
-    // const allParentPayments = await db.query.parentPaymentOrgServices.findMany({
-    //     where: eq(parentPaymentOrgServices.organizationId, organizationId),
-    // });
     const allParentPayments = await db.select({
         id: parentPaymentOrgServices.id,
         amount: parentPaymentOrgServices.amount,
@@ -611,6 +620,7 @@ export const getAllParentPayments = async (req: Request, res: Response) => {
         serviceId: parentPaymentOrgServices.serviceId,
         paymentMethodId: parentPaymentOrgServices.paymentMethodId,
         receiptImage: parentPaymentOrgServices.receiptImage,
+        type: parentPaymentOrgServices.type,
         createdAt: parentPaymentOrgServices.createdAt,
         updatedAt: parentPaymentOrgServices.updatedAt,
         organization: {
@@ -704,26 +714,188 @@ export const ReplyToParentPayment = async (req: Request, res: Response) => {
             return SuccessResponse(res, { message: "Parent Payment rejected successfully for the student" }, 200);
 
         case "completed":
-            const startDate = new Date();
-            const endDate = new Date();
-            endDate.setFullYear(endDate.getFullYear() + 1);
-            await db.insert(parentServicesSubscriptions).values({
-                parentId: parentPaymentResult.parentId,
-                studentId: parentPaymentResult.studentId,
-                serviceId: parentPaymentResult.serviceId,
-                parentServicePaymentId: parentPaymentResult.id,
-                startDate: startDate,
-                endDate: endDate,
-                isActive: true,
-            });
-            await db.update(parentPaymentOrgServices).set({
-                status: "completed",
-                rejectedReason: null,
-            }).where(eq(parentPaymentOrgServices.id, id));
-            return SuccessResponse(res, { message: "Parent Payment approved and subscription activated successfully for the student" }, 200);
+            // Check this payment is onetime or Installment
+            if (parentPaymentResult.type === "onetime") {
+                const startDate = new Date();
+                const endDate = new Date();
+                endDate.setFullYear(endDate.getFullYear() + 1);
+                await db.insert(parentServicesSubscriptions).values({
+                    parentId: parentPaymentResult.parentId,
+                    studentId: parentPaymentResult.studentId,
+                    serviceId: parentPaymentResult.serviceId,
+                    parentServicePaymentId: parentPaymentResult.id,
+                    totalAmount: parentPaymentResult.amount,
+                    currentPaid: parentPaymentResult.amount,
+                    startDate: startDate,
+                    endDate: endDate,
+                    isActive: true,
+                });
+                await db.update(parentPaymentOrgServices).set({
+                    status: "completed",
+                    rejectedReason: null,
+                }).where(eq(parentPaymentOrgServices.id, id));
+                return SuccessResponse(res, { message: "Parent Payment approved and subscription activated successfully for the student" }, 200);
+            } else {
+                // Create Installment
+                const orgService = await db.query.organizationServices.findFirst({
+                    where: eq(organizationServices.id, parentPaymentResult.serviceId),
+                });
+
+                if (!orgService) {
+                    throw new NotFound("Organization Service not found");
+                }
+                // Activate Subscription First to get ID of Subscription
+                const subscriptionId = crypto.randomUUID();
+                const startDate = new Date();
+                const endDate = new Date();
+                endDate.setFullYear(endDate.getFullYear() + 1);
+                await db.insert(parentServicesSubscriptions).values({
+                    id: subscriptionId,
+                    parentId: parentPaymentResult.parentId,
+                    studentId: parentPaymentResult.studentId,
+                    serviceId: parentPaymentResult.serviceId,
+                    parentServicePaymentId: parentPaymentResult.id,
+                    paymentType: parentPaymentResult.type,
+                    totalAmount: orgService.servicePrice,
+                    currentPaid: parentPaymentResult.amount,
+                    startDate: startDate,
+                    endDate: endDate,
+                    isActive: true,
+                });
+
+                // Insert Installment
+                // اول دفعه بتتحسب من المبلغ الاساسي
+                // اللي اتدفع لحد دلوقتي هو اول مره دفع فيها الفلوس
+                const amountPaid = parentPaymentResult.amount;
+                const today = new Date();
+                const dueDate = new Date(today);
+                dueDate.setMonth(dueDate.getMonth() + 1); // Move to next month
+                dueDate.setDate(orgService.dueDay ?? 5); // Set to the organization's due day (default: 5)
+                await db.insert(servicePaymentInstallments).values({
+                    subscriptionId: subscriptionId,
+                    serviceId: parentPaymentResult.serviceId,
+                    dueDate: dueDate,
+                    amount: orgService.servicePrice,
+                    paidAmount: amountPaid,
+                    fineAmount: orgService.latePaymentFine, // 100 جنيه غرامه لو دفعت متاخر
+                    discountAmount: orgService.earlyPaymentDiscount, // 100 جنيه خصم لو دفعت بدري
+                    transactionId: parentPaymentResult.id,
+                    status: "pending" // لسه مكملش التقسيط
+                });
+
+                // مفروض هنا بقي بنروح نعمل Create Installment Payment عشان نكمل التقسيط
+                // Update Parent Payment to be Completed
+                await db.update(parentPaymentOrgServices).set({
+                    status: "completed",
+                    rejectedReason: null,
+                }).where(eq(parentPaymentOrgServices.id, id));
+                return SuccessResponse(res, { message: "Parent Payment First Installment approved successfully for the student" }, 200);
+            }
         default:
             throw new BadRequest("Only 'completed' or 'rejected' status updates are allowed");
     }
 
 
+};
+
+export const ReplyToParentPaymentInstallment = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { status, rejectedReason } = req.body;
+    const organizationId = req.user?.organizationId;
+
+    if (!id) {
+        throw new BadRequest("Invalid Installment ID");
+    }
+    if (!status) {
+        throw new BadRequest("Invalid Status");
+    }
+    if (!organizationId) {
+        throw new BadRequest("Invalid Organization ID");
+    }
+    const paymentInstallment = await db.query.parentPaymentInstallments.findFirst({
+        where: eq(parentPaymentInstallments.id, id),
+    });
+    if (!paymentInstallment) {
+        throw new BadRequest("Invalid Installment ID");
+    }
+    switch (status) {
+        case "rejected":
+            if (!rejectedReason) {
+                throw new BadRequest("Rejection reason is required when rejecting a payment");
+            }
+            await db.update(parentPaymentInstallments).set({
+                status: "rejected",
+                rejectedReason: rejectedReason,
+            }).where(eq(parentPaymentInstallments.id, id));
+            return SuccessResponse(res, { message: "Parent Payment rejected successfully for the student" }, 200);
+        case "completed":
+            const installment = await db.query.servicePaymentInstallments.findFirst({ where: eq(servicePaymentInstallments.id, paymentInstallment.installmentId) });
+            if (!installment) throw new NotFound("Installment not found");
+
+            const subscription = await db.query.parentServicesSubscriptions.findFirst({ where: eq(parentServicesSubscriptions.id, installment.subscriptionId) });
+            if (!subscription) throw new NotFound("Subscription not found");
+
+            const service = await db.query.organizationServices.findFirst({ where: eq(organizationServices.id, subscription.serviceId) });
+            if (!service) throw new NotFound("Service not found");
+            // Calculate Amount with Fine / Discount
+            const today = new Date();
+            const NewdueDate = new Date(today);
+            NewdueDate.setMonth(NewdueDate.getMonth() + 1); // Move to next month
+            NewdueDate.setDate(service.dueDay ?? 5); // Set to the organization's due day (default: 5)
+            const dueDate = installment.dueDate;
+            let finalAmount = installment.amount;
+            let InstallmentPaidAmount = installment.paidAmount;
+
+            // Process Payment (Create Payment Record)
+            // Save receipt image
+            let receiptImageUrl: string | null = null;
+            const receiptImage = paymentInstallment.receiptImage;
+            if (receiptImage) {
+                const savedImage = await saveBase64Image(req, receiptImage, "payments/receipts");
+                receiptImageUrl = savedImage.url;
+            }
+            const paidAmount = paymentInstallment.paidAmount;
+
+            //Update Installment
+            if (finalAmount === paidAmount) { // Fully Paid
+
+                await db.update(servicePaymentInstallments)
+                    .set({
+                        status: 'paid',
+                        paidAmount,
+                    })
+                    .where(eq(servicePaymentInstallments.id, installment.id));
+
+                //Update Payment
+                await db.update(parentPaymentInstallments)
+                    .set({
+                        status: 'completed',
+                    })
+                    .where(eq(parentPaymentInstallments.id, id));
+
+                return SuccessResponse(res, { message: "Parent Payment First Installment approved successfully for the student" }, 200);
+
+            } else {
+                // Partial
+                InstallmentPaidAmount = (InstallmentPaidAmount ?? 0) + paidAmount;
+                await db.update(servicePaymentInstallments)
+                    .set({
+                        status: 'pending',
+                        paidAmount: InstallmentPaidAmount,
+                        dueDate: NewdueDate,
+                    })
+                    .where(eq(servicePaymentInstallments.id, installment.id));
+
+                //Update Parent Payment Installment to Completed
+                await db.update(parentPaymentInstallments)
+                    .set({
+                        status: 'completed',
+                    })
+                    .where(eq(parentPaymentInstallments.id, id));
+
+                return SuccessResponse(res, { message: "Parent Payment Installment approved successfully for the student" }, 200);
+            }
+        default:
+            throw new BadRequest("Only 'completed' or 'rejected' status updates are allowed");
+    }
 };
