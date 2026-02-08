@@ -9,4 +9,6 @@ router.get("/:id", (0, catchAsync_1.catchAsync)(payment_1.getParentPaymentbyId))
 router.post("/", (0, catchAsync_1.catchAsync)(payment_1.createParentPayment));
 router.post("/org-service", (0, catchAsync_1.catchAsync)(payment_1.createParentPaymentOrgService));
 router.post("/pay-installment", (0, catchAsync_1.catchAsync)(payment_1.payServiceInstallment));
+router.get("/installments", (0, catchAsync_1.catchAsync)(payment_1.getparentInstallments));
+router.get("/installments/:id", (0, catchAsync_1.catchAsync)(payment_1.getparentInstallmentById));
 exports.default = router;

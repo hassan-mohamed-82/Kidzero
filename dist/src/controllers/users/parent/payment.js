@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.payServiceInstallment = exports.createParentPaymentOrgService = exports.createParentPayment = exports.getParentPaymentbyId = exports.getParentPayments = void 0;
+exports.getparentInstallmentById = exports.getparentInstallments = exports.getparentPaymentOrgServicebyId = exports.payServiceInstallment = exports.createParentPaymentOrgService = exports.createParentPayment = exports.getParentPaymentbyId = exports.getParentPayments = void 0;
 const schema_1 = require("../../../models/schema");
 const db_1 = require("../../../models/db");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -198,3 +198,63 @@ const payServiceInstallment = async (req, res) => {
     return (0, response_1.SuccessResponse)(res, { message: "Payment submitted for approval" }, 200);
 };
 exports.payServiceInstallment = payServiceInstallment;
+const getparentPaymentOrgServicebyId = async (req, res) => {
+    const user = req.user?.id;
+    if (!user)
+        throw new BadRequest_1.BadRequest("User not Logged In");
+    const { id } = req.params;
+    if (!id)
+        throw new BadRequest_1.BadRequest("Payment ID is required");
+    const payment = await db_1.db.query.parentPaymentOrgServices.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.id, id) });
+    if (!payment)
+        throw new NotFound_1.NotFound("Payment not found");
+    return (0, response_1.SuccessResponse)(res, { payment }, 200);
+};
+exports.getparentPaymentOrgServicebyId = getparentPaymentOrgServicebyId;
+const getparentInstallments = async (req, res) => {
+    const user = req.user?.id;
+    if (!user)
+        throw new BadRequest_1.BadRequest("User not Logged In");
+    const parent = await db_1.db.query.parents.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.parents.id, user) });
+    if (!parent)
+        throw new NotFound_1.NotFound("Unauthorized Access");
+    // Get ALL subscriptions for the parent (not just the first one)
+    const subscriptions = await db_1.db.query.parentServicesSubscriptions.findMany({
+        where: (0, drizzle_orm_1.eq)(schema_1.parentServicesSubscriptions.parentId, parent.id)
+    });
+    if (subscriptions.length === 0) {
+        return (0, response_1.SuccessResponse)(res, { installments: [] }, 200);
+    }
+    // Get installments for ALL subscriptions
+    const subscriptionIds = subscriptions.map(sub => sub.id);
+    const installments = await db_1.db.query.servicePaymentInstallments.findMany({
+        where: (0, drizzle_orm_1.inArray)(schema_1.servicePaymentInstallments.subscriptionId, subscriptionIds)
+    });
+    return (0, response_1.SuccessResponse)(res, { installments }, 200);
+};
+exports.getparentInstallments = getparentInstallments;
+const getparentInstallmentById = async (req, res) => {
+    const user = req.user?.id;
+    if (!user)
+        throw new BadRequest_1.BadRequest("User not Logged In");
+    const { id } = req.params;
+    if (!id)
+        throw new BadRequest_1.BadRequest("Installment ID is required");
+    const parent = await db_1.db.query.parents.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.parents.id, user) });
+    if (!parent)
+        throw new NotFound_1.NotFound("Unauthorized Access");
+    // Get the installment
+    const installment = await db_1.db.query.servicePaymentInstallments.findFirst({
+        where: (0, drizzle_orm_1.eq)(schema_1.servicePaymentInstallments.id, id)
+    });
+    if (!installment)
+        throw new NotFound_1.NotFound("Installment not found");
+    // Verify the parent owns this installment's subscription
+    const subscription = await db_1.db.query.parentServicesSubscriptions.findFirst({
+        where: (0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parentServicesSubscriptions.id, installment.subscriptionId), (0, drizzle_orm_1.eq)(schema_1.parentServicesSubscriptions.parentId, parent.id))
+    });
+    if (!subscription)
+        throw new BadRequest_1.BadRequest("Unauthorized Access to Installment");
+    return (0, response_1.SuccessResponse)(res, { installment }, 200);
+};
+exports.getparentInstallmentById = getparentInstallmentById;

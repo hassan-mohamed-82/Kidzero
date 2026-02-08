@@ -40,7 +40,7 @@ const getInstallmentStatus = async (req, res) => {
         .orderBy((0, drizzle_orm_1.desc)(schema_1.feeInstallments.createdAt));
     // Calculate totals from approved installments
     const approvedInstallments = allInstallments.filter(i => i.status === "approved");
-    const totalPaid = approvedInstallments.reduce((sum, i) => sum + i.installmentAmount, 0);
+    const totalPaid = approvedInstallments.reduce((sum, i) => sum + (i.installmentAmount ?? 0), 0);
     const remainingAmount = plan.subscriptionFees - totalPaid;
     // Check for pending installments
     const pendingInstallment = allInstallments.find(i => i.status === "pending");
@@ -149,7 +149,7 @@ const createInstallmentPayment = async (req, res) => {
         .select()
         .from(schema_1.feeInstallments)
         .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.feeInstallments.subscriptionId, activeSubscription.id), (0, drizzle_orm_1.eq)(schema_1.feeInstallments.status, "approved")));
-    const totalPaid = approvedInstallments.reduce((sum, i) => sum + i.installmentAmount, 0);
+    const totalPaid = approvedInstallments.reduce((sum, i) => sum + (i.paidAmount ?? 0), 0);
     const remainingAmount = plan.subscriptionFees - totalPaid;
     const installmentNumber = approvedInstallments.length + 1;
     // Check if already fully paid
