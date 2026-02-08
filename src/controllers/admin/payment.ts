@@ -900,3 +900,100 @@ export const ReplyToParentPaymentInstallment = async (req: Request, res: Respons
             throw new BadRequest("Only 'completed' or 'rejected' status updates are allowed");
     }
 };
+
+export const GetParentPaymentInstallments = async (req: Request, res: Response) => {
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Invalid Organization ID");
+    }
+    const paymentInstallments = await db.select({
+        id: parentPaymentInstallments.id,
+        installmentId: parentPaymentInstallments.installmentId,
+        paymentMethodId: parentPaymentInstallments.paymentMethodId,
+        receiptImage: parentPaymentInstallments.receiptImage,
+        paidAmount: parentPaymentInstallments.paidAmount,
+        parentId: parentPaymentInstallments.parentId,
+        status: parentPaymentInstallments.status,
+        rejectedReason: parentPaymentInstallments.rejectedReason,
+        createdAt: parentPaymentInstallments.createdAt,
+        updatedAt: parentPaymentInstallments.updatedAt,
+        service: {
+            id: organizationServices.id,
+            serviceName: organizationServices.serviceName,
+            servicePrice: organizationServices.servicePrice,
+        },
+        parent: {
+            id: parents.id,
+            name: parents.name,
+            email: parents.email,
+            phone: parents.phone,
+        },
+        paymentMethod: {
+            id: paymentMethod.id,
+            name: paymentMethod.name,
+        }
+    })
+        .from(parentPaymentInstallments)
+        .leftJoin(servicePaymentInstallments, eq(parentPaymentInstallments.installmentId, servicePaymentInstallments.id))
+        .leftJoin(organizationServices, eq(servicePaymentInstallments.serviceId, organizationServices.id))
+        .leftJoin(parents, eq(parentPaymentInstallments.parentId, parents.id))
+        .leftJoin(paymentMethod, eq(parentPaymentInstallments.paymentMethodId, paymentMethod.id))
+        .where(eq(organizationServices.organizationId, organizationId));
+
+    return SuccessResponse(res, { message: "Parent Payment Installments fetched successfully", installments: paymentInstallments }, 200);
+};
+
+export const GetParentPaymentInstallmentById = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+
+    if (!id) {
+        throw new BadRequest("Invalid Installment ID");
+    }
+    if (!organizationId) {
+        throw new BadRequest("Invalid Organization ID");
+    }
+    const paymentInstallment = await db.select({
+        id: parentPaymentInstallments.id,
+        installmentId: parentPaymentInstallments.installmentId,
+        paymentMethodId: parentPaymentInstallments.paymentMethodId,
+        receiptImage: parentPaymentInstallments.receiptImage,
+        paidAmount: parentPaymentInstallments.paidAmount,
+        parentId: parentPaymentInstallments.parentId,
+        status: parentPaymentInstallments.status,
+        rejectedReason: parentPaymentInstallments.rejectedReason,
+        createdAt: parentPaymentInstallments.createdAt,
+        updatedAt: parentPaymentInstallments.updatedAt,
+        service: {
+            id: organizationServices.id,
+            serviceName: organizationServices.serviceName,
+            servicePrice: organizationServices.servicePrice,
+        },
+        parent: {
+            id: parents.id,
+            name: parents.name,
+            email: parents.email,
+            phone: parents.phone,
+        },
+        paymentMethod: {
+            id: paymentMethod.id,
+            name: paymentMethod.name,
+        }
+    })
+        .from(parentPaymentInstallments)
+        .leftJoin(servicePaymentInstallments, eq(parentPaymentInstallments.installmentId, servicePaymentInstallments.id))
+        .leftJoin(organizationServices, eq(servicePaymentInstallments.serviceId, organizationServices.id))
+        .leftJoin(parents, eq(parentPaymentInstallments.parentId, parents.id))
+        .leftJoin(paymentMethod, eq(parentPaymentInstallments.paymentMethodId, paymentMethod.id))
+        .where(and(
+            eq(parentPaymentInstallments.id, id),
+            eq(organizationServices.organizationId, organizationId)
+        ))
+        .limit(1);
+
+    if (!paymentInstallment[0]) {
+        throw new NotFound("Parent Payment Installment not found");
+    }
+    return SuccessResponse(res, { message: "Parent Payment Installment fetched successfully", installment: paymentInstallment[0] }, 200);
+};
