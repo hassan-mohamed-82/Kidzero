@@ -940,7 +940,7 @@ export const GetParentPaymentInstallments = async (req: Request, res: Response) 
                     WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
                     ELSE ${organizationServices.servicePrice}
                 END 
-                - ${parentPaymentInstallments.paidAmount}
+                - ${servicePaymentInstallments.paidAmount}
             )`
             // + ${servicePaymentInstallments.fineAmount} 
             // - ${servicePaymentInstallments.discountAmount} 
@@ -1006,10 +1006,10 @@ export const GetParentPaymentInstallmentById = async (req: Request, res: Respons
                     WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
                     ELSE ${organizationServices.servicePrice}
                 END 
-                + ${servicePaymentInstallments.fineAmount} 
-                - ${servicePaymentInstallments.discountAmount} 
                 - ${servicePaymentInstallments.paidAmount}
             )`
+            // + ${servicePaymentInstallments.fineAmount} 
+            // - ${servicePaymentInstallments.discountAmount} 
         },
         parent: {
             id: parents.id,
