@@ -217,6 +217,20 @@ export const payServiceInstallment = async (req: Request, res: Response) => {
     const payMethod = await db.query.paymentMethod.findFirst({ where: eq(paymentMethod.id, paymentMethodId) });
     if (!payMethod) throw new NotFound("Payment Method not found");
 
+    let InstallmentRequiredAmount = installment.amount;
+    if (paidAmount > InstallmentRequiredAmount) {
+        throw new BadRequest(`Paid amount is greater than installment amount, remaining amount is ${InstallmentRequiredAmount - paidAmount}`);
+    }
+    let NumberOfInstallmentsRequested = installment.numberOfInstallmentsRequested;
+    let NumberOfInstallmentsPaid = installment.numberOfInstallmentsPaid;
+    if (NumberOfInstallmentsPaid >= NumberOfInstallmentsRequested) {
+        throw new BadRequest(`Number of installments paid is greater than number of installments requested`);
+    }
+    if (NumberOfInstallmentsPaid == (NumberOfInstallmentsRequested - 1)) {
+        if (paidAmount < installment.amount) {
+            throw new BadRequest(`Paid amount is less than installment amount, You must pay the remaining amount in the last installment`);
+        }
+    }
     // Send the Request to the Admin to accept it
     await db.insert(parentPaymentInstallments).values({
         installmentId,

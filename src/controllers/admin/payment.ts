@@ -883,6 +883,11 @@ export const ReplyToParentPaymentInstallment = async (req: Request, res: Respons
             const paidAmount = paymentInstallment.paidAmount;
 
             //Update Installment
+            let NumberOfInstallmentsPaid = installment.numberOfInstallmentsPaid;
+            await db.update(servicePaymentInstallments).set({
+                numberOfInstallmentsPaid: NumberOfInstallmentsPaid + 1,
+            }).where(eq(servicePaymentInstallments.id, paymentInstallment.installmentId));
+
             if (finalAmount === paidAmount) { // Fully Paid
 
                 await db.update(servicePaymentInstallments)
