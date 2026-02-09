@@ -943,7 +943,12 @@ export const GetParentPaymentInstallments = async (req: Request, res: Response) 
                 + ${servicePaymentInstallments.fineAmount} 
                 - ${servicePaymentInstallments.discountAmount} 
                 - ${servicePaymentInstallments.paidAmount}
-            )`
+            )`,
+            // DEBUG FIELDS
+            debug_paidAmount: servicePaymentInstallments.paidAmount,
+            debug_fineAmount: servicePaymentInstallments.fineAmount,
+            debug_discountAmount: servicePaymentInstallments.discountAmount,
+            debug_zoneCost: zones.cost,
         },
         parent: {
             id: parents.id,
