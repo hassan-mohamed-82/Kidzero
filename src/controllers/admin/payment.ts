@@ -774,11 +774,34 @@ export const ReplyToParentPayment = async (req: Request, res: Response) => {
                 const dueDate = new Date(today);
                 dueDate.setMonth(dueDate.getMonth() + 1); // Move to next month
                 dueDate.setDate(orgService.dueDay ?? 5); // Set to the organization's due day (default: 5)
+                let finalAmount = 0;
+
+                if (orgService.useZonePricing) {
+
+                    const student = await db.query.students.findFirst({
+                        where: eq(students.id, parentPaymentResult.studentId),
+                    });
+
+                    if (!student || !student.zoneId) {
+                        throw new BadRequest("Student or Student Zone not found");
+                    }
+                    const zone = await db.query.zones.findFirst({
+                        where: eq(zones.id, student.zoneId),
+                    });
+
+                    if (!zone) {
+                        throw new BadRequest("Zone not found");
+                    }
+
+                    finalAmount = zone.cost;
+                } else {
+                    finalAmount = orgService.servicePrice;
+                }
                 await db.insert(servicePaymentInstallments).values({
                     subscriptionId: subscriptionId,
                     serviceId: parentPaymentResult.serviceId,
                     dueDate: dueDate,
-                    amount: orgService.servicePrice,
+                    amount: finalAmount,
                     paidAmount: amountPaid,
                     fineAmount: orgService.latePaymentFine, // 100 جنيه غرامه لو دفعت متاخر
                     discountAmount: orgService.earlyPaymentDiscount, // 100 جنيه خصم لو دفعت بدري

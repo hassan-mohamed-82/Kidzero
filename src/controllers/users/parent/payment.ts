@@ -193,7 +193,7 @@ export const createParentPaymentOrgService = async (req: Request, res: Response)
         rejectedReason: null,
     });
 
-    return SuccessResponse(res, { message: "Payment and Subscription created successfully", transactionId }, 201);
+    return SuccessResponse(res, { message: "Payment created successfully awaiting admin approval", transactionId }, 201);
 };
 
 export const payServiceInstallment = async (req: Request, res: Response) => {
