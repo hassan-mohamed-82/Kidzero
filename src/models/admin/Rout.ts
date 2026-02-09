@@ -20,7 +20,7 @@ export const Rout = mysqlTable("routes", {
     .references(() => organizations.id),
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
-  status: mysqlEnum("status", ["active", "inactive"]),
+  status: mysqlEnum("status", ["active", "inactive"]).default("active"),
   createdAt: timestamp("created_at"),
   updatedAt: timestamp("updated_at"),
 });

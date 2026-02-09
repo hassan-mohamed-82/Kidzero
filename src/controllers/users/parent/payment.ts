@@ -18,7 +18,7 @@ import { SuccessResponse } from "../../../utils/response";
 import { BadRequest } from "../../../Errors/BadRequest";
 import { saveBase64Image } from "../../../utils/handleImages";
 import { NotFound } from "../../../Errors/NotFound";
-
+import { sql } from "drizzle-orm";
 // get parent payments for logged in parent
 export const getParentPayments = async (req: Request, res: Response) => {
     const user = req.user?.id;
@@ -26,7 +26,71 @@ export const getParentPayments = async (req: Request, res: Response) => {
         throw new BadRequest("User not Logged In");
     }
     const payments = await db.query.parentPayment.findMany({ where: eq(parentPayment.parentId, user), });
-    const orgServicePayments = await db.query.parentPaymentOrgServices.findMany({ where: eq(parentPaymentOrgServices.parentId, user), });
+    // const orgServicePayments = await db.query.parentPaymentOrgServices.findMany({ where: eq(parentPaymentOrgServices.parentId, user), });
+    const rows = await db.select({
+        id: parentPaymentOrgServices.id,
+        parentId: parentPaymentOrgServices.parentId,
+        serviceId: parentPaymentOrgServices.serviceId,
+        paymentMethodId: parentPaymentOrgServices.paymentMethodId,
+        amount: parentPaymentOrgServices.amount,
+        receiptImage: parentPaymentOrgServices.receiptImage,
+        status: parentPaymentOrgServices.status,
+        rejectedReason: parentPaymentOrgServices.rejectedReason,
+        createdAt: parentPaymentOrgServices.createdAt,
+        updatedAt: parentPaymentOrgServices.updatedAt,
+
+        studentId: students.id,
+        studentName: students.name,
+
+        serviceName: organizationServices.serviceName,
+        useZonePrice: organizationServices.useZonePricing,
+        servicePrice: organizationServices.servicePrice,
+        studentZoneCost: zones.cost,
+        finalPrice: sql<number>`
+            CASE 
+                WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                ELSE ${organizationServices.servicePrice}
+            END`,
+
+        paymentMethodName: paymentMethod.name,
+
+    }).from(parentPaymentOrgServices)
+        .leftJoin(students, eq(parentPaymentOrgServices.studentId, students.id))
+        .leftJoin(organizationServices, eq(parentPaymentOrgServices.serviceId, organizationServices.id))
+        .leftJoin(paymentMethod, eq(parentPaymentOrgServices.paymentMethodId, paymentMethod.id))
+        .innerJoin(zones, eq(students.zoneId, zones.id))
+
+        .where(eq(parentPaymentOrgServices.parentId, user));
+
+    const orgServicePayments = rows.map(row => ({
+        id: row.id,
+        parentId: row.parentId,
+        serviceId: row.serviceId,
+        paymentMethodId: row.paymentMethodId,
+        amount: row.amount,
+        receiptImage: row.receiptImage,
+        status: row.status,
+        rejectedReason: row.rejectedReason,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        student: {
+            id: row.studentId,
+            name: row.studentName,
+        },
+        service: {
+            id: row.serviceId,
+            name: row.serviceName,
+            useZonePrice: row.useZonePrice,
+            servicePrice: row.servicePrice,
+            studentZoneCost: row.studentZoneCost,
+            finalPrice: row.finalPrice
+        },
+        paymentMethod: {
+            id: row.paymentMethodId,
+            name: row.paymentMethodName,
+        }
+    }));
+
     return SuccessResponse(res, { message: "Payments retrieved successfully", payments, orgServicePayments }, 200);
 };
 
