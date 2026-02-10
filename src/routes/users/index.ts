@@ -12,6 +12,7 @@ import walletRechargeRequestRouter from "./parent/walletRechargeRequest";
 import parentSubscriptionRouter from "./parent/parentSubscription";
 import paymentMethodRouter from "./parent/parentPaymentMethods";
 import organizationServicesRouter from "./parent/OrganizationServices";
+import notesRouter from "./parent/notes";
 const router = Router();
 
 router.use("/auth", authRouter);
@@ -26,4 +27,5 @@ router.use("/parentsubscriptions", parentSubscriptionRouter);
 router.use("/paymentmethods", paymentMethodRouter);
 router.use("/walletrequests", walletRechargeRequestRouter);
 router.use("/organizationservices", organizationServicesRouter);
+router.use("/notes", notesRouter);
 export default router;
