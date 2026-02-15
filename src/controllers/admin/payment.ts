@@ -182,6 +182,9 @@ export const createPayment = async (req: Request, res: Response) => {
     if (promocodeCode) {
         const promoResult = await verifyPromocodeAvailable(promocodeCode, organizationId);
         promoResultId = promoResult.id;
+        if (promoResult.endDate < new Date()) {
+            throw new BadRequest("Promocode is expired");
+        }
         if (promoResult.promocodeType === "amount") {
             totalAmount = totalAmount - promoResult.amount;
 
