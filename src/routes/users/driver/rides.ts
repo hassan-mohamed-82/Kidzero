@@ -25,7 +25,7 @@ router.get("/today", authorizeRoles("driver", "codriver"), catchAsync(getMyToday
 router.get("/upcoming", authorizeRoles("driver", "codriver"), catchAsync(getUpcomingRides));
 
 // ✅ سجل الرحلات
-router.get("/history", authorizeRoles("driver", "codriver"), catchAsync(getRideHistory));
+router.get("/history", catchAsync(getRideHistory));
 
 // ✅ تفاصيل الـ Occurrence
 router.get("/occurrence/:occurrenceId", authorizeRoles("driver", "codriver"), catchAsync(getOccurrenceForDriver));
