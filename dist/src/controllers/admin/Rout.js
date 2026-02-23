@@ -11,7 +11,7 @@ const BadRequest_1 = require("../../Errors/BadRequest");
 const uuid_1 = require("uuid");
 // ✅ Create Route
 const createRoute = async (req, res) => {
-    const { name, description, pickupPoints: points } = req.body;
+    const { name, description, pickupPoints: points, status } = req.body;
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
         throw new BadRequest_1.BadRequest("Organization ID is required");
@@ -64,6 +64,7 @@ const createRoute = async (req, res) => {
             id: schema_1.pickupPoints.id,
             name: schema_1.pickupPoints.name,
             address: schema_1.pickupPoints.address,
+            status: schema_1.pickupPoints.status || "active",
             lat: schema_1.pickupPoints.lat,
             lng: schema_1.pickupPoints.lng,
         },

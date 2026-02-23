@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from "uuid";
 
 // ✅ Create Route
 export const createRoute = async (req: Request, res: Response) => {
-  const { name, description, pickupPoints: points } = req.body;
+  const { name, description, pickupPoints: points, status } = req.body;
   const organizationId = req.user?.organizationId;
 
   if (!organizationId) {
@@ -80,6 +80,7 @@ export const createRoute = async (req: Request, res: Response) => {
         id: pickupPoints.id,
         name: pickupPoints.name,
         address: pickupPoints.address,
+        status: pickupPoints.status || "active",
         lat: pickupPoints.lat,
         lng: pickupPoints.lng,
       },
