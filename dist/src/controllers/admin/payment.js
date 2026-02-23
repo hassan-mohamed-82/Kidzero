@@ -1,7 +1,7 @@
 "use strict";
 // // src/controllers/admin/paymentController.ts
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ReplyToParentPaymentInstallment = exports.ReplyToParentPayment = exports.getParentPaymentById = exports.getAllParentPayments = exports.payPlanPrice = exports.requestRenewal = exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
+exports.GetParentPaymentInstallmentById = exports.GetParentPaymentInstallments = exports.ReplyToParentPaymentInstallment = exports.ReplyToParentPayment = exports.getParentPaymentById = exports.getAllParentPayments = exports.payPlanPrice = exports.requestRenewal = exports.createPayment = exports.getPaymentById = exports.getAllPayments = void 0;
 const db_1 = require("../../models/db");
 const schema_1 = require("../../models/schema");
 const drizzle_orm_1 = require("drizzle-orm");
@@ -11,6 +11,8 @@ const BadRequest_1 = require("../../Errors/BadRequest");
 const handleImages_1 = require("../../utils/handleImages");
 const promocodes_1 = require("./promocodes");
 const parentServicesSubscription_1 = require("../../models/admin/parentServicesSubscription");
+const drizzle_orm_2 = require("drizzle-orm");
+const schema_2 = require("../../models/schema");
 const getAllPayments = async (req, res) => {
     const organizationId = req.user?.organizationId;
     if (!organizationId) {
@@ -149,6 +151,9 @@ const createPayment = async (req, res) => {
     if (promocodeCode) {
         const promoResult = await (0, promocodes_1.verifyPromocodeAvailable)(promocodeCode, organizationId);
         promoResultId = promoResult.id;
+        if (promoResult.endDate < new Date()) {
+            throw new BadRequest_1.BadRequest("Promocode is expired");
+        }
         if (promoResult.promocodeType === "amount") {
             totalAmount = totalAmount - promoResult.amount;
             // Add it to the Used Promocodes Table 
@@ -647,11 +652,30 @@ const ReplyToParentPayment = async (req, res) => {
                 const dueDate = new Date(today);
                 dueDate.setMonth(dueDate.getMonth() + 1); // Move to next month
                 dueDate.setDate(orgService.dueDay ?? 5); // Set to the organization's due day (default: 5)
+                let finalAmount = 0;
+                if (orgService.useZonePricing) {
+                    const student = await db_1.db.query.students.findFirst({
+                        where: (0, drizzle_orm_1.eq)(schema_1.students.id, parentPaymentResult.studentId),
+                    });
+                    if (!student || !student.zoneId) {
+                        throw new BadRequest_1.BadRequest("Student or Student Zone not found");
+                    }
+                    const zone = await db_1.db.query.zones.findFirst({
+                        where: (0, drizzle_orm_1.eq)(schema_2.zones.id, student.zoneId),
+                    });
+                    if (!zone) {
+                        throw new BadRequest_1.BadRequest("Zone not found");
+                    }
+                    finalAmount = zone.cost;
+                }
+                else {
+                    finalAmount = orgService.servicePrice;
+                }
                 await db_1.db.insert(schema_1.servicePaymentInstallments).values({
                     subscriptionId: subscriptionId,
                     serviceId: parentPaymentResult.serviceId,
                     dueDate: dueDate,
-                    amount: orgService.servicePrice,
+                    amount: finalAmount,
                     paidAmount: amountPaid,
                     fineAmount: orgService.latePaymentFine, // 100 جنيه غرامه لو دفعت متاخر
                     discountAmount: orgService.earlyPaymentDiscount, // 100 جنيه خصم لو دفعت بدري
@@ -728,6 +752,10 @@ const ReplyToParentPaymentInstallment = async (req, res) => {
             }
             const paidAmount = paymentInstallment.paidAmount;
             //Update Installment
+            let NumberOfInstallmentsPaid = installment.numberOfInstallmentsPaid;
+            await db_1.db.update(schema_1.servicePaymentInstallments).set({
+                numberOfInstallmentsPaid: NumberOfInstallmentsPaid + 1,
+            }).where((0, drizzle_orm_1.eq)(schema_1.servicePaymentInstallments.id, paymentInstallment.installmentId));
             if (finalAmount === paidAmount) { // Fully Paid
                 await db_1.db.update(schema_1.servicePaymentInstallments)
                     .set({
@@ -766,3 +794,128 @@ const ReplyToParentPaymentInstallment = async (req, res) => {
     }
 };
 exports.ReplyToParentPaymentInstallment = ReplyToParentPaymentInstallment;
+const GetParentPaymentInstallments = async (req, res) => {
+    const organizationId = req.user?.organizationId;
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Invalid Organization ID");
+    }
+    const paymentInstallments = await db_1.db.select({
+        id: schema_1.parentPaymentInstallments.id,
+        installmentId: schema_1.parentPaymentInstallments.installmentId,
+        paymentMethodId: schema_1.parentPaymentInstallments.paymentMethodId,
+        receiptImage: schema_1.parentPaymentInstallments.receiptImage,
+        paidAmount: schema_1.parentPaymentInstallments.paidAmount,
+        parentId: schema_1.parentPaymentInstallments.parentId,
+        status: schema_1.parentPaymentInstallments.status,
+        rejectedReason: schema_1.parentPaymentInstallments.rejectedReason,
+        createdAt: schema_1.parentPaymentInstallments.createdAt,
+        updatedAt: schema_1.parentPaymentInstallments.updatedAt,
+        service: {
+            id: schema_1.organizationServices.id,
+            serviceName: schema_1.organizationServices.serviceName,
+            servicePrice: schema_1.organizationServices.servicePrice,
+            useZonePricing: schema_1.organizationServices.useZonePricing,
+            // The cost of the zone the student belongs to
+            studentZoneCost: schema_2.zones.cost,
+            // CALCULATED FIELD: The final price the user sees
+            finalPrice: (0, drizzle_orm_2.sql) `
+                            CASE 
+                                WHEN ${schema_1.organizationServices.useZonePricing} = true THEN ${schema_2.zones.cost}
+                                ELSE ${schema_1.organizationServices.servicePrice}
+                            END`,
+            // CALCULATED FIELD: Remaining amount to pay for this installment
+            remainingAmount: (0, drizzle_orm_2.sql) `(
+                CASE 
+                    WHEN ${schema_1.organizationServices.useZonePricing} = true THEN ${schema_2.zones.cost}
+                    ELSE ${schema_1.organizationServices.servicePrice}
+                END 
+                - ${schema_1.servicePaymentInstallments.paidAmount}
+            )`
+            // + ${servicePaymentInstallments.fineAmount} 
+            // - ${servicePaymentInstallments.discountAmount} 
+        },
+        parent: {
+            id: schema_1.parents.id,
+            name: schema_1.parents.name,
+            email: schema_1.parents.email,
+            phone: schema_1.parents.phone,
+        }
+    })
+        .from(schema_1.parentPaymentInstallments)
+        .leftJoin(schema_1.servicePaymentInstallments, (0, drizzle_orm_1.eq)(schema_1.parentPaymentInstallments.installmentId, schema_1.servicePaymentInstallments.id))
+        .leftJoin(schema_1.organizationServices, (0, drizzle_orm_1.eq)(schema_1.servicePaymentInstallments.serviceId, schema_1.organizationServices.id))
+        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.parentPaymentInstallments.parentId, schema_1.parents.id))
+        .leftJoin(parentServicesSubscription_1.parentServicesSubscriptions, (0, drizzle_orm_1.eq)(schema_1.servicePaymentInstallments.subscriptionId, parentServicesSubscription_1.parentServicesSubscriptions.id))
+        .leftJoin(schema_1.students, (0, drizzle_orm_1.eq)(parentServicesSubscription_1.parentServicesSubscriptions.studentId, schema_1.students.id))
+        .leftJoin(schema_2.zones, (0, drizzle_orm_1.eq)(schema_1.students.zoneId, schema_2.zones.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.organizationServices.organizationId, organizationId));
+    return (0, response_1.SuccessResponse)(res, { message: "Parent Payment Installments fetched successfully", installments: paymentInstallments }, 200);
+};
+exports.GetParentPaymentInstallments = GetParentPaymentInstallments;
+const GetParentPaymentInstallmentById = async (req, res) => {
+    const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+    if (!id) {
+        throw new BadRequest_1.BadRequest("Invalid Installment ID");
+    }
+    if (!organizationId) {
+        throw new BadRequest_1.BadRequest("Invalid Organization ID");
+    }
+    const paymentInstallment = await db_1.db.select({
+        id: schema_1.parentPaymentInstallments.id,
+        installmentId: schema_1.parentPaymentInstallments.installmentId,
+        paymentMethodId: schema_1.parentPaymentInstallments.paymentMethodId,
+        receiptImage: schema_1.parentPaymentInstallments.receiptImage,
+        paidAmount: schema_1.parentPaymentInstallments.paidAmount,
+        parentId: schema_1.parentPaymentInstallments.parentId,
+        status: schema_1.parentPaymentInstallments.status,
+        rejectedReason: schema_1.parentPaymentInstallments.rejectedReason,
+        createdAt: schema_1.parentPaymentInstallments.createdAt,
+        updatedAt: schema_1.parentPaymentInstallments.updatedAt,
+        service: {
+            id: schema_1.organizationServices.id,
+            serviceName: schema_1.organizationServices.serviceName,
+            servicePrice: schema_1.organizationServices.servicePrice,
+            useZonePricing: schema_1.organizationServices.useZonePricing,
+            // The cost of the zone the student belongs to
+            studentZoneCost: schema_2.zones.cost,
+            // CALCULATED FIELD: The final price the user sees
+            finalPrice: (0, drizzle_orm_2.sql) `
+                            CASE 
+                                WHEN ${schema_1.organizationServices.useZonePricing} = true THEN ${schema_2.zones.cost}
+                                ELSE ${schema_1.organizationServices.servicePrice}
+                            END`,
+            // CALCULATED FIELD: Remaining amount to pay for this installment
+            remainingAmount: (0, drizzle_orm_2.sql) `(
+                CASE 
+                    WHEN ${schema_1.organizationServices.useZonePricing} = true THEN ${schema_2.zones.cost}
+                    ELSE ${schema_1.organizationServices.servicePrice}
+                END 
+                - ${schema_1.servicePaymentInstallments.paidAmount}
+            )`
+            // + ${servicePaymentInstallments.fineAmount} 
+            // - ${servicePaymentInstallments.discountAmount} 
+        },
+        parent: {
+            id: schema_1.parents.id,
+            name: schema_1.parents.name,
+            email: schema_1.parents.email,
+            phone: schema_1.parents.phone,
+        }
+    })
+        .from(schema_1.parentPaymentInstallments)
+        .leftJoin(schema_1.servicePaymentInstallments, (0, drizzle_orm_1.eq)(schema_1.parentPaymentInstallments.installmentId, schema_1.servicePaymentInstallments.id))
+        .leftJoin(schema_1.organizationServices, (0, drizzle_orm_1.eq)(schema_1.servicePaymentInstallments.serviceId, schema_1.organizationServices.id))
+        .leftJoin(schema_1.parents, (0, drizzle_orm_1.eq)(schema_1.parentPaymentInstallments.parentId, schema_1.parents.id))
+        // New Joins for Zone Pricing
+        .leftJoin(parentServicesSubscription_1.parentServicesSubscriptions, (0, drizzle_orm_1.eq)(schema_1.servicePaymentInstallments.subscriptionId, parentServicesSubscription_1.parentServicesSubscriptions.id))
+        .leftJoin(schema_1.students, (0, drizzle_orm_1.eq)(parentServicesSubscription_1.parentServicesSubscriptions.studentId, schema_1.students.id))
+        .leftJoin(schema_2.zones, (0, drizzle_orm_1.eq)(schema_1.students.zoneId, schema_2.zones.id))
+        .where((0, drizzle_orm_1.and)((0, drizzle_orm_1.eq)(schema_1.parentPaymentInstallments.id, id), (0, drizzle_orm_1.eq)(schema_1.organizationServices.organizationId, organizationId)))
+        .limit(1);
+    if (!paymentInstallment[0]) {
+        throw new NotFound_1.NotFound("Parent Payment Installment not found");
+    }
+    return (0, response_1.SuccessResponse)(res, { message: "Parent Payment Installment fetched successfully", installment: paymentInstallment[0] }, 200);
+};
+exports.GetParentPaymentInstallmentById = GetParentPaymentInstallmentById;

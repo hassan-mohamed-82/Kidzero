@@ -5,6 +5,8 @@ const payment_1 = require("../../controllers/admin/payment");
 const catchAsync_1 = require("../../utils/catchAsync");
 const checkpermission_1 = require("../../middlewares/checkpermission");
 const router = (0, express_1.Router)();
+router.get('/parent-payment-installments', (0, checkpermission_1.checkPermission)("payments", "View"), (0, catchAsync_1.catchAsync)(payment_1.GetParentPaymentInstallments));
+router.get('/parent-payment-installments/:id', (0, checkpermission_1.checkPermission)("payments", "View"), (0, catchAsync_1.catchAsync)(payment_1.GetParentPaymentInstallmentById));
 router.get('/', (0, checkpermission_1.checkPermission)("payments", "View"), (0, catchAsync_1.catchAsync)(payment_1.getAllPayments));
 router.post('/', (0, checkpermission_1.checkPermission)("payments", "Add"), (0, catchAsync_1.catchAsync)(payment_1.createPayment));
 router.post('/renewal', (0, checkpermission_1.checkPermission)("payments", "Add"), (0, catchAsync_1.catchAsync)(payment_1.requestRenewal));

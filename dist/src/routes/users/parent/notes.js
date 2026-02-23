@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const notes_1 = require("../../../controllers/users/parent/notes");
+const catchAsync_1 = require("../../../utils/catchAsync");
+const router = (0, express_1.Router)();
+router.get("/upcoming", (0, catchAsync_1.catchAsync)(notes_1.getUpcomingNotes));
+router.get("/", (0, catchAsync_1.catchAsync)(notes_1.getAllNotes));
+router.get("/:id", (0, catchAsync_1.catchAsync)(notes_1.getNoteById));
+exports.default = router;

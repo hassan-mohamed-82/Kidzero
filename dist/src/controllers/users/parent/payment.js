@@ -8,6 +8,7 @@ const response_1 = require("../../../utils/response");
 const BadRequest_1 = require("../../../Errors/BadRequest");
 const handleImages_1 = require("../../../utils/handleImages");
 const NotFound_1 = require("../../../Errors/NotFound");
+const drizzle_orm_2 = require("drizzle-orm");
 // get parent payments for logged in parent
 const getParentPayments = async (req, res) => {
     const user = req.user?.id;
@@ -15,7 +16,64 @@ const getParentPayments = async (req, res) => {
         throw new BadRequest_1.BadRequest("User not Logged In");
     }
     const payments = await db_1.db.query.parentPayment.findMany({ where: (0, drizzle_orm_1.eq)(schema_1.parentPayment.parentId, user), });
-    const orgServicePayments = await db_1.db.query.parentPaymentOrgServices.findMany({ where: (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.parentId, user), });
+    // const orgServicePayments = await db.query.parentPaymentOrgServices.findMany({ where: eq(parentPaymentOrgServices.parentId, user), });
+    const rows = await db_1.db.select({
+        id: schema_1.parentPaymentOrgServices.id,
+        parentId: schema_1.parentPaymentOrgServices.parentId,
+        serviceId: schema_1.parentPaymentOrgServices.serviceId,
+        paymentMethodId: schema_1.parentPaymentOrgServices.paymentMethodId,
+        amount: schema_1.parentPaymentOrgServices.amount,
+        receiptImage: schema_1.parentPaymentOrgServices.receiptImage,
+        status: schema_1.parentPaymentOrgServices.status,
+        rejectedReason: schema_1.parentPaymentOrgServices.rejectedReason,
+        createdAt: schema_1.parentPaymentOrgServices.createdAt,
+        updatedAt: schema_1.parentPaymentOrgServices.updatedAt,
+        studentId: schema_1.students.id,
+        studentName: schema_1.students.name,
+        serviceName: schema_1.organizationServices.serviceName,
+        useZonePrice: schema_1.organizationServices.useZonePricing,
+        servicePrice: schema_1.organizationServices.servicePrice,
+        studentZoneCost: schema_1.zones.cost,
+        finalPrice: (0, drizzle_orm_2.sql) `
+            CASE 
+                WHEN ${schema_1.organizationServices.useZonePricing} = true THEN ${schema_1.zones.cost}
+                ELSE ${schema_1.organizationServices.servicePrice}
+            END`,
+        paymentMethodName: schema_1.paymentMethod.name,
+    }).from(schema_1.parentPaymentOrgServices)
+        .leftJoin(schema_1.students, (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.studentId, schema_1.students.id))
+        .leftJoin(schema_1.organizationServices, (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.serviceId, schema_1.organizationServices.id))
+        .leftJoin(schema_1.paymentMethod, (0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.paymentMethodId, schema_1.paymentMethod.id))
+        .innerJoin(schema_1.zones, (0, drizzle_orm_1.eq)(schema_1.students.zoneId, schema_1.zones.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.parentPaymentOrgServices.parentId, user));
+    const orgServicePayments = rows.map(row => ({
+        id: row.id,
+        parentId: row.parentId,
+        serviceId: row.serviceId,
+        paymentMethodId: row.paymentMethodId,
+        amount: row.amount,
+        receiptImage: row.receiptImage,
+        status: row.status,
+        rejectedReason: row.rejectedReason,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        student: {
+            id: row.studentId,
+            name: row.studentName,
+        },
+        service: {
+            id: row.serviceId,
+            name: row.serviceName,
+            useZonePrice: row.useZonePrice,
+            servicePrice: row.servicePrice,
+            studentZoneCost: row.studentZoneCost,
+            finalPrice: row.finalPrice
+        },
+        paymentMethod: {
+            id: row.paymentMethodId,
+            name: row.paymentMethodName,
+        }
+    }));
     return (0, response_1.SuccessResponse)(res, { message: "Payments retrieved successfully", payments, orgServicePayments }, 200);
 };
 exports.getParentPayments = getParentPayments;
@@ -163,7 +221,7 @@ const createParentPaymentOrgService = async (req, res) => {
         status: "pending",
         rejectedReason: null,
     });
-    return (0, response_1.SuccessResponse)(res, { message: "Payment and Subscription created successfully", transactionId }, 201);
+    return (0, response_1.SuccessResponse)(res, { message: "Payment created successfully awaiting admin approval", transactionId }, 201);
 };
 exports.createParentPaymentOrgService = createParentPaymentOrgService;
 const payServiceInstallment = async (req, res) => {
@@ -187,6 +245,20 @@ const payServiceInstallment = async (req, res) => {
     const payMethod = await db_1.db.query.paymentMethod.findFirst({ where: (0, drizzle_orm_1.eq)(schema_1.paymentMethod.id, paymentMethodId) });
     if (!payMethod)
         throw new NotFound_1.NotFound("Payment Method not found");
+    let InstallmentRequiredAmount = installment.amount;
+    if (paidAmount > InstallmentRequiredAmount) {
+        throw new BadRequest_1.BadRequest(`Paid amount is greater than installment amount, remaining amount is ${InstallmentRequiredAmount - paidAmount}`);
+    }
+    let NumberOfInstallmentsRequested = installment.numberOfInstallmentsRequested;
+    let NumberOfInstallmentsPaid = installment.numberOfInstallmentsPaid;
+    if (NumberOfInstallmentsPaid >= NumberOfInstallmentsRequested) {
+        throw new BadRequest_1.BadRequest(`Number of installments paid is greater than number of installments requested`);
+    }
+    if (NumberOfInstallmentsPaid == (NumberOfInstallmentsRequested - 1)) {
+        if (paidAmount < installment.amount) {
+            throw new BadRequest_1.BadRequest(`Paid amount is less than installment amount, You must pay the remaining amount in the last installment`);
+        }
+    }
     // Send the Request to the Admin to accept it
     await db_1.db.insert(schema_1.parentPaymentInstallments).values({
         installmentId,

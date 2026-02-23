@@ -17,6 +17,8 @@ exports.servicePaymentInstallments = (0, mysql_core_1.mysqlTable)("service_payme
     fineAmount: (0, mysql_core_1.double)("fine_amount").default(0),
     discountAmount: (0, mysql_core_1.double)("discount_amount").default(0),
     transactionId: (0, mysql_core_1.char)("transaction_id", { length: 36 }).references(() => parentPaymentServices_1.parentPaymentOrgServices.id), // Link to actual payment
+    numberOfInstallmentsRequested: (0, mysql_core_1.int)("number_of_installments").notNull().default(0),
+    numberOfInstallmentsPaid: (0, mysql_core_1.int)("number_of_installments_paid").notNull().default(0),
     createdAt: (0, mysql_core_1.timestamp)("created_at").defaultNow(),
     updatedAt: (0, mysql_core_1.timestamp)("updated_at").defaultNow().onUpdateNow(),
 });

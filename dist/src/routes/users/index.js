@@ -16,6 +16,7 @@ const walletRechargeRequest_1 = __importDefault(require("./parent/walletRecharge
 const parentSubscription_1 = __importDefault(require("./parent/parentSubscription"));
 const parentPaymentMethods_1 = __importDefault(require("./parent/parentPaymentMethods"));
 const OrganizationServices_1 = __importDefault(require("./parent/OrganizationServices"));
+const notes_1 = __importDefault(require("./parent/notes"));
 const router = (0, express_1.Router)();
 router.use("/auth", auth_1.default);
 router.use(authenticated_1.authenticated);
@@ -29,4 +30,5 @@ router.use("/parentsubscriptions", parentSubscription_1.default);
 router.use("/paymentmethods", parentPaymentMethods_1.default);
 router.use("/walletrequests", walletRechargeRequest_1.default);
 router.use("/organizationservices", OrganizationServices_1.default);
+router.use("/notes", notes_1.default);
 exports.default = router;

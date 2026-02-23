@@ -11,9 +11,27 @@ const getParentSubscriptions = async (req, res) => {
     if (!user) {
         throw new NotFound_1.NotFound("User not found");
     }
-    const parentSubscription = await db_1.db.query.parentSubscriptions.findMany({
-        where: (0, drizzle_orm_1.eq)(schema_1.parentSubscriptions.parentId, user),
-    });
+    // const parentSubscription = await db.query.parentSubscriptions.findMany({
+    //     where: eq(parentSubscriptions.parentId, user),
+    // });
+    const parentSubscription = await db_1.db.select({
+        id: schema_1.parentSubscriptions.id,
+        parentId: schema_1.parentSubscriptions.parentId,
+        planId: schema_1.parentSubscriptions.parentPlanId,
+        paymentId: schema_1.parentSubscriptions.parentPaymentId,
+        isActive: schema_1.parentSubscriptions.isActive,
+        startDate: schema_1.parentSubscriptions.startDate,
+        endDate: schema_1.parentSubscriptions.endDate,
+        createdAt: schema_1.parentSubscriptions.createdAt,
+        updatedAt: schema_1.parentSubscriptions.updatedAt,
+        plan: {
+            id: schema_1.parentPlans.id,
+            name: schema_1.parentPlans.name,
+            price: schema_1.parentPlans.price
+        }
+    }).from(schema_1.parentSubscriptions)
+        .leftJoin(schema_1.parentPlans, (0, drizzle_orm_1.eq)(schema_1.parentSubscriptions.parentPlanId, schema_1.parentPlans.id))
+        .where((0, drizzle_orm_1.eq)(schema_1.parentSubscriptions.parentId, user));
     return (0, response_1.SuccessResponse)(res, { message: "Parent Subscriptions Fetched Successfully", parentSubscription }, 200);
 };
 exports.getParentSubscriptions = getParentSubscriptions;

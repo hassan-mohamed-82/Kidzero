@@ -55,8 +55,29 @@ const getCurrentSubscribedServices = async (req, res) => {
         throw new BadRequest_1.BadRequest("Student ID is required");
     }
     const currentSubscribedServicesForStudent = await db_1.db
-        .select()
+        .select({
+        id: schema_1.parentServicesSubscriptions.id,
+        parentId: schema_1.parentServicesSubscriptions.parentId,
+        studentId: schema_1.parentServicesSubscriptions.studentId,
+        serviceId: schema_1.parentServicesSubscriptions.serviceId, // Make sure this matches the actual column name used in schema
+        parentServicePaymentId: schema_1.parentServicesSubscriptions.parentServicePaymentId,
+        isActive: schema_1.parentServicesSubscriptions.isActive,
+        startDate: schema_1.parentServicesSubscriptions.startDate,
+        endDate: schema_1.parentServicesSubscriptions.endDate,
+        paymentType: schema_1.parentServicesSubscriptions.paymentType,
+        totalAmount: schema_1.parentServicesSubscriptions.totalAmount, // Ensure this matches schema column name if exists
+        currentPaid: schema_1.parentServicesSubscriptions.currentPaid,
+        createdAt: schema_1.parentServicesSubscriptions.createdAt,
+        updatedAt: schema_1.parentServicesSubscriptions.updatedAt,
+        serviceData: {
+            id: schema_1.organizationServices.id,
+            name: schema_1.organizationServices.serviceName,
+            description: schema_1.organizationServices.serviceDescription,
+            price: schema_1.organizationServices.servicePrice
+        }
+    })
         .from(schema_1.parentServicesSubscriptions)
+        .leftJoin(schema_1.organizationServices, (0, drizzle_orm_1.eq)(schema_1.parentServicesSubscriptions.serviceId, schema_1.organizationServices.id))
         .where((0, drizzle_orm_1.eq)(schema_1.parentServicesSubscriptions.studentId, studentId));
     return (0, response_1.SuccessResponse)(res, {
         message: "Current subscribed services retrieved successfully",

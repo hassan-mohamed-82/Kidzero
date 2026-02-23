@@ -13,7 +13,7 @@ exports.Rout = (0, mysql_core_1.mysqlTable)("routes", {
         .references(() => schema_1.organizations.id),
     name: (0, mysql_core_1.varchar)("name", { length: 255 }).notNull(),
     description: (0, mysql_core_1.text)("description"),
-    status: (0, mysql_core_1.mysqlEnum)("status", ["active", "inactive"]),
+    status: (0, mysql_core_1.mysqlEnum)("status", ["active", "inactive"]).default("active"),
     createdAt: (0, mysql_core_1.timestamp)("created_at"),
     updatedAt: (0, mysql_core_1.timestamp)("updated_at"),
 });
