@@ -29,7 +29,6 @@ export const getAllAvailableOrganizationServices = async (req: Request, res: Res
             earlyPaymentDiscount: organizationServices.earlyPaymentDiscount,
             latePaymentFine: organizationServices.latePaymentFine,
             dueDay: organizationServices.dueDay,
-
             // The cost of the zone the student belongs to
             studentZoneCost: zones.cost,
 
@@ -61,8 +60,30 @@ export const getCurrentSubscribedServices = async (req: Request, res: Response) 
         throw new BadRequest("Student ID is required");
     }
     const currentSubscribedServicesForStudent = await db
-        .select()
+        .select({
+            id: parentServicesSubscriptions.id,
+            parentId: parentServicesSubscriptions.parentId,
+            studentId: parentServicesSubscriptions.studentId,
+            serviceId: parentServicesSubscriptions.serviceId, // Make sure this matches the actual column name used in schema
+            parentServicePaymentId: parentServicesSubscriptions.parentServicePaymentId,
+            isActive: parentServicesSubscriptions.isActive,
+            startDate: parentServicesSubscriptions.startDate,
+            endDate: parentServicesSubscriptions.endDate,
+            paymentType: parentServicesSubscriptions.paymentType,
+            totalAmount: parentServicesSubscriptions.totalAmount, // Ensure this matches schema column name if exists
+            currentPaid: parentServicesSubscriptions.currentPaid,
+            createdAt: parentServicesSubscriptions.createdAt,
+            updatedAt: parentServicesSubscriptions.updatedAt,
+
+            serviceData: {
+                id: organizationServices.id,
+                name: organizationServices.serviceName,
+                description: organizationServices.serviceDescription,
+                price: organizationServices.servicePrice
+            }
+        })
         .from(parentServicesSubscriptions)
+        .leftJoin(organizationServices, eq(parentServicesSubscriptions.serviceId, organizationServices.id))
         .where(eq(parentServicesSubscriptions.studentId, studentId));
 
     return SuccessResponse(res, {

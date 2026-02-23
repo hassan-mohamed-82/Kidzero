@@ -19,6 +19,9 @@ export const servicePaymentInstallments = mysqlTable("service_payment_installmen
 
     transactionId: char("transaction_id", { length: 36 }).references(() => parentPaymentOrgServices.id), // Link to actual payment
 
+    numberOfInstallmentsRequested: int("number_of_installments").notNull().default(0),
+    numberOfInstallmentsPaid: int("number_of_installments_paid").notNull().default(0),
+
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow().onUpdateNow(),
 });

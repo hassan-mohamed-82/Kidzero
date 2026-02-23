@@ -18,7 +18,7 @@ import { SuccessResponse } from "../../../utils/response";
 import { BadRequest } from "../../../Errors/BadRequest";
 import { saveBase64Image } from "../../../utils/handleImages";
 import { NotFound } from "../../../Errors/NotFound";
-
+import { sql } from "drizzle-orm";
 // get parent payments for logged in parent
 export const getParentPayments = async (req: Request, res: Response) => {
     const user = req.user?.id;
@@ -26,7 +26,71 @@ export const getParentPayments = async (req: Request, res: Response) => {
         throw new BadRequest("User not Logged In");
     }
     const payments = await db.query.parentPayment.findMany({ where: eq(parentPayment.parentId, user), });
-    const orgServicePayments = await db.query.parentPaymentOrgServices.findMany({ where: eq(parentPaymentOrgServices.parentId, user), });
+    // const orgServicePayments = await db.query.parentPaymentOrgServices.findMany({ where: eq(parentPaymentOrgServices.parentId, user), });
+    const rows = await db.select({
+        id: parentPaymentOrgServices.id,
+        parentId: parentPaymentOrgServices.parentId,
+        serviceId: parentPaymentOrgServices.serviceId,
+        paymentMethodId: parentPaymentOrgServices.paymentMethodId,
+        amount: parentPaymentOrgServices.amount,
+        receiptImage: parentPaymentOrgServices.receiptImage,
+        status: parentPaymentOrgServices.status,
+        rejectedReason: parentPaymentOrgServices.rejectedReason,
+        createdAt: parentPaymentOrgServices.createdAt,
+        updatedAt: parentPaymentOrgServices.updatedAt,
+
+        studentId: students.id,
+        studentName: students.name,
+
+        serviceName: organizationServices.serviceName,
+        useZonePrice: organizationServices.useZonePricing,
+        servicePrice: organizationServices.servicePrice,
+        studentZoneCost: zones.cost,
+        finalPrice: sql<number>`
+            CASE 
+                WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                ELSE ${organizationServices.servicePrice}
+            END`,
+
+        paymentMethodName: paymentMethod.name,
+
+    }).from(parentPaymentOrgServices)
+        .leftJoin(students, eq(parentPaymentOrgServices.studentId, students.id))
+        .leftJoin(organizationServices, eq(parentPaymentOrgServices.serviceId, organizationServices.id))
+        .leftJoin(paymentMethod, eq(parentPaymentOrgServices.paymentMethodId, paymentMethod.id))
+        .innerJoin(zones, eq(students.zoneId, zones.id))
+
+        .where(eq(parentPaymentOrgServices.parentId, user));
+
+    const orgServicePayments = rows.map(row => ({
+        id: row.id,
+        parentId: row.parentId,
+        serviceId: row.serviceId,
+        paymentMethodId: row.paymentMethodId,
+        amount: row.amount,
+        receiptImage: row.receiptImage,
+        status: row.status,
+        rejectedReason: row.rejectedReason,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        student: {
+            id: row.studentId,
+            name: row.studentName,
+        },
+        service: {
+            id: row.serviceId,
+            name: row.serviceName,
+            useZonePrice: row.useZonePrice,
+            servicePrice: row.servicePrice,
+            studentZoneCost: row.studentZoneCost,
+            finalPrice: row.finalPrice
+        },
+        paymentMethod: {
+            id: row.paymentMethodId,
+            name: row.paymentMethodName,
+        }
+    }));
+
     return SuccessResponse(res, { message: "Payments retrieved successfully", payments, orgServicePayments }, 200);
 };
 
@@ -193,7 +257,7 @@ export const createParentPaymentOrgService = async (req: Request, res: Response)
         rejectedReason: null,
     });
 
-    return SuccessResponse(res, { message: "Payment and Subscription created successfully", transactionId }, 201);
+    return SuccessResponse(res, { message: "Payment created successfully awaiting admin approval", transactionId }, 201);
 };
 
 export const payServiceInstallment = async (req: Request, res: Response) => {
@@ -217,6 +281,20 @@ export const payServiceInstallment = async (req: Request, res: Response) => {
     const payMethod = await db.query.paymentMethod.findFirst({ where: eq(paymentMethod.id, paymentMethodId) });
     if (!payMethod) throw new NotFound("Payment Method not found");
 
+    let InstallmentRequiredAmount = installment.amount;
+    if (paidAmount > InstallmentRequiredAmount) {
+        throw new BadRequest(`Paid amount is greater than installment amount, remaining amount is ${InstallmentRequiredAmount - paidAmount}`);
+    }
+    let NumberOfInstallmentsRequested = installment.numberOfInstallmentsRequested;
+    let NumberOfInstallmentsPaid = installment.numberOfInstallmentsPaid;
+    if (NumberOfInstallmentsPaid >= NumberOfInstallmentsRequested) {
+        throw new BadRequest(`Number of installments paid is greater than number of installments requested`);
+    }
+    if (NumberOfInstallmentsPaid == (NumberOfInstallmentsRequested - 1)) {
+        if (paidAmount < installment.amount) {
+            throw new BadRequest(`Paid amount is less than installment amount, You must pay the remaining amount in the last installment`);
+        }
+    }
     // Send the Request to the Admin to accept it
     await db.insert(parentPaymentInstallments).values({
         installmentId,

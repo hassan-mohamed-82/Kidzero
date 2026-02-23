@@ -14,7 +14,8 @@ import {
     parentPaymentOrgServices,
     parents, organizationServices,
     servicePaymentInstallments,
-    parentPaymentInstallments
+    parentPaymentInstallments,
+    students
 } from "../../models/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { SuccessResponse } from "../../utils/response";
@@ -23,7 +24,8 @@ import { BadRequest } from "../../Errors/BadRequest";
 import { saveBase64Image } from "../../utils/handleImages";
 import { verifyPromocodeAvailable } from "./promocodes";
 import { parentServicesSubscriptions } from "../../models/admin/parentServicesSubscription";
-
+import { sql } from "drizzle-orm";
+import { zones } from "../../models/schema";
 export const getAllPayments = async (req: Request, res: Response) => {
     const organizationId = req.user?.organizationId;
 
@@ -180,6 +182,9 @@ export const createPayment = async (req: Request, res: Response) => {
     if (promocodeCode) {
         const promoResult = await verifyPromocodeAvailable(promocodeCode, organizationId);
         promoResultId = promoResult.id;
+        if (promoResult.endDate < new Date()) {
+            throw new BadRequest("Promocode is expired");
+        }
         if (promoResult.promocodeType === "amount") {
             totalAmount = totalAmount - promoResult.amount;
 
@@ -772,11 +777,34 @@ export const ReplyToParentPayment = async (req: Request, res: Response) => {
                 const dueDate = new Date(today);
                 dueDate.setMonth(dueDate.getMonth() + 1); // Move to next month
                 dueDate.setDate(orgService.dueDay ?? 5); // Set to the organization's due day (default: 5)
+                let finalAmount = 0;
+
+                if (orgService.useZonePricing) {
+
+                    const student = await db.query.students.findFirst({
+                        where: eq(students.id, parentPaymentResult.studentId),
+                    });
+
+                    if (!student || !student.zoneId) {
+                        throw new BadRequest("Student or Student Zone not found");
+                    }
+                    const zone = await db.query.zones.findFirst({
+                        where: eq(zones.id, student.zoneId),
+                    });
+
+                    if (!zone) {
+                        throw new BadRequest("Zone not found");
+                    }
+
+                    finalAmount = zone.cost;
+                } else {
+                    finalAmount = orgService.servicePrice;
+                }
                 await db.insert(servicePaymentInstallments).values({
                     subscriptionId: subscriptionId,
                     serviceId: parentPaymentResult.serviceId,
                     dueDate: dueDate,
-                    amount: orgService.servicePrice,
+                    amount: finalAmount,
                     paidAmount: amountPaid,
                     fineAmount: orgService.latePaymentFine, // 100 جنيه غرامه لو دفعت متاخر
                     discountAmount: orgService.earlyPaymentDiscount, // 100 جنيه خصم لو دفعت بدري
@@ -858,6 +886,11 @@ export const ReplyToParentPaymentInstallment = async (req: Request, res: Respons
             const paidAmount = paymentInstallment.paidAmount;
 
             //Update Installment
+            let NumberOfInstallmentsPaid = installment.numberOfInstallmentsPaid;
+            await db.update(servicePaymentInstallments).set({
+                numberOfInstallmentsPaid: NumberOfInstallmentsPaid + 1,
+            }).where(eq(servicePaymentInstallments.id, paymentInstallment.installmentId));
+
             if (finalAmount === paidAmount) { // Fully Paid
 
                 await db.update(servicePaymentInstallments)
@@ -899,4 +932,140 @@ export const ReplyToParentPaymentInstallment = async (req: Request, res: Respons
         default:
             throw new BadRequest("Only 'completed' or 'rejected' status updates are allowed");
     }
+};
+
+export const GetParentPaymentInstallments = async (req: Request, res: Response) => {
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+        throw new BadRequest("Invalid Organization ID");
+    }
+    const paymentInstallments = await db.select({
+        id: parentPaymentInstallments.id,
+        installmentId: parentPaymentInstallments.installmentId,
+        paymentMethodId: parentPaymentInstallments.paymentMethodId,
+        receiptImage: parentPaymentInstallments.receiptImage,
+        paidAmount: parentPaymentInstallments.paidAmount,
+        parentId: parentPaymentInstallments.parentId,
+        status: parentPaymentInstallments.status,
+        rejectedReason: parentPaymentInstallments.rejectedReason,
+        createdAt: parentPaymentInstallments.createdAt,
+        updatedAt: parentPaymentInstallments.updatedAt,
+        service: {
+            id: organizationServices.id,
+            serviceName: organizationServices.serviceName,
+            servicePrice: organizationServices.servicePrice,
+            useZonePricing: organizationServices.useZonePricing,
+            // The cost of the zone the student belongs to
+            studentZoneCost: zones.cost,
+
+            // CALCULATED FIELD: The final price the user sees
+            finalPrice: sql<number>`
+                            CASE 
+                                WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                                ELSE ${organizationServices.servicePrice}
+                            END`,
+            // CALCULATED FIELD: Remaining amount to pay for this installment
+            remainingAmount: sql<number>`(
+                CASE 
+                    WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                    ELSE ${organizationServices.servicePrice}
+                END 
+                - ${servicePaymentInstallments.paidAmount}
+            )`
+            // + ${servicePaymentInstallments.fineAmount} 
+            // - ${servicePaymentInstallments.discountAmount} 
+        },
+        parent: {
+            id: parents.id,
+            name: parents.name,
+            email: parents.email,
+            phone: parents.phone,
+        }
+    })
+        .from(parentPaymentInstallments)
+        .leftJoin(servicePaymentInstallments, eq(parentPaymentInstallments.installmentId, servicePaymentInstallments.id))
+        .leftJoin(organizationServices, eq(servicePaymentInstallments.serviceId, organizationServices.id))
+        .leftJoin(parents, eq(parentPaymentInstallments.parentId, parents.id))
+        .leftJoin(parentServicesSubscriptions, eq(servicePaymentInstallments.subscriptionId, parentServicesSubscriptions.id))
+        .leftJoin(students, eq(parentServicesSubscriptions.studentId, students.id))
+        .leftJoin(zones, eq(students.zoneId, zones.id))
+
+        .where(eq(organizationServices.organizationId, organizationId));
+
+    return SuccessResponse(res, { message: "Parent Payment Installments fetched successfully", installments: paymentInstallments }, 200);
+};
+
+export const GetParentPaymentInstallmentById = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const organizationId = req.user?.organizationId;
+
+    if (!id) {
+        throw new BadRequest("Invalid Installment ID");
+    }
+    if (!organizationId) {
+        throw new BadRequest("Invalid Organization ID");
+    }
+    const paymentInstallment = await db.select({
+        id: parentPaymentInstallments.id,
+        installmentId: parentPaymentInstallments.installmentId,
+        paymentMethodId: parentPaymentInstallments.paymentMethodId,
+        receiptImage: parentPaymentInstallments.receiptImage,
+        paidAmount: parentPaymentInstallments.paidAmount,
+        parentId: parentPaymentInstallments.parentId,
+        status: parentPaymentInstallments.status,
+        rejectedReason: parentPaymentInstallments.rejectedReason,
+        createdAt: parentPaymentInstallments.createdAt,
+        updatedAt: parentPaymentInstallments.updatedAt,
+        service: {
+            id: organizationServices.id,
+            serviceName: organizationServices.serviceName,
+            servicePrice: organizationServices.servicePrice,
+            useZonePricing: organizationServices.useZonePricing,
+            // The cost of the zone the student belongs to
+            studentZoneCost: zones.cost,
+
+            // CALCULATED FIELD: The final price the user sees
+            finalPrice: sql<number>`
+                            CASE 
+                                WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                                ELSE ${organizationServices.servicePrice}
+                            END`,
+            // CALCULATED FIELD: Remaining amount to pay for this installment
+            remainingAmount: sql<number>`(
+                CASE 
+                    WHEN ${organizationServices.useZonePricing} = true THEN ${zones.cost}
+                    ELSE ${organizationServices.servicePrice}
+                END 
+                - ${servicePaymentInstallments.paidAmount}
+            )`
+            // + ${servicePaymentInstallments.fineAmount} 
+            // - ${servicePaymentInstallments.discountAmount} 
+        },
+        parent: {
+            id: parents.id,
+            name: parents.name,
+            email: parents.email,
+            phone: parents.phone,
+        }
+    })
+        .from(parentPaymentInstallments)
+        .leftJoin(servicePaymentInstallments, eq(parentPaymentInstallments.installmentId, servicePaymentInstallments.id))
+        .leftJoin(organizationServices, eq(servicePaymentInstallments.serviceId, organizationServices.id))
+        .leftJoin(parents, eq(parentPaymentInstallments.parentId, parents.id))
+        // New Joins for Zone Pricing
+        .leftJoin(parentServicesSubscriptions, eq(servicePaymentInstallments.subscriptionId, parentServicesSubscriptions.id))
+        .leftJoin(students, eq(parentServicesSubscriptions.studentId, students.id))
+        .leftJoin(zones, eq(students.zoneId, zones.id))
+
+        .where(and(
+            eq(parentPaymentInstallments.id, id),
+            eq(organizationServices.organizationId, organizationId)
+        ))
+        .limit(1);
+
+    if (!paymentInstallment[0]) {
+        throw new NotFound("Parent Payment Installment not found");
+    }
+    return SuccessResponse(res, { message: "Parent Payment Installment fetched successfully", installment: paymentInstallment[0] }, 200);
 };
